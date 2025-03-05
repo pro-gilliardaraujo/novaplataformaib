@@ -11,7 +11,11 @@ import {
   ChevronDownIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
-  HomeIcon
+  HomeIcon,
+  UsersIcon,
+  KeyIcon,
+  DocumentDuplicateIcon,
+  CircleStackIcon
 } from '@heroicons/react/24/outline'
 import { pagesConfig } from '@/config/pages.config'
 
@@ -25,6 +29,7 @@ export default function Sidebar() {
   const categories = Object.keys(pagesConfig) as Category[]
   const [openCategory, setOpenCategory] = useState<Category>('Colheita')
   const [isConfigOpen, setIsConfigOpen] = useState(false)
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
 
@@ -141,33 +146,101 @@ export default function Sidebar() {
           Gerenciamento
         </h2>
         <nav className="space-y-0.5">
-          <Link 
-            href="/gerenciamento/tratativas" 
-            className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
-          >
-            <ClipboardDocumentListIcon className="h-4 w-4 text-gray-400" />
-            <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
-              Tratativas
-            </span>
-          </Link>
-          <Link 
-            href="/gerenciamento/equipamentos" 
-            className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
-          >
-            <WrenchScrewdriverIcon className="h-4 w-4 text-gray-400" />
-            <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
-              Equipamentos
-            </span>
-          </Link>
-          <Link 
-            href="/gerenciamento/frota" 
-            className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
-          >
-            <TruckIcon className="h-4 w-4 text-gray-400" />
-            <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
-              Frota
-            </span>
-          </Link>
+          {/* Painel de Controle */}
+          <div className="space-y-0.5">
+            <button
+              onClick={() => setIsPanelOpen(!isPanelOpen)}
+              className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
+            >
+              <div className="flex items-center">
+                <CircleStackIcon className="h-4 w-4 text-gray-400" />
+                <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  Painel de Controle
+                </span>
+              </div>
+              <ChevronDownIcon 
+                className={`h-3 w-3 text-gray-400 transition-transform duration-200 
+                  ${isPanelOpen ? 'transform rotate-180' : ''}
+                  ${isCollapsed ? 'hidden group-hover:block' : ''}
+                `}
+              />
+            </button>
+            {(!isCollapsed || (isSmallScreen && !isCollapsed)) && isPanelOpen && (
+              <div className="ml-6 space-y-0.5">
+                <Link
+                  href="/gerenciamento/painel/usuarios"
+                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                >
+                  <UsersIcon className="h-4 w-4 text-gray-400" />
+                  <span className="ml-2">Usuários</span>
+                </Link>
+                <Link
+                  href="/gerenciamento/painel/equipamentos"
+                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                >
+                  <WrenchScrewdriverIcon className="h-4 w-4 text-gray-400" />
+                  <span className="ml-2">Equipamentos</span>
+                </Link>
+                <Link
+                  href="/gerenciamento/painel/retiradas"
+                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                >
+                  <DocumentDuplicateIcon className="h-4 w-4 text-gray-400" />
+                  <span className="ml-2">Retiradas</span>
+                </Link>
+                <Link
+                  href="/gerenciamento/painel/permissoes"
+                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                >
+                  <KeyIcon className="h-4 w-4 text-gray-400" />
+                  <span className="ml-2">Permissões</span>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Other Gerenciamento items */}
+          <div className="space-y-0.5">
+            <button
+              onClick={() => setOpenCategory('Tratativas')}
+              className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
+            >
+              <div className="flex items-center">
+                <ClipboardDocumentListIcon className="h-4 w-4 text-gray-400" />
+                <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  Tratativas
+                </span>
+              </div>
+              <ChevronDownIcon 
+                className={`h-3 w-3 text-gray-400 transition-transform duration-200 
+                  ${openCategory === 'Tratativas' ? 'transform rotate-180' : ''}
+                  ${isCollapsed ? 'hidden group-hover:block' : ''}
+                `}
+              />
+            </button>
+            {(!isCollapsed || (isSmallScreen && !isCollapsed)) && openCategory === 'Tratativas' && (
+              <div className="ml-6 space-y-0.5">
+                <Link
+                  href="/gerenciamento/tratativas/dashboard"
+                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                >
+                  <ChartBarIcon className="h-4 w-4 text-gray-400" />
+                  <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                    Dashboard
+                  </span>
+                </Link>
+                <Link
+                  href="/gerenciamento/tratativas/documentos"
+                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                >
+                  <DocumentDuplicateIcon className="h-4 w-4 text-gray-400" />
+                  <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                    Documentos
+                  </span>
+                </Link>
+              </div>
+            )}
+          </div>
         </nav>
       </div>
 
