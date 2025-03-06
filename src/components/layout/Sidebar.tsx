@@ -22,8 +22,8 @@ import { pagesConfig } from '@/config/pages.config'
 type Category = keyof typeof pagesConfig | 'Tratativas' | 'Painel' | 'Config'
 
 // Adjust these values to change sidebar width (in pixels)
-const EXPANDED_WIDTH = 224 // w-56 = 224px
-const COLLAPSED_WIDTH = 64 // w-16 = 64px
+const EXPANDED_WIDTH = 256 // Increased from 224
+const COLLAPSED_WIDTH = 72 // Increased from 64
 
 export default function Sidebar() {
   const categories = Object.keys(pagesConfig) as Category[]
@@ -56,74 +56,61 @@ export default function Sidebar() {
       className={`
         bg-white border-r flex flex-col h-screen overflow-hidden transition-all duration-300
         ${isCollapsed ? `w-[${COLLAPSED_WIDTH}px]` : `w-[${EXPANDED_WIDTH}px]`}
-        ${isSmallScreen ? 'hover:w-[224px] group' : ''}
+        ${isSmallScreen ? 'hover:w-[256px] group' : ''}
       `}
       onMouseEnter={() => isSmallScreen && setIsCollapsed(false)}
       onMouseLeave={() => isSmallScreen && setIsCollapsed(true)}
     >
-      {/* Logo and Title Section */}
-      <div className="flex items-center px-2 py-3 border-b border-gray-200">
-        <div className="flex items-center">
+      {/* Logo and Title Section - 5% */}
+      <div className="h-[5%] flex items-center px-3 py-4 border-b border-gray-200">
+        <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
           <Image
             src="https://kjlwqezxzqjfhacmjhbh.supabase.co/storage/v1/object/public/sourcefiles//logo.png"
             alt="IB Logística"
-            width={32}
-            height={32}
+            width={36}
+            height={36}
             className="rounded"
           />
-          <span className={`ml-2 text-sm font-medium text-gray-900 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+          <span className={`ml-3 text-base font-medium text-gray-900 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
             IB Logística
-          </span>
-        </div>
-      </div>
-
-      {/* Início Section */}
-      <div className="px-2 py-3 border-b border-gray-200">
-        <Link
-          href="/"
-          className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-900 rounded-md hover:bg-gray-100"
-        >
-          <HomeIcon className="h-4 w-4 text-gray-400" />
-          <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
-            Início
           </span>
         </Link>
       </div>
 
-      {/* Relatórios Section - 50% */}
-      <div className="h-[50%] px-2 py-3 overflow-y-auto border-b border-gray-200 scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent">
-        <h2 className={`text-xs font-semibold text-black uppercase tracking-wider mb-2 px-1 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+      {/* Relatórios Section - 60% */}
+      <div className="h-[60%] px-3 py-4 overflow-y-auto border-b border-gray-200 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
+        <h2 className={`text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2 text-center ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
           Relatórios
         </h2>
-        <nav className="space-y-0.5">
+        <nav className="space-y-1">
           {categories.map((category) => (
             <div key={category} className="space-y-0.5">
               <button
                 onClick={() => toggleCategory(category)}
-                className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-900 rounded-md hover:bg-gray-100"
+                className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-900 rounded-md hover:bg-gray-100"
               >
                 <div className="flex items-center">
-                  <ChartBarIcon className="h-4 w-4 text-gray-400" />
-                  <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  <ChartBarIcon className="h-5 w-5 text-gray-500" />
+                  <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
                     {category}
                   </span>
                 </div>
                 <ChevronDownIcon 
-                  className={`h-3 w-3 text-gray-400 transition-transform duration-200 
+                  className={`h-4 w-4 text-gray-400 transition-transform duration-200 
                     ${openCategory === category ? 'transform rotate-180' : ''}
                     ${isCollapsed ? 'hidden group-hover:block' : ''}
                   `}
                 />
               </button>
               {(!isCollapsed || (isSmallScreen && !isCollapsed)) && openCategory === category && (
-                <div className="ml-6 space-y-0.5">
+                <div className="ml-6 space-y-1">
                   {Object.keys(pagesConfig[category]).map((item) => {
                     const href = `/${String(category).toLowerCase().replace(/\s+/g, '-')}/${String(item).toLowerCase().replace(/\s+/g, '-')}`
                     return (
                       <Link
                         key={item}
                         href={href}
-                        className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                        className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
                       >
                         <span className={isCollapsed ? 'hidden group-hover:block' : ''}>
                           {item}
@@ -138,26 +125,26 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Gerenciamento Section - 30% */}
-      <div className="h-[30%] px-2 py-3 overflow-y-auto border-b border-gray-200 scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent">
-        <h2 className={`text-xs font-semibold text-black uppercase tracking-wider mb-2 px-1 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+      {/* Gerenciamento Section - 25% */}
+      <div className="h-[35%] px-3 py-4 overflow-y-auto border-b border-gray-200 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
+        <h2 className={`text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2 text-center ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
           Gerenciamento
         </h2>
-        <nav className="space-y-0.5">
+        <nav className="space-y-1">
           {/* Painel de Controle */}
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             <button
               onClick={() => toggleCategory('Painel')}
-              className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-900 rounded-md hover:bg-gray-100"
             >
               <div className="flex items-center">
-                <CircleStackIcon className="h-4 w-4 text-gray-400" />
-                <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
-                  Painel de Controle
+                <CircleStackIcon className="h-5 w-5 text-gray-500" />
+                <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  Painéis
                 </span>
               </div>
               <ChevronDownIcon 
-                className={`h-3 w-3 text-gray-400 transition-transform duration-200 
+                className={`h-4 w-4 text-gray-400 transition-transform duration-200 
                   ${openCategory === 'Painel' ? 'transform rotate-180' : ''}
                   ${isCollapsed ? 'hidden group-hover:block' : ''}
                 `}
@@ -198,41 +185,41 @@ export default function Sidebar() {
           </div>
 
           {/* Tratativas Section */}
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             <button
               onClick={() => toggleCategory('Tratativas')}
-              className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-900 rounded-md hover:bg-gray-100"
             >
               <div className="flex items-center">
-                <ClipboardDocumentListIcon className="h-4 w-4 text-gray-400" />
-                <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                <ClipboardDocumentListIcon className="h-5 w-5 text-gray-500" />
+                <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
                   Tratativas
                 </span>
               </div>
               <ChevronDownIcon 
-                className={`h-3 w-3 text-gray-400 transition-transform duration-200 
+                className={`h-4 w-4 text-gray-400 transition-transform duration-200 
                   ${openCategory === 'Tratativas' ? 'transform rotate-180' : ''}
                   ${isCollapsed ? 'hidden group-hover:block' : ''}
                 `}
               />
             </button>
             {(!isCollapsed || (isSmallScreen && !isCollapsed)) && openCategory === 'Tratativas' && (
-              <div className="ml-6 space-y-0.5">
+              <div className="ml-6 space-y-1">
                 <Link
                   href="/gerenciamento/tratativas/dashboard"
-                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
                 >
-                  <ChartBarIcon className="h-4 w-4 text-gray-400" />
-                  <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  <ChartBarIcon className="h-5 w-5 text-gray-500" />
+                  <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
                     Dashboard
                   </span>
                 </Link>
                 <Link
                   href="/gerenciamento/tratativas/lista"
-                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
                 >
-                  <DocumentDuplicateIcon className="h-4 w-4 text-gray-400" />
-                  <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
+                  <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
                     Lista
                   </span>
                 </Link>
@@ -242,39 +229,58 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Configurações Section - 10% */}
-      <div className="h-[10%] px-2 py-2 relative">
-        <nav className="space-y-0.5">
-          <div className="space-y-0.5">
-            <button
-              onClick={() => toggleCategory('Config')}
-              className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
-            >
-              <div className="flex items-center">
-                <Cog6ToothIcon className="h-4 w-4 text-gray-400" />
-                <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
-                  Configurações
-                </span>
-              </div>
-              <ChevronDownIcon 
-                className={`h-3 w-3 text-gray-400 transition-transform duration-200 
-                  ${openCategory === 'Config' ? 'transform rotate-180' : ''}
-                  ${isCollapsed ? 'hidden group-hover:block' : ''}
-                `}
-              />
-            </button>
-            {(!isCollapsed || (isSmallScreen && !isCollapsed)) && openCategory === 'Config' && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-md shadow-lg">
-                <button 
-                  className="w-full flex items-center px-2 py-1.5 text-xs font-medium text-red-600 rounded-md hover:bg-red-50"
-                >
-                  <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2 text-red-400" />
-                  <span>Sair</span>
-                </button>
-              </div>
-            )}
+      {/* Configurações Section - 5% */}
+      <div className="h-[5%] mt-auto relative flex items-center justify-center border-t border-gray-200">
+        <button
+          onClick={() => toggleCategory('Config')}
+          className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-900 rounded-md hover:bg-gray-100"
+        >
+          <div className="flex items-center">
+            <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
+            <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+              Configurações
+            </span>
           </div>
-        </nav>
+          <ChevronDownIcon 
+            className={`ml-2 h-4 w-4 text-gray-400 transition-transform duration-200 transform rotate-180
+              ${openCategory === 'Config' ? 'rotate-180' : ''}
+              ${isCollapsed ? 'hidden group-hover:block' : ''}
+            `}
+          />
+        </button>
+        {(!isCollapsed || (isSmallScreen && !isCollapsed)) && openCategory === 'Config' && (
+          <div className="absolute bottom-[calc(100%+1px)] left-0 w-full bg-white border border-gray-200 rounded-t-md shadow-lg z-50">
+            <div className="p-2 space-y-1">
+              <Link
+                href="/configuracoes/perfil"
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
+              >
+                <UsersIcon className="h-5 w-5 text-gray-500" />
+                <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  Perfil
+                </span>
+              </Link>
+              <Link
+                href="/configuracoes/sistema"
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
+              >
+                <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
+                <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  Sistema
+                </span>
+              </Link>
+              <button
+                onClick={() => {/* handle logout */}}
+                className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50"
+              >
+                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                <span className={`ml-3 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
+                  Sair
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   )
