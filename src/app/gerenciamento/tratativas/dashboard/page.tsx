@@ -9,6 +9,7 @@ import { RecentActivity } from "@/components/tratativas/recent-activity"
 import { PendingTratativas } from "@/components/tratativas/pending-tratativas"
 import { Tratativa } from "@/types/tratativas"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Calendar, Clock, CheckCircle, XCircle } from "lucide-react"
 
 export default function DashboardPage() {
   const [data, setData] = useState<{
@@ -94,83 +95,130 @@ export default function DashboardPage() {
   console.log('Rendering with data:', data)
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-3 space-y-3">
-      {/* First Section - Stats and Quick Access */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="md:col-span-2">
-          <div className="grid grid-cols-2 gap-3">
-            <StatsCard title="Total" value={data.stats.total.toString()} icon="total" />
-            <StatsCard title="Enviadas" value={data.stats.enviadas.toString()} icon="pending" />
-            <StatsCard title="Devolvidas" value={data.stats.devolvidas.toString()} icon="completed" />
-            <StatsCard title="Canceladas" value={data.stats.canceladas.toString()} icon="canceled" />
+    <div className="h-[calc(100vh)] overflow-hidden">
+      {/* Main Dashboard Container */}
+      <div className="grid grid-rows-[120px_minmax(0,1.2fr)_minmax(0,1fr)] h-full gap-2 p-2">
+        {/* SECTION 1: STATS CARDS & QUICK ACCESS */}
+        <div className="grid grid-cols-5 gap-2 h-full">
+          {/* Stats Cards */}
+          <div>
+            <Card className="h-full">
+              <CardContent className="flex items-center justify-between h-full p-4">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total</p>
+                  <p className="text-base sm:text-lg font-bold text-blue-600">{data.stats.total}</p>
+                </div>
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+              </CardContent>
+            </Card>
+          </div>
+          <div>
+            <Card className="h-full">
+              <CardContent className="flex items-center justify-between h-full p-4">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Enviadas</p>
+                  <p className="text-base sm:text-lg font-bold text-yellow-600">{data.stats.enviadas}</p>
+                </div>
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
+              </CardContent>
+            </Card>
+          </div>
+          <div>
+            <Card className="h-full">
+              <CardContent className="flex items-center justify-between h-full p-4">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Devolvidas</p>
+                  <p className="text-base sm:text-lg font-bold text-green-600">{data.stats.devolvidas}</p>
+                </div>
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+              </CardContent>
+            </Card>
+          </div>
+          <div>
+            <Card className="h-full">
+              <CardContent className="flex items-center justify-between h-full p-4">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Canceladas</p>
+                  <p className="text-base sm:text-lg font-bold text-red-600">{data.stats.canceladas}</p>
+                </div>
+                <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
+              </CardContent>
+            </Card>
+          </div>
+          {/* Quick Access Card */}
+          <div>
+            <Card className="h-full flex flex-col">
+              <CardHeader className="py-1.5 flex-none">
+                <CardTitle className="text-lg font-semibold text-center">Acesso Rápido</CardTitle>
+              </CardHeader>
+              <CardContent className="p-2 flex-1">
+                <QuickAccess onTratativaAdded={fetchData} />
+              </CardContent>
+            </Card>
           </div>
         </div>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-semibold text-center">Acesso Rápido</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <QuickAccess onTratativaAdded={fetchData} />
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Second Section - Charts */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {data.stats.total > 0 && (
-          <>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold text-center">Status das Tratativas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <TratativasStatusChart
-                    enviadas={data.stats.enviadas}
-                    devolvidas={data.stats.devolvidas}
-                    canceladas={data.stats.canceladas}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold text-center">Tratativas por Setor</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <TratativasPorSetor data={data.setores} />
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
+        {/* SECTION 2: CHARTS */}
+        <div className="grid grid-cols-2 gap-2 h-full">
+          {data.stats.total > 0 && (
+            <>
+              {/* Status Chart Card */}
+              <Card className="h-full w-full flex flex-col">
+                <CardHeader className="py-1.5 flex-none">
+                  <CardTitle className="text-lg font-semibold text-center">Status das Tratativas</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 flex-1">
+                  <div className="h-full w-full">
+                    <TratativasStatusChart
+                      enviadas={data.stats.enviadas}
+                      devolvidas={data.stats.devolvidas}
+                      canceladas={data.stats.canceladas}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Sector Chart Card */}
+              <Card className="h-full w-full flex flex-col">
+                <CardHeader className="py-1.5 flex-none">
+                  <CardTitle className="text-lg font-semibold text-center">Tratativas por Setor</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 flex-1">
+                  <div className="h-full w-full">
+                    <TratativasPorSetor data={data.setores} />
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
 
-      {/* Third Section - Activity Lists */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-semibold text-center">Atividade Recente</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[250px] overflow-auto">
-            <RecentActivity 
-              recentTratativas={data.tratativas.slice(0, 5)} 
-              hideTitle
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-semibold text-center">Tratativas Pendentes</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[250px] overflow-auto">
-            <PendingTratativas 
-              tratativas={data.tratativas.filter(t => t.status === "ENVIADA").slice(0, 5)} 
-              hideTitle
-            />
-          </CardContent>
-        </Card>
+        {/* SECTION 3: ACTIVITY LISTS */}
+        <div className="grid grid-cols-2 gap-2 h-full">
+          {/* Recent Activity Card */}
+          <Card className="h-full w-full flex flex-col">
+            <CardHeader className="py-1.5 flex-none">
+              <CardTitle className="text-lg font-semibold text-center">Atividade Recente</CardTitle>
+            </CardHeader>
+            <CardContent className="p-2 flex-1 overflow-auto">
+              <RecentActivity 
+                recentTratativas={data.tratativas.slice(0, 5)} 
+                hideTitle
+              />
+            </CardContent>
+          </Card>
+          {/* Pending Activity Card */}
+          <Card className="h-full w-full flex flex-col">
+            <CardHeader className="py-1.5 flex-none">
+              <CardTitle className="text-lg font-semibold text-center">Tratativas Pendentes</CardTitle>
+            </CardHeader>
+            <CardContent className="p-2 flex-1 overflow-auto">
+              <PendingTratativas 
+                tratativas={data.tratativas.filter(t => t.status === "ENVIADA").slice(0, 5)} 
+                hideTitle
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

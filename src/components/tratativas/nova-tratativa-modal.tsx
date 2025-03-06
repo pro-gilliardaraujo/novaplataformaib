@@ -128,7 +128,7 @@ export function NovaTratativaModal({
                   <FormItem>
                     <FormLabel>Número da Tratativa</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: TR-2024-001" {...field} />
+                      <Input placeholder="Ex: 1999" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
