@@ -94,11 +94,11 @@ export default function DashboardPage() {
   console.log('Rendering with data:', data)
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-6 space-y-6">
+    <div className="min-h-[calc(100vh-4rem)] p-3 space-y-3">
       {/* First Section - Stats and Quick Access */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-2">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-3">
             <StatsCard title="Total" value={data.stats.total.toString()} icon="total" />
             <StatsCard title="Enviadas" value={data.stats.enviadas.toString()} icon="pending" />
             <StatsCard title="Devolvidas" value={data.stats.devolvidas.toString()} icon="completed" />
@@ -116,7 +116,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Second Section - Charts */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {data.stats.total > 0 && (
           <>
             <Card>
@@ -148,7 +148,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Third Section - Activity Lists */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold text-center">Atividade Recente</CardTitle>
