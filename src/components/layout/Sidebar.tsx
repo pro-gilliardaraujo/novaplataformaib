@@ -19,7 +19,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { pagesConfig } from '@/config/pages.config'
 
-type Category = keyof typeof pagesConfig
+type Category = keyof typeof pagesConfig | 'Tratativas' | 'Painel' | 'Config'
 
 // Adjust these values to change sidebar width (in pixels)
 const EXPANDED_WIDTH = 224 // w-56 = 224px
@@ -27,9 +27,7 @@ const COLLAPSED_WIDTH = 64 // w-16 = 64px
 
 export default function Sidebar() {
   const categories = Object.keys(pagesConfig) as Category[]
-  const [openCategory, setOpenCategory] = useState<Category>('Colheita')
-  const [isConfigOpen, setIsConfigOpen] = useState(false)
-  const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [openCategory, setOpenCategory] = useState<Category | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
 
@@ -47,9 +45,10 @@ export default function Sidebar() {
   }, [])
 
   const toggleCategory = (category: Category) => {
-    if (!isSmallScreen || !isCollapsed) {
-      setOpenCategory(openCategory === category ? '' as Category : category)
+    if (isCollapsed && isSmallScreen) {
+      setIsCollapsed(false)
     }
+    setOpenCategory(openCategory === category ? null : category)
   }
 
   return (
@@ -116,7 +115,6 @@ export default function Sidebar() {
                   `}
                 />
               </button>
-              {/* Sub-items for each category */}
               {(!isCollapsed || (isSmallScreen && !isCollapsed)) && openCategory === category && (
                 <div className="ml-6 space-y-0.5">
                   {Object.keys(pagesConfig[category]).map((item) => {
@@ -149,7 +147,7 @@ export default function Sidebar() {
           {/* Painel de Controle */}
           <div className="space-y-0.5">
             <button
-              onClick={() => setIsPanelOpen(!isPanelOpen)}
+              onClick={() => toggleCategory('Painel')}
               className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
             >
               <div className="flex items-center">
@@ -160,12 +158,12 @@ export default function Sidebar() {
               </div>
               <ChevronDownIcon 
                 className={`h-3 w-3 text-gray-400 transition-transform duration-200 
-                  ${isPanelOpen ? 'transform rotate-180' : ''}
+                  ${openCategory === 'Painel' ? 'transform rotate-180' : ''}
                   ${isCollapsed ? 'hidden group-hover:block' : ''}
                 `}
               />
             </button>
-            {(!isCollapsed || (isSmallScreen && !isCollapsed)) && isPanelOpen && (
+            {(!isCollapsed || (isSmallScreen && !isCollapsed)) && openCategory === 'Painel' && (
               <div className="ml-6 space-y-0.5">
                 <Link
                   href="/gerenciamento/painel/usuarios"
@@ -199,10 +197,10 @@ export default function Sidebar() {
             )}
           </div>
 
-          {/* Other Gerenciamento items */}
+          {/* Tratativas Section */}
           <div className="space-y-0.5">
             <button
-              onClick={() => setOpenCategory('Tratativas')}
+              onClick={() => toggleCategory('Tratativas')}
               className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
             >
               <div className="flex items-center">
@@ -230,12 +228,12 @@ export default function Sidebar() {
                   </span>
                 </Link>
                 <Link
-                  href="/gerenciamento/tratativas/documentos"
+                  href="/gerenciamento/tratativas/lista"
                   className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
                 >
                   <DocumentDuplicateIcon className="h-4 w-4 text-gray-400" />
                   <span className={`ml-2 ${isCollapsed ? 'hidden group-hover:block' : ''}`}>
-                    Documentos
+                    Lista
                   </span>
                 </Link>
               </div>
@@ -249,7 +247,7 @@ export default function Sidebar() {
         <nav className="space-y-0.5">
           <div className="space-y-0.5">
             <button
-              onClick={() => setIsConfigOpen(!isConfigOpen)}
+              onClick={() => toggleCategory('Config')}
               className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 rounded-md hover:bg-gray-100"
             >
               <div className="flex items-center">
@@ -260,12 +258,12 @@ export default function Sidebar() {
               </div>
               <ChevronDownIcon 
                 className={`h-3 w-3 text-gray-400 transition-transform duration-200 
-                  ${isConfigOpen ? 'transform rotate-180' : ''}
+                  ${openCategory === 'Config' ? 'transform rotate-180' : ''}
                   ${isCollapsed ? 'hidden group-hover:block' : ''}
                 `}
               />
             </button>
-            {(!isCollapsed || (isSmallScreen && !isCollapsed)) && isConfigOpen && (
+            {(!isCollapsed || (isSmallScreen && !isCollapsed)) && openCategory === 'Config' && (
               <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-md shadow-lg">
                 <button 
                   className="w-full flex items-center px-2 py-1.5 text-xs font-medium text-red-600 rounded-md hover:bg-red-50"
