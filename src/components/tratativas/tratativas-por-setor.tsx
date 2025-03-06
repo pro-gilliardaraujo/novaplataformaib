@@ -36,7 +36,7 @@ export function TratativasPorSetor({ data }: TratativasPorSetorProps) {
         <BarChart
           data={chartData}
           layout="vertical"
-          margin={{ top: 5, right: 30, left: 200, bottom: 5 }}
+          margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" horizontal={false} />
           <XAxis 
@@ -48,8 +48,19 @@ export function TratativasPorSetor({ data }: TratativasPorSetorProps) {
           <YAxis 
             type="category" 
             dataKey="name"
-            width={190}
-            tick={{ fontSize: 12 }}
+            width={200}
+            tick={props => (
+              <text
+                x={props.x - 5}
+                y={props.y}
+                textAnchor="end"
+                dominantBaseline="middle"
+                fontSize={11}
+                fill="#000"
+              >
+                {props.payload.value}
+              </text>
+            )}
           />
           <Tooltip 
             formatter={(value) => [value, 'Quantidade']}
@@ -57,6 +68,7 @@ export function TratativasPorSetor({ data }: TratativasPorSetorProps) {
           <Bar 
             dataKey="value" 
             background={{ fill: '#f3f4f6' }}
+            barSize={12}
           />
         </BarChart>
       </ResponsiveContainer>
