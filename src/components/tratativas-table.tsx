@@ -214,7 +214,7 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
         </TableHeader>
         <TableBody>
           {paginatedData.map((tratativa) => (
-            <TableRow key={tratativa.id} className="h-[50px] hover:bg-gray-50 border-b border-gray-200">
+            <TableRow key={tratativa.id} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
               <TableCell className="py-0">{tratativa.numero_tratativa}</TableCell>
               <TableCell className="py-0">{formatDate(tratativa.data_infracao)}</TableCell>
               <TableCell className="py-0">{tratativa.funcionario}</TableCell>
@@ -263,7 +263,7 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
           {/* Fill empty rows to maintain fixed height */}
           {paginatedData.length < rowsPerPage && (
             Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-              <TableRow key={`empty-${index}`} className="h-[50px] border-b border-gray-200">
+              <TableRow key={`empty-${index}`} className="h-[49px] border-b border-gray-200">
                 {Array(columns.length + 1).fill(0).map((_, colIndex) => (
                   <TableCell key={`empty-cell-${colIndex}`} className="py-0">&nbsp;</TableCell>
                 ))}
