@@ -54,13 +54,13 @@ function FilterDropdown({
   onClear: () => void
 }) {
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={true}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
           <Filter className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80 p-4" align="start">
+      <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
         <div className="space-y-4">
           <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
           <Input placeholder={`Buscar ${title.toLowerCase()}...`} />
@@ -99,7 +99,7 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
   const [selectedTratativa, setSelectedTratativa] = useState<Tratativa | null>(null)
   const [selectedTratativaForEdit, setSelectedTratativaForEdit] = useState<Tratativa | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const rowsPerPage = 15 // Back to 15 rows
+  const rowsPerPage = 13 // Back to 15 rows
 
   const columns = [
     { key: "numero_tratativa", title: "Tratativa" },
@@ -215,7 +215,7 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
           </TableHeader>
           <TableBody className="divide-y divide-gray-100">
             {paginatedData.map((tratativa) => (
-              <TableRow key={tratativa.id} className="hover:bg-gray-50 h-[calc((100vh-20rem)/14)]">
+              <TableRow key={tratativa.id} className="hover:bg-gray-50 h-[calc((100vh-20rem)/13)]">
                 <TableCell className="border-x border-gray-100">{tratativa.numero_tratativa}</TableCell>
                 <TableCell className="border-x border-gray-100">{formatDate(tratativa.data_infracao)}</TableCell>
                 <TableCell className="border-x border-gray-100">{tratativa.funcionario}</TableCell>
@@ -264,7 +264,7 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
             {/* Fill empty rows to maintain fixed height */}
             {paginatedData.length < rowsPerPage && (
               Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-                <TableRow key={`empty-${index}`} className="bg-red-50 h-[calc((100vh-20rem)/14)]">
+                <TableRow key={`empty-${index}`} className="bg-gray-50 h-[calc((100vh-20rem)/13)]">
                   {Array(columns.length + 1).fill(0).map((_, colIndex) => (
                     <TableCell key={`empty-cell-${colIndex}`} className="border-x border-gray-100">&nbsp;</TableCell>
                   ))}

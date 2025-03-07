@@ -210,13 +210,17 @@ export function NovaTratativaModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    if (files.length === 0) {
+      setError("É necessário anexar uma imagem para criar a tratativa.")
+      return
+    }
+
     setIsLoading(true)
 
     try {
       let imageUrls: string[] = []
-      if (files.length > 0) {
-        imageUrls = await uploadImages(files)
-      }
+      imageUrls = await uploadImages(files)
 
       let advertidoStatus = ""
       const [penalidade] = formData.penalidade.split(" - ")
@@ -244,9 +248,6 @@ export function NovaTratativaModal({
         data_formatada: formatarData(formData.data_infracao),
         mock: formData.mock,
       }
-
-      // Remove the valor_limite field from tratativaData
-      delete tratativaData.valor_limite
 
       console.log("Submitting tratativa data:", tratativaData)
       const { data, error } = await supabase.from("tratativas").insert([tratativaData]).select()
@@ -281,13 +282,12 @@ export function NovaTratativaModal({
       resetForm()
     } catch (error) {
       console.error("Error:", error)
+      setError("Erro ao criar tratativa. Tente novamente.")
       toast({
         title: "Erro",
-        description: "Erro ao criar nova tratativa. Por favor, tente novamente.",
+        description: "Erro ao criar tratativa. Tente novamente.",
         variant: "destructive",
-        duration: 5000,
       })
-      setError(`Erro ao criar nova tratativa: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
       setIsLoading(false)
     }
@@ -540,9 +540,19 @@ export function NovaTratativaModal({
           </form>
         </ScrollArea>
         <div className="border-t bg-gray-50 p-4">
-          <Button type="submit" className="w-full" onClick={handleSubmit} disabled={isLoading}>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            onClick={handleSubmit} 
+            disabled={isLoading || files.length === 0}
+          >
             {isLoading ? "Gerando Tratativa..." : "Gerar Tratativa"}
           </Button>
+          {files.length === 0 && (
+            <p className="text-sm text-red-500 mt-2 text-center">
+              É necessário anexar uma imagem para criar a tratativa
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
