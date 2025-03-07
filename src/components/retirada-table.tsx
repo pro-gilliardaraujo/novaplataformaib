@@ -204,7 +204,7 @@ export function RetiradaTable({ retiradas, onRetiradaUpdated }: RetiradaTablePro
         </TableHeader>
         <TableBody>
           {paginatedData.map((retirada) => (
-            <TableRow key={retirada.id} className="h-[56px] hover:bg-gray-50 border-b border-gray-200">
+            <TableRow key={retirada.id} className="h-[51px] hover:bg-gray-50 border-b border-gray-200">
               <TableCell className="py-0">{retirada.codigo_patrimonio}</TableCell>
               <TableCell className="py-0">{retirada.retirado_por}</TableCell>
               <TableCell className="py-0">{formatDate(retirada.data_retirada)}</TableCell>
@@ -246,7 +246,7 @@ export function RetiradaTable({ retiradas, onRetiradaUpdated }: RetiradaTablePro
           {/* Fill empty rows to maintain fixed height */}
           {paginatedData.length < rowsPerPage && (
             Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-              <TableRow key={`empty-${index}`} className="h-[44px] border-b border-gray-200">
+              <TableRow key={`empty-${index}`} className="h-[51px] border-b border-gray-200">
                 {Array(columns.length + 1).fill(0).map((_, colIndex) => (
                   <TableCell key={`empty-cell-${colIndex}`} className="py-0">&nbsp;</TableCell>
                 ))}
