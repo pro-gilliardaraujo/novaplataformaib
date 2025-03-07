@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Tratativa } from "@/types/tratativas"
-import { TratativaDetailsModal } from "./tratativa-details-modal"
+import TratativaDetailsModal from "@/components/tratativa-details-modal"
 
 interface RecentActivityProps {
   recentTratativas: Tratativa[]
@@ -15,6 +15,7 @@ interface RecentActivityProps {
 
 export function RecentActivity({ recentTratativas, hideTitle = false }: RecentActivityProps) {
   const [selectedTratativa, setSelectedTratativa] = useState<Tratativa | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
     <Card className="h-full flex flex-col">
@@ -30,7 +31,10 @@ export function RecentActivity({ recentTratativas, hideTitle = false }: RecentAc
               <div
                 key={item.id}
                 className="cursor-pointer hover:bg-gray-100 rounded p-2"
-                onClick={() => setSelectedTratativa(item)}
+                onClick={() => {
+                  setSelectedTratativa(item)
+                  setIsModalOpen(true)
+                }}
               >
                 <span className="text-sm font-medium">
                   Tratativa {item.numero_tratativa} - {item.funcionario}{" "}
@@ -43,9 +47,12 @@ export function RecentActivity({ recentTratativas, hideTitle = false }: RecentAc
       </CardContent>
       {selectedTratativa && (
         <TratativaDetailsModal
-          open={!!selectedTratativa}
-          onOpenChange={(open: boolean) => !open && setSelectedTratativa(null)}
-          tratativa={selectedTratativa}
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          tratativa={{
+            ...selectedTratativa,
+            id: selectedTratativa.id.toString(),
+          }}
         />
       )}
     </Card>
