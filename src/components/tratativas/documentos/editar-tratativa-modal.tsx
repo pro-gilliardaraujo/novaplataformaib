@@ -96,7 +96,10 @@ export function EditarTratativaModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Editar Tratativa #{tratativaData.numero_tratativa}</DialogTitle>
+          <DialogTitle>
+            Editar Tratativa
+            <span className="block text-xs text-muted-foreground mt-1">@/components/tratativas/documentos/editar-tratativa-modal.tsx</span>
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <ScrollArea className="h-[600px] pr-4">

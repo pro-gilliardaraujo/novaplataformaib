@@ -113,7 +113,10 @@ export function NovaTratativaModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nova Tratativa</DialogTitle>
+          <DialogTitle>
+            Nova Tratativa
+            <span className="block text-xs text-muted-foreground mt-1">@/components/tratativas/nova-tratativa-modal.tsx</span>
+          </DialogTitle>
           <DialogDescription>
             Preencha os campos abaixo para criar uma nova tratativa.
           </DialogDescription>

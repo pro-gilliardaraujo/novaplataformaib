@@ -80,7 +80,10 @@ export function NovaTratativaModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Nova Tratativa</DialogTitle>
+          <DialogTitle>
+            Nova Tratativa
+            <span className="block text-xs text-muted-foreground mt-1">@/components/tratativas/documentos/nova-tratativa-modal.tsx</span>
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <ScrollArea className="h-[600px] pr-4">

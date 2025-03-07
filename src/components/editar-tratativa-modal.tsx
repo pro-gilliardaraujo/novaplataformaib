@@ -189,7 +189,8 @@ export function EditarTratativaModal({
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="text-xl text-center">
             Editar Tratativa
-            <span className="ml-2">({formData.numero_tratativa})</span>
+            <span className="ml-2">#{tratativaData.numero_tratativa}</span>
+            <span className="block text-xs text-muted-foreground mt-1">@/components/editar-tratativa-modal.tsx</span>
           </DialogTitle>
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="absolute right-4 top-4">
             <X className="h-4 w-4" />
