@@ -154,31 +154,24 @@ export default function Sidebar() {
               <div className="ml-6 space-y-0.5">
                 <Link
                   href="/gerenciamento/painel/usuarios"
-                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
                 >
                   <UsersIcon className="h-4 w-4 text-gray-400" />
                   <span className="ml-2">Usuários</span>
                 </Link>
                 <Link
                   href="/gerenciamento/painel/equipamentos"
-                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
                 >
                   <WrenchScrewdriverIcon className="h-4 w-4 text-gray-400" />
                   <span className="ml-2">Equipamentos</span>
                 </Link>
                 <Link
                   href="/gerenciamento/painel/retiradas"
-                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
                 >
                   <DocumentDuplicateIcon className="h-4 w-4 text-gray-400" />
                   <span className="ml-2">Retiradas</span>
-                </Link>
-                <Link
-                  href="/gerenciamento/painel/permissoes"
-                  className="flex items-center px-2 py-1.5 text-xs font-medium text-gray-600 rounded-md hover:bg-gray-100"
-                >
-                  <KeyIcon className="h-4 w-4 text-gray-400" />
-                  <span className="ml-2">Permissões</span>
                 </Link>
               </div>
             )}

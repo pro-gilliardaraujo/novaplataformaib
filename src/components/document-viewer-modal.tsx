@@ -1,6 +1,8 @@
+// Directory: /src/components/document-viewer-modal.tsx
+
 "use client"
 
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -21,15 +23,19 @@ export function DocumentViewerModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
-        <div className="flex items-center justify-between px-4 h-12 border-b">
-          <div className="flex-1 text-center text-base font-medium">Visualizar Documentos</div>
-          <Button 
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="h-7 w-7 p-0 rounded-full"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center px-4 h-12 border-b relative">
+          <div className="flex-1 text-center">
+            <span className="text-xs text-muted-foreground block mb-0.5">/src/components/document-viewer-modal.tsx</span>
+            <span className="text-base font-medium">Visualizar Documento</span>
+          </div>
+          <DialogClose asChild>
+            <Button 
+              variant="outline"
+              className="h-8 w-8 p-0 absolute right-2 top-2"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogClose>
         </div>
 
         <Tabs defaultValue="enviado" className="flex flex-col flex-1">

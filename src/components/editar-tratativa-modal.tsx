@@ -1,9 +1,11 @@
+// Directory: /src/components/editar-tratativa-modal.tsx
+
 "use client"
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { X } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { createClient } from "@supabase/supabase-js"
@@ -186,17 +188,19 @@ export function EditarTratativaModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
-        <div className="flex items-center justify-between px-4 h-10 border-b">
-          <div className="flex-1 text-center text-base font-medium">
-            Editar Tratativa #{tratativaData.numero_tratativa}
+        <div className="flex items-center px-4 h-12 border-b relative">
+          <div className="flex-1 text-center">
+            <span className="text-xs text-muted-foreground block mb-0.5">/src/components/editar-tratativa-modal.tsx</span>
+            <span className="text-base font-medium">Editar Tratativa #{tratativaData.numero_tratativa}</span>
           </div>
-          <Button 
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="h-7 w-7 p-0 rounded-full"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <DialogClose asChild>
+            <Button 
+              variant="outline"
+              className="h-8 w-8 p-0 absolute right-2 top-2"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogClose>
         </div>
         <ScrollArea className="flex-grow">
           <form onSubmit={handleSubmit} className="px-6">
