@@ -21,10 +21,12 @@ export default function DashboardPage() {
       canceladas: number
     }
     setores: Record<string, number>
+    lastDocumentNumber: string
   }>({
     tratativas: [],
     stats: { total: 0, enviadas: 0, devolvidas: 0, canceladas: 0 },
     setores: {},
+    lastDocumentNumber: "1000"
   })
 
   const fetchData = async () => {
@@ -52,6 +54,12 @@ export default function DashboardPage() {
           status: item.status?.toUpperCase() || 'ENVIADA'
         }))
 
+        // Calculate last document number
+        const lastDocumentNumber = tratativas.reduce((max, t) => {
+          const num = parseInt(t.numero_tratativa || "0", 10)
+          return num > max ? num : max
+        }, 0).toString().padStart(4, "0")
+
         const stats = {
           total: tratativas.length,
           enviadas: tratativas.filter(t => t.status === "ENVIADA").length,
@@ -72,7 +80,8 @@ export default function DashboardPage() {
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           ),
           stats, 
-          setores 
+          setores,
+          lastDocumentNumber
         })
         console.log('State updated successfully')
       }
@@ -152,7 +161,10 @@ export default function DashboardPage() {
                 <CardTitle className="text-lg font-semibold text-center">Acesso Rápido</CardTitle>
               </CardHeader>
               <CardContent className="p-2 flex-1">
-                <QuickAccess onTratativaAdded={fetchData} />
+                <QuickAccess 
+                  onTratativaAdded={fetchData} 
+                  lastDocumentNumber={data.lastDocumentNumber}
+                />
               </CardContent>
             </Card>
           </div>

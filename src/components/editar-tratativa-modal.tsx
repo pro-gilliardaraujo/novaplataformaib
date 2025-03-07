@@ -134,7 +134,6 @@ export function EditarTratativaModal({
       toast({
         title: "Tratativa Atualizada",
         description: `Tratativa ${formData.numero_tratativa} atualizada com sucesso!`,
-        variant: "success",
       })
 
       onTratativaEdited()
@@ -352,6 +351,25 @@ export function EditarTratativaModal({
                     </SelectContent>
                   </Select>
                 </div>
+                {formData.status !== "CANCELADA" && (
+                  <div>
+                    <Label htmlFor="file-upload">Anexar Documento</Label>
+                    <div className="flex items-center mt-1">
+                      <Button type="button" onClick={handleUploadClick} variant="outline" className="w-full">
+                        Anexar documento
+                      </Button>
+                      <Input
+                        id="file-upload"
+                        type="file"
+                        onChange={handleFileChange}
+                        accept=".pdf"
+                        ref={fileInputRef}
+                        className="hidden"
+                      />
+                      {file && <span className="ml-2 text-sm text-muted-foreground">{file.name}</span>}
+                    </div>
+                  </div>
+                )}
                 {formData.status === "CANCELADA" && (
                   <div className="col-span-2">
                     <Label htmlFor="justificativa">Justificativa</Label>
@@ -366,28 +384,8 @@ export function EditarTratativaModal({
                 )}
               </div>
 
-              {formData.status !== "CANCELADA" && (
-                <div>
-                  <Label htmlFor="file-upload">Anexar Documento (PDF)</Label>
-                  <div className="flex items-center mt-1">
-                    <Button type="button" onClick={handleUploadClick} variant="outline">
-                      Anexar documento
-                    </Button>
-                    <Input
-                      id="file-upload"
-                      type="file"
-                      onChange={handleFileChange}
-                      accept=".pdf"
-                      ref={fileInputRef}
-                      className="hidden"
-                    />
-                    {file && <span className="ml-2">{file.name}</span>}
-                  </div>
-                </div>
-              )}
+              {error && <div className="text-red-500">{error}</div>}
             </div>
-
-            {error && <div className="text-red-500">{error}</div>}
           </form>
         </ScrollArea>
         <div className="border-t bg-gray-50 p-4">

@@ -61,7 +61,8 @@ interface NovaTratativaModalProps {
 function SectionTitle({ title }: { title: string }) {
   return (
     <div className="flex items-center space-x-2 mb-2">
-      <h3 className="text-base font-semibold">{title}</h3>
+      <div className="flex-grow h-px bg-gray-200"></div>
+      <h3 className="text-base font-semibold px-4">{title}</h3>
       <div className="flex-grow h-px bg-gray-200"></div>
     </div>
   )
@@ -346,7 +347,7 @@ export function NovaTratativaModal({
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="text-xl text-center">
             Nova Tratativa
-            <span className="ml-2">({documentNumber})</span>
+            <span className="ml-2">#{documentNumber}</span>
             <span className="block text-xs text-muted-foreground mt-1">@/components/nova-tratativa-modal.tsx</span>
           </DialogTitle>
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="absolute right-4 top-4">

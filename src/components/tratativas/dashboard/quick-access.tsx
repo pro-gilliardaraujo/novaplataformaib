@@ -2,12 +2,34 @@
 
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
-import { useState } from "react"
-import { NovaTratativaModal } from "../documentos/nova-tratativa-modal"
+import { useState, useEffect } from "react"
+import { NovaTratativaModal } from "@/components/nova-tratativa-modal"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function QuickAccess({ onTratativaAdded }: { onTratativaAdded: () => void }) {
   const [isNovaTratativaModalOpen, setIsNovaTratativaModalOpen] = useState(false)
+  const [lastDocumentNumber, setLastDocumentNumber] = useState("1000")
+
+  useEffect(() => {
+    // Fetch last document number on mount
+    const fetchLastDocumentNumber = async () => {
+      try {
+        const response = await fetch('https://iblogistica.ddns.net:3000/api/tratativa/list')
+        if (!response.ok) throw new Error('Failed to fetch')
+        const result = await response.json()
+        if (result.status === 'success' && Array.isArray(result.data)) {
+          const lastNum = result.data.reduce((max: number, t: any) => {
+            const num = parseInt(t.numero_tratativa || "0", 10)
+            return num > max ? num : max
+          }, 0)
+          setLastDocumentNumber(lastNum.toString().padStart(4, "0"))
+        }
+      } catch (error) {
+        console.error('Error fetching last document number:', error)
+      }
+    }
+    fetchLastDocumentNumber()
+  }, [])
 
   const handleTratativaAdded = () => {
     onTratativaAdded()
@@ -41,7 +63,7 @@ export function QuickAccess({ onTratativaAdded }: { onTratativaAdded: () => void
         open={isNovaTratativaModalOpen}
         onOpenChange={setIsNovaTratativaModalOpen}
         onTratativaAdded={handleTratativaAdded}
-        lastDocumentNumber="999"
+        lastDocumentNumber={lastDocumentNumber}
       />
     </Card>
   )
