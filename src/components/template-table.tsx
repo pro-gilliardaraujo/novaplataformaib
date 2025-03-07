@@ -99,7 +99,7 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
   const [selectedTratativa, setSelectedTratativa] = useState<Tratativa | null>(null)
   const [selectedTratativaForEdit, setSelectedTratativaForEdit] = useState<Tratativa | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const rowsPerPage = 15  // Updated to match retiradas table
+  const rowsPerPage = 13 // Back to 15 rows
 
   const columns = [
     { key: "numero_tratativa", title: "Tratativa" },
@@ -212,16 +212,16 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
             <TableHead className="text-white font-medium h-12">Ações</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="divide-y divide-gray-100">
           {paginatedData.map((tratativa) => (
-            <TableRow key={tratativa.id} className="h-[50px] hover:bg-gray-50 border-b border-gray-200">
-              <TableCell className="py-0">{tratativa.numero_tratativa}</TableCell>
-              <TableCell className="py-0">{formatDate(tratativa.data_infracao)}</TableCell>
-              <TableCell className="py-0">{tratativa.funcionario}</TableCell>
-              <TableCell className="py-0">{tratativa.setor}</TableCell>
-              <TableCell className="py-0">{tratativa.lider}</TableCell>
-              <TableCell className="py-0">{tratativa.penalidade}</TableCell>
-              <TableCell className="py-0">
+            <TableRow key={tratativa.id} className="h-[56px] hover:bg-gray-50 border-b border-gray-200">
+              <TableCell className="border-x border-gray-100">{tratativa.numero_tratativa}</TableCell>
+              <TableCell className="border-x border-gray-100">{formatDate(tratativa.data_infracao)}</TableCell>
+              <TableCell className="border-x border-gray-100">{tratativa.funcionario}</TableCell>
+              <TableCell className="border-x border-gray-100">{tratativa.setor}</TableCell>
+              <TableCell className="border-x border-gray-100">{tratativa.lider}</TableCell>
+              <TableCell className="border-x border-gray-100">{tratativa.penalidade}</TableCell>
+              <TableCell className="border-x border-gray-100">
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                     tratativa.status === "ENVIADA"
@@ -234,7 +234,7 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
                   {tratativa.status}
                 </span>
               </TableCell>
-              <TableCell className="py-0 whitespace-nowrap">
+              <TableCell className="border-x border-gray-100">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -263,9 +263,9 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
           {/* Fill empty rows to maintain fixed height */}
           {paginatedData.length < rowsPerPage && (
             Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-              <TableRow key={`empty-${index}`} className="h-[50px] border-b border-gray-200">
+              <TableRow key={`empty-${index}`} className="h-[56px] border-b border-gray-200">
                 {Array(columns.length + 1).fill(0).map((_, colIndex) => (
-                  <TableCell key={`empty-cell-${colIndex}`} className="py-0">&nbsp;</TableCell>
+                  <TableCell key={`empty-cell-${colIndex}`} className="border-x border-gray-100">&nbsp;</TableCell>
                 ))}
               </TableRow>
             ))

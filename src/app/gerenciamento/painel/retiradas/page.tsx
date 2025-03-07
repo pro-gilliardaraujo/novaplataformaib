@@ -1,57 +1,87 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { RetiradaTable } from "@/components/retiradas-table"
+import { RetiradaTable } from "@/components/retirada-table"
+import { NovaRetiradaModal } from "@/components/nova-retirada-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
-import { type Retirada } from "./columns"
-
-// Temporary data for development
-const data: Retirada[] = [
-  {
-    id: "1",
-    codigo_patrimonio: "NB001",
-    retirado_por: "João Silva",
-    data_retirada: "2024-03-20",
-    frota_instalada: "FROTA-001",
-    entregue_por: "Carlos Santos",
-    observacoes: "Equipamento para trabalho remoto",
-    status: "Pendente",
-    data_devolucao: null,
-    devolvido_por: null,
-    recebido_por: null
-  },
-  {
-    id: "2",
-    codigo_patrimonio: "MN002",
-    retirado_por: "Maria Santos",
-    data_retirada: "2024-03-15",
-    frota_instalada: "FROTA-002",
-    entregue_por: "Pedro Lima",
-    observacoes: "Monitor para home office",
-    status: "Devolvido",
-    data_devolucao: "2024-03-18",
-    devolvido_por: "Maria Santos",
-    recebido_por: "Pedro Lima"
-  },
-]
+import { Retirada, NovaRetiradaData, UpdateRetiradaData } from "@/types/retirada"
+import { useToast } from "@/components/ui/use-toast"
+import { retiradaService } from "@/services/retiradas"
 
 export default function RetiradasPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [retiradas, setRetiradas] = useState<Retirada[]>([])
+  const { toast } = useToast()
+
+  const fetchRetiradas = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const data = await retiradaService.list()
+      console.log('Retiradas fetched:', data) // This will help us see the data in the console
+      setRetiradas(data)
+    } catch (error) {
+      console.error("Error fetching retiradas:", error)
+      setError("Erro ao carregar retiradas. Por favor, tente novamente.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
-    return () => clearTimeout(timer)
+    fetchRetiradas()
+    const unsubscribe = retiradaService.subscribeToChanges(fetchRetiradas)
+    return () => {
+      unsubscribe()
+    }
   }, [])
+
+  const handleCreateRetirada = async (formData: NovaRetiradaData) => {
+    try {
+      const newRetirada = await retiradaService.create(formData)
+      setRetiradas(prev => [newRetirada, ...prev])
+      toast({
+        title: "Sucesso",
+        description: "Retirada criada com sucesso!",
+      })
+      setIsModalOpen(false)
+    } catch (error) {
+      console.error("Error creating retirada:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao criar retirada. Por favor, tente novamente.",
+        variant: "destructive",
+      })
+      throw error // Re-throw to be handled by the modal's error handling
+    }
+  }
+
+  const handleUpdateRetirada = async (id: string, updates: UpdateRetiradaData) => {
+    try {
+      await retiradaService.update(id, updates)
+      toast({
+        title: "Retirada Atualizada",
+        description: "Retirada atualizada com sucesso!",
+      })
+      await fetchRetiradas() // Refresh the list to get the latest data
+    } catch (error) {
+      console.error("Error updating retirada:", error)
+      throw new Error("Erro ao atualizar retirada")
+    }
+  }
+
+  const filteredRetiradas = retiradas.filter(r => 
+    Object.values(r).some(value => 
+      value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  )
 
   return (
     <div className="h-screen flex flex-col p-4 bg-white">
@@ -87,15 +117,18 @@ export default function RetiradasPage() {
             <div className="h-full flex items-center justify-center">Carregando retiradas...</div>
           ) : (
             <RetiradaTable 
-              retiradas={data.filter(r => 
-                Object.values(r).some(value => 
-                  value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-                )
-              )} 
+              retiradas={filteredRetiradas}
+              onRetiradaUpdated={handleUpdateRetirada}
             />
           )}
         </div>
       </div>
+
+      <NovaRetiradaModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onSubmit={handleCreateRetirada}
+      />
     </div>
   )
 } 
