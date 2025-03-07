@@ -5,6 +5,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { X, FileText } from "lucide-react"
 import { TratativaDetailsProps } from "@/types/tratativas"
+import { DocumentViewerModal } from "./document-viewer-modal"
+import { useState } from "react"
 
 interface TratativaDetailsModalProps {
   open: boolean
@@ -31,18 +33,21 @@ function formatDate(dateString: string): string {
 }
 
 export default function TratativaDetailsModal({ open, onOpenChange, tratativa }: TratativaDetailsModalProps) {
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col max-h-[85vh]">
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle className="text-xl text-center">
-            Detalhes da Tratativa
-            <span className="ml-2">#{tratativa.numero_tratativa}</span>
-          </DialogTitle>
-          <Button className="absolute right-4 top-4" variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
+        <div className="flex items-center justify-between px-4 h-12 border-b">
+          <div className="flex-1 text-center text-base font-medium">Detalhes da Tratativa</div>
+          <Button 
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="h-7 w-7 p-0 rounded-full"
+          >
             <X className="h-4 w-4" />
           </Button>
-        </DialogHeader>
+        </div>
 
         <div className="px-6 py-4 space-y-6 flex-grow overflow-auto">
           <div>
@@ -83,29 +88,26 @@ export default function TratativaDetailsModal({ open, onOpenChange, tratativa }:
         <div className="border-t bg-white p-4">
           <SectionTitle title="Documentos" />
           <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-4">
-            {tratativa.url_documento_enviado && (
+            {(tratativa.url_documento_enviado || tratativa.url_documento_devolvido) && (
               <Button
                 variant="outline"
-                onClick={() => window.open(tratativa.url_documento_enviado, "_blank")}
+                onClick={() => setIsDocumentViewerOpen(true)}
                 className="w-full sm:w-auto"
               >
                 <FileText className="mr-2 h-4 w-4" />
-                Ver documento enviado
-              </Button>
-            )}
-            {tratativa.url_documento_devolvido && tratativa.url_documento_devolvido !== null && (
-              <Button
-                variant="outline"
-                onClick={() => window.open(tratativa.url_documento_devolvido as string, "_blank")}
-                className="w-full sm:w-auto"
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Ver documento recebido
+                Visualizar documentos
               </Button>
             )}
           </div>
         </div>
       </DialogContent>
+
+      <DocumentViewerModal
+        open={isDocumentViewerOpen}
+        onOpenChange={setIsDocumentViewerOpen}
+        documentoEnviado={tratativa.url_documento_enviado}
+        documentoDevolvido={tratativa.url_documento_devolvido}
+      />
     </Dialog>
   )
 }

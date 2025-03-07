@@ -344,16 +344,18 @@ export function NovaTratativaModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle className="text-xl text-center">
-            Nova Tratativa
-            <span className="ml-2">#{documentNumber}</span>
-            <span className="block text-xs text-muted-foreground mt-1">@/components/nova-tratativa-modal.tsx</span>
-          </DialogTitle>
-          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="absolute right-4 top-4">
+        <div className="flex items-center justify-between px-4 h-12 border-b">
+          <div className="flex-1 text-center text-base font-medium">
+            Nova Tratativa #{documentNumber}
+          </div>
+          <Button 
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="h-7 w-7 p-0 rounded-full"
+          >
             <X className="h-4 w-4" />
           </Button>
-        </DialogHeader>
+        </div>
         <ScrollArea className="flex-grow px-6 py-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-4">
