@@ -25,7 +25,6 @@ export function DocumentViewerModal({
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
         <div className="flex items-center px-4 h-12 border-b relative">
           <div className="flex-1 text-center">
-            <span className="text-xs text-muted-foreground block mb-0.5">/src/components/document-viewer-modal.tsx</span>
             <span className="text-base font-medium">Visualizar Documento</span>
           </div>
           <DialogClose asChild>

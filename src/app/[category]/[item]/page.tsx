@@ -2,7 +2,7 @@
 
 import { pagesConfig } from '@/config/pages.config'
 import { PagesConfig } from '@/types/pages'
-import { Tabs } from '@/components/ui/Tabs'
+import { CustomTabs } from '@/components/ui/custom-tabs'
 
 interface PageProps {
   params: {
@@ -56,7 +56,7 @@ export default function DynamicPage({ params }: PageProps) {
   return (
     <div className="p-2 h-full">
       <div className="h-full bg-white rounded-lg shadow-sm border border-gray-100">
-        <Tabs tabs={pageData.tabs} />
+        <CustomTabs tabs={pageData.tabs} />
       </div>
     </div>
   )

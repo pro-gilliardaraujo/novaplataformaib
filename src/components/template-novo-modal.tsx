@@ -55,7 +55,6 @@ export function NovaRetiradaModal({
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
         <div className="flex items-center px-4 h-12 border-b relative">
           <div className="flex-1 text-center">
-            <span className="text-xs text-muted-foreground block mb-0.5">/src/components/nova-retirada-modal.tsx</span>
             <span className="text-base font-medium">Nova Retirada</span>
           </div>
           <DialogClose asChild>
