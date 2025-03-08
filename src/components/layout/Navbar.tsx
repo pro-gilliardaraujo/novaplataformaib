@@ -1,5 +1,7 @@
 'use client'
 
+import { UserMenu } from "@/components/user-menu"
+
 export default function Navbar() {
   return (
     <nav className="bg-white shadow-sm">
@@ -9,7 +11,7 @@ export default function Navbar() {
             <span className="text-xl font-semibold">Nova Plataforma</span>
           </div>
           <div className="flex items-center">
-            {/* Add user menu, notifications, etc. here */}
+            <UserMenu />
           </div>
         </div>
       </div>

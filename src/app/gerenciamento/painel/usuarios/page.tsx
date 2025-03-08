@@ -1,33 +1,38 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Plus } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { supabase } from "@/lib/supabase"
+import { UsuariosTable } from "@/components/usuarios-table"
+import { NovoUsuarioModal } from "@/components/novo-usuario-modal"
+import { EditarUsuarioModal } from "@/components/editar-usuario-modal"
+import { UsuarioDetailsModal } from "@/components/usuario-details-modal"
+import { User, NovoUsuarioData, UpdateUsuarioData } from "@/types/user"
+import { userService } from "@/services/userService"
+import { Input } from "@/components/ui/input"
 
-export default function UsersPage() {
+export default function UsuariosPage() {
+  const [usuarios, setUsuarios] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [isNovoUsuarioModalOpen, setIsNovoUsuarioModalOpen] = useState(false)
+  const [selectedUsuario, setSelectedUsuario] = useState<User | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
   const { toast } = useToast()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [users, setUsers] = useState<any[]>([])
 
-  const loadUsers = async () => {
-    setIsLoading(true)
+  const fetchUsuarios = async () => {
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .ilike("name", `%${searchQuery}%`)
-
-      if (error) throw error
-      setUsers(data || [])
+      const data = await userService.getUsers()
+      setUsuarios(data)
+      setError("")
     } catch (error) {
-      console.error(error)
+      console.error("Error fetching users:", error)
+      setError("Erro ao carregar usuários")
       toast({
         title: "Erro",
-        description: "Erro ao carregar usuários. Tente novamente.",
+        description: "Não foi possível carregar os usuários. Por favor, tente novamente.",
         variant: "destructive",
       })
     } finally {
@@ -35,96 +40,148 @@ export default function UsersPage() {
     }
   }
 
-  return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Usuários</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Gerencie os usuários do sistema
-        </p>
+  useEffect(() => {
+    fetchUsuarios()
+  }, [])
+
+  const handleCreateUsuario = async (userData: NovoUsuarioData) => {
+    try {
+      await userService.createUser(userData)
+      await fetchUsuarios()
+      toast({
+        title: "Sucesso",
+        description: "Usuário criado com sucesso!",
+      })
+    } catch (error) {
+      console.error("Error creating user:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao criar usuário. Por favor, tente novamente.",
+        variant: "destructive",
+      })
+      throw error
+    }
+  }
+
+  const handleEditUsuario = async (userId: string, updates: UpdateUsuarioData) => {
+    try {
+      await userService.updateUser(userId, updates)
+      const updatedUsuarios = usuarios.map(usuario => {
+        if (usuario.id === userId) {
+          return {
+            ...usuario,
+            profile: {
+              ...usuario.profile,
+              ...updates
+            }
+          }
+        }
+        return usuario
+      })
+      setUsuarios(updatedUsuarios)
+      setSelectedUsuario(null)
+      setIsEditModalOpen(false)
+    } catch (error) {
+      console.error("Erro ao editar usuário:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao editar usuário. Por favor, tente novamente.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteUsuario = async (id: string) => {
+    try {
+      await userService.deleteUser(id)
+      await fetchUsuarios()
+      toast({
+        title: "Sucesso",
+        description: "Usuário excluído com sucesso!",
+      })
+    } catch (error) {
+      console.error("Error deleting user:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir usuário. Por favor, tente novamente.",
+        variant: "destructive",
+      })
+      throw error
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <p className="text-red-500 mb-4">{error}</p>
+        <Button onClick={fetchUsuarios}>Tentar Novamente</Button>
       </div>
-      
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex space-x-4">
-              <Input
-                type="text"
-                placeholder="Buscar usuários..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64"
-              />
-              <Button onClick={loadUsers} disabled={isLoading}>
-                {isLoading ? "Buscando..." : "Buscar"}
-              </Button>
-            </div>
-            <Button>
-              Novo Usuário
-            </Button>
-          </div>
-          
-          <div className="border rounded-md">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nome
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cargo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.role}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.status === "active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}>
-                        {user.status === "active" ? "Ativo" : "Inativo"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Button variant="ghost" className="text-black hover:text-gray-700">
-                        Editar
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                      Nenhum usuário encontrado
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p>Carregando usuários...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-screen flex flex-col p-4 bg-white">
+      <div className="flex justify-between items-center mb-4">
+        <Input 
+          placeholder="Buscar usuários..." 
+          className="max-w-md"
+        />
+        <Button
+          onClick={() => setIsNovoUsuarioModalOpen(true)}
+          className="bg-black hover:bg-black/90 text-white"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Usuário
+        </Button>
+      </div>
+
+      <div className="flex-1 min-h-0">
+        <div className="border border-gray-200 rounded-lg overflow-hidden h-full">
+          <UsuariosTable
+            usuarios={usuarios}
+            onView={(usuario) => {
+              setSelectedUsuario(usuario)
+              setIsDetailsModalOpen(true)
+            }}
+            onEdit={(usuario) => {
+              setSelectedUsuario(usuario)
+              setIsEditModalOpen(true)
+            }}
+            onDelete={handleDeleteUsuario}
+          />
         </div>
       </div>
+
+      <NovoUsuarioModal
+        open={isNovoUsuarioModalOpen}
+        onOpenChange={setIsNovoUsuarioModalOpen}
+        onUsuarioCreated={handleCreateUsuario}
+      />
+
+      {selectedUsuario && (
+        <>
+          <EditarUsuarioModal
+            open={isEditModalOpen}
+            onOpenChange={setIsEditModalOpen}
+            onUsuarioEdited={(updates) => handleEditUsuario(selectedUsuario.id, updates)}
+            usuarioData={selectedUsuario}
+          />
+
+          <UsuarioDetailsModal
+            open={isDetailsModalOpen}
+            onOpenChange={setIsDetailsModalOpen}
+            usuario={selectedUsuario}
+          />
+        </>
+      )}
     </div>
   )
 } 
