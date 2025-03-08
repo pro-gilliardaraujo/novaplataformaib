@@ -92,9 +92,10 @@ function FilterDropdown({
 
 interface TratativasTableProps {
   tratativas: Tratativa[]
+  onTratativaEdited: () => void
 }
 
-export function TratativasTable({ tratativas }: TratativasTableProps) {
+export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTableProps) {
   const [filters, setFilters] = useState<FilterState>({})
   const [selectedTratativa, setSelectedTratativa] = useState<Tratativa | null>(null)
   const [selectedTratativaForEdit, setSelectedTratativaForEdit] = useState<Tratativa | null>(null)
@@ -317,6 +318,7 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
           onOpenChange={(open) => !open && setSelectedTratativaForEdit(null)}
           onTratativaEdited={() => {
             setSelectedTratativaForEdit(null)
+            onTratativaEdited()
           }}
           tratativaData={selectedTratativaForEdit}
         />

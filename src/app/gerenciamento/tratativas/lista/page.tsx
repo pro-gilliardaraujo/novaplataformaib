@@ -141,7 +141,8 @@ export default function TratativasListaPage() {
                 Object.values(t).some(value => 
                   value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
                 )
-              )} 
+              )}
+              onTratativaEdited={fetchTratativas}
             />
           )}
         </div>

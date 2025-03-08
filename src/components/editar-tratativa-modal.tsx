@@ -35,6 +35,13 @@ function SectionTitle({ title }: { title: string }) {
   )
 }
 
+function normalizeFileName(fileName: string): string {
+  return fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/[^a-zA-Z0-9.-]/g, '-') // Substitui caracteres especiais por hífen
+}
+
 export function EditarTratativaModal({
   open,
   onOpenChange,
@@ -72,7 +79,8 @@ export function EditarTratativaModal({
   }
 
   const uploadFile = async (file: File): Promise<string> => {
-    const fileName = `temp/${uuidv4()}-${file.name}`
+    const normalizedName = normalizeFileName(file.name)
+    const fileName = `temp/${uuidv4()}-${normalizedName}`
     const { error: uploadError } = await supabase.storage.from("tratativas").upload(fileName, file)
     if (uploadError) throw uploadError
     const { data: urlData } = supabase.storage.from("tratativas").getPublicUrl(fileName)
