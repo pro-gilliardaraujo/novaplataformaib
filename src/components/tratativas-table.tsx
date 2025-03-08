@@ -283,7 +283,7 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 w-8 p-0"
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
           >
@@ -295,7 +295,7 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 w-8 p-0"
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
           >

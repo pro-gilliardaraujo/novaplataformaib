@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Filter, X } from "lucide-react"
@@ -32,28 +35,36 @@ export function FilterDropdown({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
-          className={`h-8 w-8 p-0 ${hasSelectedOptions ? "text-primary" : "text-white"}`}
+          size="icon"
+          className={`h-8 w-8 p-0 text-white hover:text-white hover:bg-black/50 ${hasSelectedOptions ? "text-primary" : ""}`}
         >
           <Filter className="h-4 w-4" />
+          {hasSelectedOptions && (
+            <Badge
+              variant="secondary"
+              className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-primary text-white"
+            >
+              {selectedOptions.size}
+            </Badge>
+          )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[200px]">
-        <div className="flex items-center justify-between px-2 py-1.5">
-          <span className="text-sm font-medium">Filtrar por {title}</span>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="flex items-center justify-between">
+          <span>Filtrar por {title}</span>
           {hasSelectedOptions && (
             <Button
               variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs"
+              size="icon"
+              className="h-4 w-4 p-0"
               onClick={onClear}
             >
-              Limpar
-              <X className="ml-1 h-3 w-3" />
+              <X className="h-3 w-3" />
             </Button>
           )}
-        </div>
-        <div className="p-2 space-y-1">
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup className="max-h-[300px] overflow-y-auto">
           {options.map((option) => (
             <DropdownMenuItem
               key={option}
@@ -64,21 +75,14 @@ export function FilterDropdown({
               className="flex items-center gap-2"
             >
               <div
-                className={`h-3 w-3 rounded-sm border ${
-                  selectedOptions.has(option)
-                    ? "bg-primary border-primary"
-                    : "border-gray-300"
+                className={`h-3 w-3 rounded border border-primary ${
+                  selectedOptions.has(option) ? "bg-primary" : "bg-transparent"
                 }`}
               />
-              <span className="flex-1 text-sm">{option}</span>
-              {selectedOptions.has(option) && (
-                <Badge variant="secondary" className="ml-auto text-xs">
-                  Selecionado
-                </Badge>
-              )}
+              <span>{option}</span>
             </DropdownMenuItem>
           ))}
-        </div>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -257,7 +257,7 @@ export function RetiradaTable({ retiradas, onRetiradaUpdated }: RetiradaTablePro
       </Table>
 
       {/* Pagination controls */}
-      <div className="border-t py-2.5 px-4 flex items-center justify-between bg-white">
+      <div className="border-t flex items-center justify-between bg-white px-4 h-10">
         <div className="text-sm text-gray-500">
           Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredData.length)} de {filteredData.length} resultados
         </div>
@@ -265,7 +265,7 @@ export function RetiradaTable({ retiradas, onRetiradaUpdated }: RetiradaTablePro
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 w-8 p-0"
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
           >
@@ -277,7 +277,7 @@ export function RetiradaTable({ retiradas, onRetiradaUpdated }: RetiradaTablePro
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 w-8 p-0"
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
           >

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Table } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -78,14 +78,20 @@ interface UsuariosTableProps {
   onDelete: (id: string) => void
 }
 
+type ColumnType = {
+  key: string
+  title: string
+  getValue: (u: User) => string | boolean
+}
+
 export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTableProps) {
+  const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<Record<string, Set<string>>>({})
   const [selectedUsuario, setSelectedUsuario] = useState<User | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const rowsPerPage = 15
   const { toast } = useToast()
+  const rowsPerPage = 15
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "—"
@@ -98,20 +104,23 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
     })
   }
 
-  const columns = [
+  const columns: ColumnType[] = [
     { key: "nome", title: "Nome", getValue: (u: User) => u.profile.nome },
     { key: "email", title: "Email", getValue: (u: User) => u.email },
     { key: "cargo", title: "Cargo", getValue: (u: User) => u.profile.cargo },
     { key: "perfil", title: "Perfil", getValue: (u: User) => u.profile.adminProfile },
     { key: "ultimo_acesso", title: "Último Acesso", getValue: (u: User) => formatDate(u.profile.ultimo_acesso) },
-  ] as const
+  ]
 
   const filterOptions = useMemo(() => {
     return columns.reduce(
       (acc, column) => {
         acc[column.key] = Array.from(
           new Set(
-            usuarios.map(column.getValue).filter((value): value is string => typeof value === "string")
+            usuarios.map(u => {
+              const value = column.getValue(u)
+              return typeof value === "boolean" ? (value ? "Administrador" : "Usuário") : String(value)
+            }).filter(Boolean)
           )
         )
         return acc
@@ -191,18 +200,18 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
     }
   }
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage)
   const startIndex = (currentPage - 1) * rowsPerPage
-  const paginatedData = filteredData.slice(startIndex, startIndex + rowsPerPage)
+  const endIndex = startIndex + rowsPerPage
+  const paginatedData = filteredData.slice(startIndex, endIndex)
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage)
 
   return (
     <div className="border border-gray-200 rounded-lg">
       <Table>
-        <thead className="bg-black">
-          <tr>
+        <TableHeader className="bg-black">
+          <TableRow>
             {columns.map((column) => (
-              <th key={column.key} className="text-white font-medium h-12 px-4">
+              <TableHead key={column.key} className="text-white font-medium h-12">
                 <div className="flex items-center justify-between">
                   <span>{column.title}</span>
                   <FilterDropdown
@@ -213,18 +222,18 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
                     onClear={() => handleClearFilter(column.key)}
                   />
                 </div>
-              </th>
+              </TableHead>
             ))}
-            <th className="text-white font-medium h-12 px-4">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
+            <TableHead className="text-white font-medium h-12">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {paginatedData.map((usuario) => (
-            <tr key={usuario.id} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
-              <td className="px-4">{usuario.profile.nome}</td>
-              <td className="px-4">{usuario.email}</td>
-              <td className="px-4">{usuario.profile.cargo}</td>
-              <td className="px-4">
+            <TableRow key={usuario.id} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
+              <TableCell className="py-0">{usuario.profile.nome}</TableCell>
+              <TableCell className="py-0">{usuario.email}</TableCell>
+              <TableCell className="py-0">{usuario.profile.cargo}</TableCell>
+              <TableCell className="py-0">
                 <Badge
                   className={`${
                     usuario.profile.adminProfile
@@ -234,9 +243,9 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
                 >
                   {usuario.profile.adminProfile ? "Administrador" : "Usuário"}
                 </Badge>
-              </td>
-              <td className="px-4">{formatDate(usuario.profile.ultimo_acesso)}</td>
-              <td className="px-4">
+              </TableCell>
+              <TableCell className="py-0">{formatDate(usuario.profile.ultimo_acesso)}</TableCell>
+              <TableCell className="py-0">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -263,20 +272,20 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
           {/* Fill empty rows to maintain fixed height */}
           {paginatedData.length < rowsPerPage && (
             Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-              <tr key={`empty-${index}`} className="h-[49px] border-b border-gray-200">
+              <TableRow key={`empty-${index}`} className="h-[49px] border-b border-gray-200">
                 {Array(columns.length + 1).fill(0).map((_, colIndex) => (
-                  <td key={`empty-cell-${colIndex}`} className="px-4">&nbsp;</td>
+                  <TableCell key={`empty-cell-${colIndex}`} className="py-0">&nbsp;</TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))
           )}
-        </tbody>
+        </TableBody>
       </Table>
 
       {/* Pagination controls */}
@@ -288,7 +297,7 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 w-8 p-0"
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
           >
@@ -300,7 +309,7 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 w-8 p-0"
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
           >
