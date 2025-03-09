@@ -12,10 +12,14 @@ import {
   CircleStackIcon,
   UsersIcon,
   DocumentDuplicateIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
+  ArrowRightOnRectangleIcon,
+  KeyIcon
 } from '@heroicons/react/24/outline'
 import { pageService } from '@/services/pageService'
 import { Category, Page } from '@/types/pages'
+import { useAuth } from "@/hooks/useAuth"
+import { useRouter } from "next/navigation"
 
 // Ícones personalizados como componentes
 const ComputerIcon = ({ className = "" }: { className?: string }) => (
@@ -76,7 +80,10 @@ const OleosIcon = ({ className = "" }: { className?: string }) => (
 )
 
 export default function Sidebar() {
+  const { signOut } = useAuth()
+  const router = useRouter()
   const [openCategory, setOpenCategory] = useState<string | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [pages, setPages] = useState<Page[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -128,6 +135,11 @@ export default function Sidebar() {
     }
   }
 
+  const handleSignOut = async () => {
+    await signOut()
+    router.push("/login")
+  }
+
   return (
     <div className="flex flex-col h-screen bg-white border-r w-64">
       {/* Logo - 10% */}
@@ -148,7 +160,7 @@ export default function Sidebar() {
 
       <div className="flex flex-col h-[90%]">
         {/* Relatórios - 45% */}
-        <div className="h-[50%] overflow-y-auto">
+        <div className="h-[45%] overflow-y-auto">
           <div className="px-3 py-4">
             <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
               Relatórios
@@ -197,7 +209,7 @@ export default function Sidebar() {
         </div>
 
         {/* Gerenciamento - 45% */}
-        <div className="h-[50%] overflow-y-auto border-t">
+        <div className="h-[45%] overflow-y-auto border-t">
           <div className="px-3 py-4">
             <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
               Gerenciamento
@@ -284,6 +296,46 @@ export default function Sidebar() {
                 <span className="ml-2">Permissões</span>
               </Link>
             </nav>
+          </div>
+        </div>
+
+        {/* Configurações - 10% */}
+        <div className="h-[10%] border-t mt-auto relative">
+          <div className="px-3 py-4">
+            <div className="space-y-1">
+              <button
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+              >
+                <div className="flex items-center">
+                  <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
+                  <span className="ml-2">Configurações</span>
+                </div>
+                <ChevronDownIcon 
+                  className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                    isSettingsOpen ? 'transform rotate-180' : ''
+                  }`}
+                />
+              </button>
+              {isSettingsOpen && (
+                <div className="absolute bottom-full left-0 w-full bg-white border-t border-l border-r rounded-t-lg shadow-lg">
+                  <Link
+                    href="/alterar-senha"
+                    className="flex items-center px-5 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                  >
+                    <KeyIcon className="h-5 w-5 text-gray-500" />
+                    <span className="ml-2">Trocar Senha</span>
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full flex items-center px-5 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                  >
+                    <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
+                    <span className="ml-2">Sair</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
