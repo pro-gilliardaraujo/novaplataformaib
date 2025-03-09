@@ -1,16 +1,53 @@
-export interface Tab {
-  name: string
-  content: string
+export type Category = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  slug: string;
+  order_index: number;
+};
+
+export type Page = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  tabs: Tab[];
+};
+
+export type Tab = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  page_id: string;
+  name: string;
+  content: string;
+  order_index: number;
+};
+
+// Tipos para criação/atualização
+export interface CreateCategoryData {
+  name: string;
+  order_index: number;
 }
 
-export interface PageData {
-  tabs: Tab[]
+export interface UpdateCategoryOrder {
+  id: string;
+  order_index: number;
 }
 
-export interface CategoryData {
-  [key: string]: PageData
+export interface CreatePageData {
+  category_id: string;
+  name: string;
 }
 
-export interface PagesConfig {
-  [key: string]: CategoryData
+export interface UpdateTabsData {
+  page_id: string;
+  tabs: Array<{
+    name: string;
+    content: string;
+    order_index: number;
+  }>;
 } 

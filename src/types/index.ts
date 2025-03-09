@@ -25,16 +25,4 @@ export interface Item {
 export interface Tab {
   name: string
   content: string
-}
-
-export interface PageItem {
-  tabs: Tab[]
-}
-
-export interface CategoryPages {
-  [key: string]: PageItem
-}
-
-export interface PagesConfig {
-  [key: string]: CategoryPages
 } 

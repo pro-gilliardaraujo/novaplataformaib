@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { DataTable, Column } from "@/components/data-table"
 import { PageLayout } from "@/components/page-layout"
-import { Plus, Eye, Pencil } from "lucide-react"
+import { Plus, Eye, Pencil, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Retirada, NovaRetiradaData, UpdateRetiradaData } from "@/types/retirada"
 import { useToast } from "@/components/ui/use-toast"
@@ -11,6 +11,8 @@ import { retiradaService } from "@/services/retiradas"
 import { NovaRetiradaModal } from "@/components/nova-retirada-modal"
 import RetiradaDetailsModal from "@/components/retirada-details-modal"
 import { EditarRetiradaModal } from "@/components/editar-retirada-modal"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface FilterState {
   [key: string]: Set<string>
@@ -23,6 +25,7 @@ const columns: Column<Retirada>[] = [
     key: "data_retirada", 
     title: "Data de Retirada",
     render: (value) => {
+      if (!value) return "—"
       const [year, month, day] = (value as string).split("-")
       return `${day}/${month}/${year}`
     }
@@ -150,13 +153,11 @@ export default function RetiradasPage() {
           acc[column.key] = Array.from(
             new Set(
               retiradas
-                .filter(item => item.data_retirada != null)
+                .filter(item => item.data_retirada != null && item.data_retirada !== "")
                 .map((item) => {
-                  if (!item.data_retirada) return null;
                   const [year, month, day] = item.data_retirada.split("-")
                   return `${day}/${month}/${year}`
                 })
-                .filter((value): value is string => value !== null)
             )
           )
         } else if (column.key === "retirado") {
@@ -166,7 +167,7 @@ export default function RetiradasPage() {
             new Set(
               retiradas
                 .map((item) => item[column.key])
-                .filter((value): value is string => typeof value === "string")
+                .filter((value): value is string => typeof value === "string" && value !== "")
             )
           )
         }
@@ -187,6 +188,7 @@ export default function RetiradasPage() {
         Object.entries(filters).every(([key, selectedOptions]) => {
           if (selectedOptions.size === 0) return true
           if (key === "data_retirada") {
+            if (!row.data_retirada) return false
             const [year, month, day] = row.data_retirada.split("-")
             const formattedDate = `${day}/${month}/${year}`
             return selectedOptions.has(formattedDate)
@@ -224,28 +226,52 @@ export default function RetiradasPage() {
   )
 
   return (
-    <PageLayout
-      title="Nova Retirada"
-      searchPlaceholder="Buscar retiradas..."
-      searchValue={searchTerm}
-      onSearchChange={setSearchTerm}
-      onNewClick={() => setIsModalOpen(true)}
-      isLoading={isLoading}
-      error={error}
-    >
-      <div className="-mx-4">
-        <DataTable 
-          data={filteredRetiradas}
-          columns={columns}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          actions={actions}
-          filters={filters}
-          filterOptions={filterOptions}
-          onFilterToggle={handleFilterToggle}
-          onFilterClear={handleClearFilter}
+    <div className="h-screen flex flex-col p-4 bg-white">
+      {/* Top bar */}
+      <div className="flex justify-between items-center mb-3 bg-white">
+        <Input 
+          className="max-w-md" 
+          placeholder="Buscar retiradas..." 
+          type="search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
+        <Button
+          className="bg-black hover:bg-black/90 text-white"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <Plus className="mr-2 h-4 w-4" /> Nova Retirada
+        </Button>
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {error && (
+          <Alert variant="destructive" className="mb-3">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Table with fixed height */}
+        <div className="flex-1">
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">Carregando retiradas...</div>
+          ) : (
+            <DataTable 
+              data={filteredRetiradas}
+              columns={columns}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              actions={actions}
+              filters={filters}
+              filterOptions={filterOptions}
+              onFilterToggle={handleFilterToggle}
+              onFilterClear={handleClearFilter}
+            />
+          )}
+        </div>
       </div>
 
       <NovaRetiradaModal
@@ -256,23 +282,23 @@ export default function RetiradasPage() {
 
       {selectedRetirada && (
         <RetiradaDetailsModal
-          open={!!selectedRetirada}
-          onOpenChange={(open: boolean) => !open && setSelectedRetirada(null)}
           retirada={selectedRetirada}
+          open={!!selectedRetirada}
+          onOpenChange={() => setSelectedRetirada(null)}
         />
       )}
 
       {selectedRetiradaForEdit && (
         <EditarRetiradaModal
+          retiradaData={selectedRetiradaForEdit}
           open={!!selectedRetiradaForEdit}
-          onOpenChange={(open: boolean) => !open && setSelectedRetiradaForEdit(null)}
+          onOpenChange={() => setSelectedRetiradaForEdit(null)}
           onRetiradaEdited={(updates) => {
             handleUpdateRetirada(selectedRetiradaForEdit.id, updates)
             setSelectedRetiradaForEdit(null)
           }}
-          retiradaData={selectedRetiradaForEdit}
         />
       )}
-    </PageLayout>
+    </div>
   )
 } 

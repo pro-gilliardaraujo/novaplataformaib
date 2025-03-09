@@ -7,10 +7,12 @@ import { NovoUsuarioModal } from "@/components/novo-usuario-modal"
 import { EditarUsuarioModal } from "@/components/editar-usuario-modal"
 import { UsuarioDetailsModal } from "@/components/usuario-details-modal"
 import { Button } from "@/components/ui/button"
-import { Eye, Pencil, Trash2 } from "lucide-react"
+import { Eye, Pencil, Trash2, Plus, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { User, NovoUsuarioData, UpdateUsuarioData } from "@/types/user"
 import { userService } from "@/services/userService"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface FilterState {
   [key: string]: Set<string>
@@ -210,56 +212,80 @@ export default function UsuariosPage() {
   const totalPages = Math.ceil(filteredUsuarios.length / rowsPerPage)
 
   return (
-    <PageLayout
-      title="Novo Usuário"
-      searchPlaceholder="Buscar usuários..."
-      searchValue={searchTerm}
-      onSearchChange={setSearchTerm}
-      onNewClick={() => setIsModalOpen(true)}
-      isLoading={isLoading}
-      error={error}
-    >
-      <div className="-mx-4">
-        <DataTable
-          data={filteredUsuarios}
-          columns={columns}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          rowsPerPage={rowsPerPage}
-          filters={filters}
-          filterOptions={filterOptions}
-          onFilterToggle={handleFilterToggle}
-          onFilterClear={handleClearFilter}
-          actions={(usuario) => (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0"
-                onClick={() => setSelectedUsuario(usuario)}
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0"
-                onClick={() => setSelectedUsuarioForEdit(usuario)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 p-0"
-                onClick={() => handleDeleteUsuario(usuario.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+    <div className="h-screen flex flex-col p-4 bg-white">
+      {/* Top bar */}
+      <div className="flex justify-between items-center mb-3 bg-white">
+        <Input 
+          className="max-w-md" 
+          placeholder="Buscar usuários..." 
+          type="search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
+        <Button
+          className="bg-black hover:bg-black/90 text-white"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <Plus className="mr-2 h-4 w-4" /> Novo Usuário
+        </Button>
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {error && (
+          <Alert variant="destructive" className="mb-3">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Table with fixed height */}
+        <div className="flex-1">
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">Carregando usuários...</div>
+          ) : (
+            <DataTable
+              data={filteredUsuarios}
+              columns={columns}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              rowsPerPage={rowsPerPage}
+              filters={filters}
+              filterOptions={filterOptions}
+              onFilterToggle={handleFilterToggle}
+              onFilterClear={handleClearFilter}
+              actions={(usuario) => (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setSelectedUsuario(usuario)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setSelectedUsuarioForEdit(usuario)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleDeleteUsuario(usuario.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            />
+          )}
+        </div>
       </div>
 
       <NovoUsuarioModal
@@ -270,23 +296,23 @@ export default function UsuariosPage() {
 
       {selectedUsuario && (
         <UsuarioDetailsModal
-          open={!!selectedUsuario}
-          onOpenChange={(open) => !open && setSelectedUsuario(null)}
           usuario={selectedUsuario}
+          open={!!selectedUsuario}
+          onOpenChange={() => setSelectedUsuario(null)}
         />
       )}
 
       {selectedUsuarioForEdit && (
         <EditarUsuarioModal
+          usuarioData={selectedUsuarioForEdit}
           open={!!selectedUsuarioForEdit}
-          onOpenChange={(open) => !open && setSelectedUsuarioForEdit(null)}
+          onOpenChange={() => setSelectedUsuarioForEdit(null)}
           onUsuarioEdited={(updates) => {
             handleEditUsuario(selectedUsuarioForEdit.id, updates)
             setSelectedUsuarioForEdit(null)
           }}
-          usuarioData={selectedUsuarioForEdit}
         />
       )}
-    </PageLayout>
+    </div>
   )
 } 

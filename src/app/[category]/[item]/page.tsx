@@ -1,8 +1,8 @@
-'use client'
+"use client"
 
-import { pagesConfig } from '@/config/pages.config'
-import { PagesConfig } from '@/types/pages'
-import { CustomTabs } from '@/components/ui/custom-tabs'
+import { useState, useEffect } from "react"
+import { CustomTabs } from "@/components/ui/custom-tabs"
+import { pageService } from "@/services/pageService"
 
 interface PageProps {
   params: {
@@ -12,42 +12,52 @@ interface PageProps {
 }
 
 export default function DynamicPage({ params }: PageProps) {
-  // Convert URL parameters to match config format
-  const category = params.category
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-  
-  const item = params.item
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  const [pageData, setPageData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  console.log('URL Parameters:', { category, item })
-  console.log('Available Categories:', Object.keys(pagesConfig))
+  useEffect(() => {
+    const fetchPageData = async () => {
+      try {
+        setIsLoading(true)
+        console.log("Buscando página:", params.category, params.item)
+        const data = await pageService.getPageBySlug(params.category, params.item)
+        console.log("Dados recebidos:", data)
+        
+        if (!data || !data.tabs || data.tabs.length === 0) {
+          console.error("Dados inválidos ou sem abas:", data)
+          setError("Página não encontrada ou sem conteúdo.")
+          return
+        }
 
-  // Find the matching category and item
-  const foundCategory = Object.keys(pagesConfig).find(
-    cat => cat.toLowerCase().replace(/\s+/g, '-') === params.category.toLowerCase()
-  )
-  const foundItem = foundCategory ? Object.keys(pagesConfig[foundCategory]).find(
-    it => it.toLowerCase().replace(/\s+/g, '-') === params.item.toLowerCase()
-  ) : null
+        setPageData(data)
+      } catch (error) {
+        console.error("Erro ao carregar página:", error)
+        setError("Erro ao carregar página. Por favor, tente novamente.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  console.log('Found Category:', foundCategory)
-  console.log('Found Item:', foundItem)
+    fetchPageData()
+  }, [params.category, params.item])
 
-  // Get the page data if both category and item are found
-  const pageData = foundCategory && foundItem ? pagesConfig[foundCategory][foundItem] : null
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-gray-900">Carregando...</h2>
+        </div>
+      </div>
+    )
+  }
 
-  console.log('Page Data:', pageData)
-
-  if (!pageData) {
+  if (error || !pageData || !pageData.tabs || pageData.tabs.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <h2 className="text-2xl font-semibold text-gray-900">Página não encontrada</h2>
-          <p className="mt-2 text-gray-600">O item que você está procurando não existe.</p>
+          <p className="mt-2 text-gray-600">{error || "O item que você está procurando não existe."}</p>
         </div>
       </div>
     )
