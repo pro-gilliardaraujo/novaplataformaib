@@ -6,6 +6,7 @@ import { DataTable } from "@/components/data-table"
 import { NovoUsuarioModal } from "@/components/novo-usuario-modal"
 import { EditarUsuarioModal } from "@/components/editar-usuario-modal"
 import { UsuarioDetailsModal } from "@/components/usuario-details-modal"
+import { GerenciarPermissoesModal } from "@/components/gerenciar-permissoes-modal"
 import { Button } from "@/components/ui/button"
 import { Eye, Pencil, Trash2, Plus, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
@@ -28,6 +29,10 @@ export default function UsuariosPage() {
   const [selectedUsuario, setSelectedUsuario] = useState<User | null>(null)
   const [selectedUsuarioForEdit, setSelectedUsuarioForEdit] = useState<User | null>(null)
   const [filters, setFilters] = useState<FilterState>({})
+  const [isNovoUsuarioModalOpen, setIsNovoUsuarioModalOpen] = useState(false)
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isPermissoesModalOpen, setIsPermissoesModalOpen] = useState(false)
   const { toast } = useToast()
 
   const rowsPerPage = 15
@@ -113,6 +118,21 @@ export default function UsuariosPage() {
     }
   }
 
+  const handleViewUsuario = (usuario: User) => {
+    setSelectedUsuario(usuario)
+    setIsViewModalOpen(true)
+  }
+
+  const handleEditClick = (usuario: User) => {
+    setSelectedUsuario(usuario)
+    setIsEditModalOpen(true)
+  }
+
+  const handleManagePermissions = (usuario: User) => {
+    setSelectedUsuario(usuario)
+    setIsPermissoesModalOpen(true)
+  }
+
   const filteredUsuarios = usuarios.filter(usuario => {
     // Primeiro aplica o filtro de busca
     const matchesSearch = Object.values(usuario).some(value => 
@@ -185,12 +205,22 @@ export default function UsuariosPage() {
     },
     { 
       key: "profile" as keyof User,
-      title: "Perfil",
-      render: (value: any, item: User) => (
-        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-          {item.profile?.adminProfile ? "Administrador" : "Usuário"}
-        </span>
-      )
+      title: "Permissão",
+      render: (value: any, item: User) => {
+        const permissionType = item.profile?.base_profile || "custom";
+        const colorMap: Record<string, { bg: string; text: string; ring: string }> = {
+          admin: { bg: "bg-blue-50", text: "text-blue-700", ring: "ring-blue-700/10" },
+          manager: { bg: "bg-green-50", text: "text-green-700", ring: "ring-green-700/10" },
+          user: { bg: "bg-yellow-50", text: "text-yellow-700", ring: "ring-yellow-700/10" },
+          custom: { bg: "bg-gray-50", text: "text-gray-700", ring: "ring-gray-700/10" }
+        };
+        const colors = colorMap[permissionType] || colorMap.custom;
+        return (
+          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${colors.bg} ${colors.text} ${colors.ring}`}>
+            {permissionType.charAt(0).toUpperCase() + permissionType.slice(1)}
+          </span>
+        );
+      }
     },
     {
       key: "profile" as keyof User,
@@ -261,7 +291,7 @@ export default function UsuariosPage() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 p-0"
-                    onClick={() => setSelectedUsuario(usuario)}
+                    onClick={() => handleViewUsuario(usuario)}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
@@ -269,7 +299,7 @@ export default function UsuariosPage() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 p-0"
-                    onClick={() => setSelectedUsuarioForEdit(usuario)}
+                    onClick={() => handleEditClick(usuario)}
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -295,23 +325,30 @@ export default function UsuariosPage() {
       />
 
       {selectedUsuario && (
-        <UsuarioDetailsModal
-          usuario={selectedUsuario}
-          open={!!selectedUsuario}
-          onOpenChange={() => setSelectedUsuario(null)}
-        />
-      )}
+        <>
+          <UsuarioDetailsModal
+            usuario={selectedUsuario}
+            open={isViewModalOpen}
+            onOpenChange={setIsViewModalOpen}
+          />
 
-      {selectedUsuarioForEdit && (
-        <EditarUsuarioModal
-          usuarioData={selectedUsuarioForEdit}
-          open={!!selectedUsuarioForEdit}
-          onOpenChange={() => setSelectedUsuarioForEdit(null)}
-          onUsuarioEdited={(updates) => {
-            handleEditUsuario(selectedUsuarioForEdit.id, updates)
-            setSelectedUsuarioForEdit(null)
-          }}
-        />
+          <EditarUsuarioModal
+            usuarioData={selectedUsuario}
+            open={isEditModalOpen}
+            onOpenChange={setIsEditModalOpen}
+            onUsuarioEdited={(updates) => {
+              handleEditUsuario(selectedUsuario.id, updates)
+              setIsEditModalOpen(false)
+            }}
+          />
+
+          <GerenciarPermissoesModal
+            open={isPermissoesModalOpen}
+            onOpenChange={setIsPermissoesModalOpen}
+            user={selectedUsuario}
+            mode="edit"
+          />
+        </>
       )}
     </div>
   )

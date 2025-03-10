@@ -1,17 +1,21 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { User, UpdateUsuarioData } from "@/types/user"
-import { formatName } from "@/utils/formatters"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { useToast } from "@/components/ui/use-toast"
+import { User, UpdateUsuarioData, UserPermissions, ResourcePermission, PermissionType } from "@/types/user"
+import { permissionService } from "@/services/permissionService"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 interface EditarUsuarioModalProps {
   open: boolean
@@ -26,45 +30,177 @@ export function EditarUsuarioModal({
   onUsuarioEdited,
   usuarioData,
 }: EditarUsuarioModalProps) {
-  const [formData, setFormData] = useState<UpdateUsuarioData>({
-    nome: usuarioData.profile.nome,
-    cargo: usuarioData.profile.cargo,
-    adminProfile: usuarioData.profile.adminProfile,
-  })
-  const [error, setError] = useState("")
+  const [activeTab, setActiveTab] = useState("informacoes")
   const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [permissions, setPermissions] = useState<UserPermissions | null>(null)
+  const [units, setUnits] = useState<{ id: string; name: string }[]>([])
   const { toast } = useToast()
+  const [formData, setFormData] = useState({
+    nome: usuarioData.profile.nome,
+    cargo: usuarioData.profile.cargo || "",
+    base_profile: usuarioData.profile.base_profile || "custom",
+    unit_id: usuarioData.profile.unit_id || "",
+  })
+
+  useEffect(() => {
+    if (open) {
+      setError(null)
+      fetchPermissions()
+      fetchUnits()
+    }
+  }, [open, usuarioData.id])
+
+  const fetchUnits = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('units')
+        .select('id, name')
+        .order('name')
+
+      if (error) throw error
+      setUnits(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar unidades:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as unidades.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const fetchPermissions = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const data = await permissionService.getUserPermissions(usuarioData.id)
+      
+      if (!data) {
+        throw new Error("Não foi possível carregar as permissões do usuário.")
+      }
+
+      setPermissions(data)
+      setFormData(prev => ({
+        ...prev,
+        base_profile: data.base_profile,
+        unit_id: data.unit_id || ""
+      }))
+    } catch (error) {
+      console.error("Erro ao carregar permissões:", error)
+      setError("Não foi possível carregar as permissões do usuário.")
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar permissões do usuário.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSelectChange = (value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      adminProfile: value === "admin"
-    }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
-
+  const handleBaseProfileChange = async (value: string) => {
     try {
-      const formattedData = {
-        ...formData,
-        nome: formData.nome ? formatName(formData.nome) : "",
-        cargo: formData.cargo ? formatName(formData.cargo) : undefined,
+      setIsLoading(true)
+      await permissionService.updateUserPermissions(usuarioData.id, {
+        base_profile: value as UserPermissions["base_profile"],
+        unit_id: formData.unit_id,
+        resources: permissions?.resources || []
+      })
+      
+      await fetchPermissions() // Recarrega as permissões atualizadas
+      toast({ title: "Sucesso", description: "Perfil base atualizado com sucesso!" })
+    } catch (error) {
+      console.error("Erro ao atualizar perfil base:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar perfil base.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnitChange = async (unitId: string) => {
+    try {
+      setIsLoading(true)
+      setFormData(prev => ({ ...prev, unit_id: unitId }))
+      
+      if (permissions) {
+        await permissionService.updateUserPermissions(usuarioData.id, {
+          ...permissions,
+          unit_id: unitId
+        })
       }
 
-      console.log("Enviando dados para atualização:", formattedData)
-      await onUsuarioEdited(formattedData)
+      toast({ title: "Sucesso", description: "Unidade atualizada com sucesso!" })
+    } catch (error) {
+      console.error("Erro ao atualizar unidade:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar unidade.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handlePermissionToggle = async (resourceId: string, permission: PermissionType) => {
+    if (!permissions) return
+
+    try {
+      setIsLoading(true)
+      const resourceIndex = permissions.resources.findIndex(r => r.id === resourceId)
       
+      if (resourceIndex === -1) return
+
+      const updatedResources = [...permissions.resources]
+      const resource = updatedResources[resourceIndex]
+      
+      const newPermissions = resource.permissions.includes(permission)
+        ? resource.permissions.filter(p => p !== permission)
+        : [...resource.permissions, permission]
+
+      updatedResources[resourceIndex] = {
+        ...resource,
+        permissions: newPermissions
+      }
+
+      await permissionService.updateUserPermissions(usuarioData.id, {
+        ...permissions,
+        resources: updatedResources
+      })
+
+      setPermissions(prev => prev ? {
+        ...prev,
+        resources: updatedResources
+      } : null)
+
+      toast({ title: "Sucesso", description: "Permissões atualizadas com sucesso!" })
+    } catch (error) {
+      console.error("Erro ao atualizar permissões:", error)
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar permissões.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      await onUsuarioEdited(formData)
       toast({
         title: "Sucesso",
         description: "Usuário atualizado com sucesso!",
@@ -78,7 +214,7 @@ export function EditarUsuarioModal({
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setIsSaving(false)
     }
   }
 
@@ -99,67 +235,171 @@ export function EditarUsuarioModal({
           </DialogClose>
         </div>
 
-        <ScrollArea className="flex-grow px-6 py-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome</Label>
-                <Input
-                  id="nome"
-                  name="nome"
-                  value={formData.nome}
-                  onChange={handleInputChange}
-                  placeholder="Nome completo"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  value={usuarioData.email}
-                  disabled
-                  className="bg-gray-50"
-                />
-              </div>
-            </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1">
+          <div className="-mt-[14px]">
+            <TabsList className="w-full h-10 bg-gray-50 rounded-none border-b">
+              <TabsTrigger 
+                value="informacoes" 
+                className="flex-1 rounded-none data-[state=active]:bg-white data-[state=active]:shadow-[inset_0_-2px_0_0_#000000]"
+              >
+                Informações Básicas
+              </TabsTrigger>
+              <TabsTrigger 
+                value="permissoes" 
+                className="flex-1 rounded-none data-[state=active]:bg-white data-[state=active]:shadow-[inset_0_-2px_0_0_#000000]"
+              >
+                Permissões
+              </TabsTrigger>
+              <TabsTrigger 
+                value="recursos" 
+                className="flex-1 rounded-none data-[state=active]:bg-white data-[state=active]:shadow-[inset_0_-2px_0_0_#000000]"
+              >
+                Recursos
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cargo">Cargo</Label>
-                <Input
-                  id="cargo"
-                  name="cargo"
-                  value={formData.cargo}
-                  onChange={handleInputChange}
-                  placeholder="Cargo do usuário"
-                />
+          <div className="flex-1 overflow-auto p-4">
+            <TabsContent value="informacoes" className="mt-0">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome</Label>
+                  <Input
+                    id="nome"
+                    name="nome"
+                    value={formData.nome}
+                    onChange={handleInputChange}
+                    placeholder="Nome do usuário"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cargo">Cargo</Label>
+                  <Input
+                    id="cargo"
+                    name="cargo"
+                    value={formData.cargo}
+                    onChange={handleInputChange}
+                    placeholder="Cargo do usuário"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="tipo_usuario">Tipo de Usuário</Label>
-                <Select
-                  value={formData.adminProfile ? "admin" : "user"}
-                  onValueChange={handleSelectChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo de usuário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="user">Usuário</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </form>
-        </ScrollArea>
+            </TabsContent>
 
-        <div className="border-t bg-gray-50 p-4 flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <TabsContent value="permissoes" className="mt-0">
+              {error ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Perfil Base</Label>
+                    <Select
+                      value={formData.base_profile}
+                      onValueChange={handleBaseProfileChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o perfil base" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="global_admin">Administrador Global</SelectItem>
+                        <SelectItem value="global_viewer">Visualizador Global</SelectItem>
+                        <SelectItem value="regional_admin">Administrador Regional</SelectItem>
+                        <SelectItem value="regional_viewer">Visualizador Regional</SelectItem>
+                        <SelectItem value="custom">Personalizado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {(formData.base_profile === "regional_admin" || formData.base_profile === "regional_viewer") && (
+                    <div className="space-y-2">
+                      <Label>Unidade</Label>
+                      <Select
+                        value={formData.unit_id}
+                        onValueChange={handleUnitChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a unidade" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {units.map((unit) => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="recursos" className="mt-0">
+              {error ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : permissions?.resources && permissions.resources.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Recurso</TableHead>
+                      <TableHead>Visualizar</TableHead>
+                      <TableHead>Editar</TableHead>
+                      <TableHead>Administrar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {permissions.resources.map((resource) => (
+                      <TableRow key={resource.id}>
+                        <TableCell>{resource.name || resource.id}</TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={resource.permissions.includes("view")}
+                            onCheckedChange={() => handlePermissionToggle(resource.id, "view")}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={resource.permissions.includes("edit")}
+                            onCheckedChange={() => handlePermissionToggle(resource.id, "edit")}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={resource.permissions.includes("admin")}
+                            onCheckedChange={() => handlePermissionToggle(resource.id, "admin")}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  Nenhum recurso disponível para configuração.
+                </div>
+              )}
+            </TabsContent>
+          </div>
+        </Tabs>
+
+        <div className="flex justify-end gap-2 p-4 border-t">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+          >
             Cancelar
           </Button>
-          <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Salvando..." : "Salvar"}
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? "Salvando..." : "Salvar"}
           </Button>
         </div>
       </DialogContent>

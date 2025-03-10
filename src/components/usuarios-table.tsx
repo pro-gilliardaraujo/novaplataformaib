@@ -81,21 +81,29 @@ interface UsuariosTableProps {
 type ColumnType = {
   key: string
   title: string
-  getValue: (u: User) => string | boolean
+  getValue: (u: User) => string | boolean | React.ReactNode
 }
 
-export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTableProps) {
+export function UsuariosTable({ 
+  usuarios, 
+  onView, 
+  onEdit, 
+  onDelete
+}: UsuariosTableProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<Record<string, Set<string>>>({})
   const [selectedUsuario, setSelectedUsuario] = useState<User | null>(null)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
   const rowsPerPage = 15
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "—"
-    return new Date(dateString).toLocaleDateString("pt-BR", {
+    const date = new Date(dateString)
+    // Ajusta para o fuso horário local
+    date.setMinutes(date.getMinutes() + date.getTimezoneOffset())
+    return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -104,12 +112,47 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
     })
   }
 
+  const getPermissionBadge = (user: User) => {
+    const profileLabels: { [key: string]: { label: string; variant: "default" | "secondary" | "outline" | "destructive" } } = {
+      global_admin: { label: "Administrador Global", variant: "default" },
+      global_viewer: { label: "Visualizador Global", variant: "secondary" },
+      regional_admin: { label: "Administrador Regional", variant: "outline" },
+      regional_viewer: { label: "Visualizador Regional", variant: "destructive" },
+      custom: { label: "Personalizado", variant: "outline" }
+    }
+
+    const profile = user.profile.base_profile || "custom"
+    const { label, variant } = profileLabels[profile]
+
+    return <Badge variant={variant}>{label}</Badge>
+  }
+
   const columns: ColumnType[] = [
-    { key: "nome", title: "Nome", getValue: (u: User) => u.profile.nome },
-    { key: "email", title: "Email", getValue: (u: User) => u.email },
-    { key: "cargo", title: "Cargo", getValue: (u: User) => u.profile.cargo },
-    { key: "perfil", title: "Perfil", getValue: (u: User) => u.profile.adminProfile },
-    { key: "ultimo_acesso", title: "Último Acesso", getValue: (u: User) => formatDate(u.profile.ultimo_acesso) },
+    {
+      key: "nome",
+      title: "Nome",
+      getValue: (u) => u.profile.nome
+    },
+    {
+      key: "email",
+      title: "Email",
+      getValue: (u) => u.email
+    },
+    {
+      key: "cargo",
+      title: "Cargo",
+      getValue: (u) => u.profile.cargo || "—"
+    },
+    {
+      key: "permissao",
+      title: "Permissão",
+      getValue: (u) => getPermissionBadge(u)
+    },
+    {
+      key: "ultimo_acesso",
+      title: "Último Acesso",
+      getValue: (u) => formatDate(u.profile.ultimo_acesso)
+    }
   ]
 
   const filterOptions = useMemo(() => {
@@ -167,7 +210,7 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
   const handleDeleteClick = (usuario: User) => {
     console.log("Iniciando processo de exclusão para:", usuario)
     setSelectedUsuario(usuario)
-    setIsDeleteDialogOpen(true)
+    setShowDeleteDialog(true)
   }
 
   const handleConfirmDelete = async () => {
@@ -195,7 +238,7 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
       })
     } finally {
       setIsLoading(false)
-      setIsDeleteDialogOpen(false)
+      setShowDeleteDialog(false)
       setSelectedUsuario(null)
     }
   }
@@ -206,67 +249,56 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
   const totalPages = Math.ceil(filteredData.length / rowsPerPage)
 
   return (
-    <div className="border border-gray-200 rounded-lg">
+    <div className="rounded-md border">
       <Table>
-        <TableHeader className="bg-black">
-          <TableRow>
+        <TableHeader>
+          <TableRow className="bg-black hover:bg-black">
             {columns.map((column) => (
-              <TableHead key={column.key} className="text-white font-medium h-12">
-                <div className="flex items-center justify-between">
-                  <span>{column.title}</span>
-                  <FilterDropdown
-                    title={column.title}
-                    options={filterOptions[column.key] || []}
-                    selectedOptions={filters[column.key] || new Set()}
-                    onOptionToggle={(option) => handleFilterToggle(column.key, option)}
-                    onClear={() => handleClearFilter(column.key)}
-                  />
+              <TableHead key={column.key} className="text-white h-9">
+                <div className="flex items-center gap-2">
+                  {column.title}
+                  {filterOptions[column.key].length > 0 && (
+                    <FilterDropdown
+                      title={column.title}
+                      options={filterOptions[column.key]}
+                      selectedOptions={filters[column.key] || new Set()}
+                      onOptionToggle={(option) => handleFilterToggle(column.key, option)}
+                      onClear={() => handleClearFilter(column.key)}
+                    />
+                  )}
                 </div>
               </TableHead>
             ))}
-            <TableHead className="text-white font-medium h-12">Ações</TableHead>
+            <TableHead className="text-white text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {paginatedData.map((usuario) => (
-            <TableRow key={usuario.id} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
-              <TableCell className="py-0">{usuario.profile.nome}</TableCell>
-              <TableCell className="py-0">{usuario.email}</TableCell>
-              <TableCell className="py-0">{usuario.profile.cargo}</TableCell>
-              <TableCell className="py-0">
-                <Badge
-                  className={`${
-                    usuario.profile.adminProfile
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  {usuario.profile.adminProfile ? "Administrador" : "Usuário"}
-                </Badge>
-              </TableCell>
-              <TableCell className="py-0">{formatDate(usuario.profile.ultimo_acesso)}</TableCell>
-              <TableCell className="py-0">
-                <div className="flex items-center gap-2">
+            <TableRow key={usuario.id}>
+              {columns.map((column) => (
+                <TableCell key={column.key}>
+                  {column.getValue(usuario)}
+                </TableCell>
+              ))}
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
+                    size="icon"
                     onClick={() => onView(usuario)}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
+                    size="icon"
                     onClick={() => onEdit(usuario)}
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
+                    size="icon"
                     onClick={() => handleDeleteClick(usuario)}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -275,65 +307,21 @@ export function UsuariosTable({ usuarios, onView, onEdit, onDelete }: UsuariosTa
               </TableCell>
             </TableRow>
           ))}
-          {/* Fill empty rows to maintain fixed height */}
-          {paginatedData.length < rowsPerPage && (
-            Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-              <TableRow key={`empty-${index}`} className="h-[49px] border-b border-gray-200">
-                {Array(columns.length + 1).fill(0).map((_, colIndex) => (
-                  <TableCell key={`empty-cell-${colIndex}`} className="py-0">&nbsp;</TableCell>
-                ))}
-              </TableRow>
-            ))
-          )}
         </TableBody>
       </Table>
 
-      {/* Pagination controls */}
-      <div className="border-t py-2.5 px-4 flex items-center justify-between bg-white">
-        <div className="text-sm text-gray-500">
-          Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredData.length)} de {filteredData.length} resultados
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-gray-600">
-            Página {currentPage} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o usuário {selectedUsuario?.profile.nome}? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isLoading ? "Excluindo..." : "Excluir"}
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
