@@ -1,11 +1,10 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import { useCheckPermission } from "@/hooks/useCheckPermission"
 import { PermissionType } from "@/types/user"
 
-interface PermissionGuardProps {
+interface PermissionGateProps {
   resourceType: "category" | "page" | "panel"
   resourceName: string
   requiredPermission: PermissionType
@@ -13,31 +12,38 @@ interface PermissionGuardProps {
   fallback?: React.ReactNode
 }
 
-export function PermissionGuard({
+export function PermissionGate({
   resourceType,
   resourceName,
   requiredPermission,
   children,
   fallback
-}: PermissionGuardProps) {
-  const router = useRouter()
+}: PermissionGateProps) {
+  const [hasPermission, setHasPermission] = useState(false)
+  const [isChecking, setIsChecking] = useState(true)
   const checkPermission = useCheckPermission()
 
   useEffect(() => {
     const verifyPermission = async () => {
-      const hasPermission = await checkPermission(
+      const permitted = await checkPermission(
         resourceType,
         resourceName,
         requiredPermission
       )
-
-      if (!hasPermission && !fallback) {
-        router.push("/unauthorized")
-      }
+      setHasPermission(permitted)
+      setIsChecking(false)
     }
 
     verifyPermission()
-  }, [resourceType, resourceName, requiredPermission, router, checkPermission, fallback])
+  }, [resourceType, resourceName, requiredPermission, checkPermission])
 
-  return children
+  if (isChecking) {
+    return null
+  }
+
+  if (!hasPermission) {
+    return fallback ? <>{fallback}</> : null
+  }
+
+  return <>{children}</>
 } 

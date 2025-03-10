@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useToast } from "@/components/ui/use-toast"
 import { Category, Page } from "@/types/pages"
 import { pageService } from "@/services/pageService"
@@ -8,6 +8,7 @@ import { PagesTreeView } from "@/components/pages-tree-view"
 import { CategoryFormModal } from "@/components/category-form-modal"
 import { PageFormModal } from "@/components/page-form-modal"
 import { GerenciarPaginaModal } from "@/components/gerenciar-pagina-modal"
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,207 +19,338 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { supabase } from "@/lib/supabase"
 
 export default function PaginasPage() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [pages, setPages] = useState<Page[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
-  // Estados para modais
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<Category | undefined>(undefined)
   const [selectedPage, setSelectedPage] = useState<Page | null>(null)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [isPageModalOpen, setIsPageModalOpen] = useState(false)
   const [isPageContentModalOpen, setIsPageContentModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [deleteType, setDeleteType] = useState<"category" | "page" | null>(null)
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined)
 
   const { toast } = useToast()
+  const queryClient = useQueryClient()
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const [categoriesData, pagesData] = await Promise.all([
-        pageService.getCategories(),
-        pageService.getAllPages()
-      ])
-      setCategories(categoriesData)
-      setPages(pagesData)
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error)
-      setError("Erro ao carregar dados. Por favor, tente novamente.")
-    } finally {
-      setIsLoading(false)
+  // Queries
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('order_index')
+      if (error) throw error
+      return data as Category[]
     }
-  }
+  })
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const { data: pages = [], isLoading: isPagesLoading } = useQuery({
+    queryKey: ['pages'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pages')
+        .select('*')
+      if (error) throw error
+      return data as Page[]
+    }
+  })
 
-  const handleCreateCategory = async (data: { name: string }) => {
-    try {
-      await pageService.createCategory({
-        name: data.name,
-        order_index: categories.length + 1
-      })
+  // Mutations
+  const updateOrderMutation = useMutation({
+    mutationFn: async (updatedCategories: Category[]) => {
+      const updates = updatedCategories.map(category => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        order_index: category.order_index,
+        section: category.section
+      }))
+
+      const { error } = await supabase
+        .from('categories')
+        .upsert(updates, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        })
+
+      if (error) throw error
+      return updatedCategories
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
       toast({
         title: "Sucesso",
-        description: "Categoria criada com sucesso!",
+        description: "Ordem atualizada com sucesso",
       })
-      fetchData()
-    } catch (error) {
-      console.error("Erro ao criar categoria:", error)
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar ordem:', error)
       toast({
         title: "Erro",
-        description: "Erro ao criar categoria. Por favor, tente novamente.",
+        description: "Não foi possível atualizar a ordem",
         variant: "destructive",
       })
     }
+  })
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string }) => {
+      const maxOrderIndex = Math.max(...categories.map(c => c.order_index), 0)
+      const { data: newCategory, error } = await supabase
+        .from('categories')
+        .insert([
+          { 
+            name: data.name,
+            slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+            order_index: maxOrderIndex + 1,
+            section: 'reports'
+          }
+        ])
+        .select()
+        .single()
+
+      if (error) throw error
+      return newCategory
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setIsCategoryModalOpen(false)
+      toast({
+        title: "Sucesso",
+        description: "Categoria criada com sucesso",
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao criar categoria:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar a categoria",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const editCategoryMutation = useMutation({
+    mutationFn: async (data: { id: string; name: string }) => {
+      const { error } = await supabase
+        .from('categories')
+        .update({ name: data.name })
+        .eq('id', data.id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setIsCategoryModalOpen(false)
+      toast({
+        title: "Sucesso",
+        description: "Categoria atualizada com sucesso",
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar categoria:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a categoria",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const createPageMutation = useMutation({
+    mutationFn: async (data: { name: string; categoryId: string }) => {
+      const { data: newPage, error } = await supabase
+        .from('pages')
+        .insert([
+          { 
+            name: data.name,
+            slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+            category_id: data.categoryId
+          }
+        ])
+        .select()
+        .single()
+
+      if (error) throw error
+      return newPage
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pages'] })
+      setIsPageModalOpen(false)
+      toast({
+        title: "Sucesso",
+        description: "Página criada com sucesso",
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao criar página:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar a página",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async ({ type, id }: { type: 'category' | 'page'; id: string }) => {
+      const { error } = await supabase
+        .from(type === 'category' ? 'categories' : 'pages')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ 
+        queryKey: [variables.type === 'category' ? 'categories' : 'pages'] 
+      })
+      setIsDeleteDialogOpen(false)
+      setDeleteType(null)
+      setSelectedCategory(undefined)
+      setSelectedPage(null)
+      toast({
+        title: "Sucesso",
+        description: `${variables.type === 'category' ? 'Categoria' : 'Página'} excluída com sucesso`,
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao excluir:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o item",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const renamePageMutation = useMutation({
+    mutationFn: async ({ pageId, newName }: { pageId: string; newName: string }) => {
+      const { error } = await supabase
+        .from('pages')
+        .update({ name: newName })
+        .eq('id', pageId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pages'] })
+      toast({
+        title: "Sucesso",
+        description: "Página renomeada com sucesso",
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao renomear página:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível renomear a página",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const updatePageIconMutation = useMutation({
+    mutationFn: async ({ pageId, iconName }: { pageId: string; iconName: string }) => {
+      const { error } = await supabase
+        .from('pages')
+        .update({ icon: iconName })
+        .eq('id', pageId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pages'] })
+      toast({
+        title: "Sucesso",
+        description: "Ícone atualizado com sucesso",
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar ícone:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o ícone",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const renameCategoryMutation = useMutation({
+    mutationFn: async ({ categoryId, newName }: { categoryId: string; newName: string }) => {
+      const { error } = await supabase
+        .from('categories')
+        .update({ name: newName })
+        .eq('id', categoryId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      toast({
+        title: "Sucesso",
+        description: "Categoria renomeada com sucesso",
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao renomear categoria:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível renomear a categoria",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const handleUpdateOrder = (updatedCategories: Category[]) => {
+    updateOrderMutation.mutate(updatedCategories)
+  }
+
+  const handleRenamePage = (pageId: string, newName: string) => {
+    renamePageMutation.mutate({ pageId, newName })
+  }
+
+  const handleUpdatePageIcon = (pageId: string, iconName: string) => {
+    updatePageIconMutation.mutate({ pageId, iconName })
+  }
+
+  const handleRenameCategory = (categoryId: string, newName: string) => {
+    renameCategoryMutation.mutate({ categoryId, newName })
+  }
+
+  const handleCreateCategory = async (data: { name: string }) => {
+    await createCategoryMutation.mutateAsync(data)
   }
 
   const handleEditCategory = async (data: { name: string }) => {
     if (!selectedCategory) return
-
-    try {
-      await pageService.updateCategory(selectedCategory.id, data)
-      toast({
-        title: "Sucesso",
-        description: "Categoria atualizada com sucesso!",
-      })
-      fetchData()
-    } catch (error) {
-      console.error("Erro ao atualizar categoria:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar categoria. Por favor, tente novamente.",
-        variant: "destructive",
-      })
-    }
+    await editCategoryMutation.mutateAsync({ id: selectedCategory.id, name: data.name })
   }
 
   const handleCreatePage = async (data: { name: string }) => {
     if (!selectedCategoryId) return
+    await createPageMutation.mutateAsync({ name: data.name, categoryId: selectedCategoryId })
+  }
 
-    try {
-      await pageService.createPage({
-        category_id: selectedCategoryId,
-        name: data.name
-      })
-      toast({
-        title: "Sucesso",
-        description: "Página criada com sucesso!",
-      })
-      fetchData()
-    } catch (error) {
-      console.error("Erro ao criar página:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao criar página. Por favor, tente novamente.",
-        variant: "destructive",
-      })
+  const handleDelete = () => {
+    if (deleteType === "category" && selectedCategory) {
+      deleteMutation.mutate({ type: 'category', id: selectedCategory.id })
+    } else if (deleteType === "page" && selectedPage) {
+      deleteMutation.mutate({ type: 'page', id: selectedPage.id })
     }
   }
 
-  const handleEditPage = async (data: { name: string }) => {
-    if (!selectedPage) return
-
-    try {
-      await pageService.updatePage(selectedPage.id, data)
-      toast({
-        title: "Sucesso",
-        description: "Página atualizada com sucesso!",
-      })
-      fetchData()
-    } catch (error) {
-      console.error("Erro ao atualizar página:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar página. Por favor, tente novamente.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleUpdateOrder = async (updatedCategories: Category[]) => {
-    try {
-      await pageService.updateCategoriesOrder(
-        updatedCategories.map((category, index) => ({
-          id: category.id,
-          order_index: index + 1
-        }))
-      )
-      toast({
-        title: "Sucesso",
-        description: "Ordem das categorias atualizada com sucesso!",
-      })
-      fetchData()
-    } catch (error) {
-      console.error("Erro ao atualizar ordem:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar ordem. Por favor, tente novamente.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleDelete = async () => {
-    try {
-      if (deleteType === "category" && selectedCategory) {
-        await pageService.deleteCategory(selectedCategory.id)
-        toast({
-          title: "Sucesso",
-          description: "Categoria excluída com sucesso!",
-        })
-      } else if (deleteType === "page" && selectedPage) {
-        await pageService.deletePage(selectedPage.id)
-        toast({
-          title: "Sucesso",
-          description: "Página excluída com sucesso!",
-        })
-      }
-      fetchData()
-    } catch (error) {
-      console.error("Erro ao excluir:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao excluir. Por favor, tente novamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleteDialogOpen(false)
-      setDeleteType(null)
-      setSelectedCategory(null)
-      setSelectedPage(null)
-    }
-  }
+  const isLoading = isCategoriesLoading || isPagesLoading
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold text-gray-900">Carregando...</h2>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold text-gray-900">Erro</h2>
-          <p className="mt-2 text-gray-600">{error}</p>
-        </div>
-      </div>
-    )
+    return <div className="p-8">Carregando...</div>
   }
 
   return (
-    <div className="h-full p-6">
+    <div className="p-8">
       <PagesTreeView
         categories={categories}
         pages={pages}
@@ -245,18 +377,41 @@ export default function PaginasPage() {
           setIsDeleteDialogOpen(true)
         }}
         onAddCategory={() => {
-          setSelectedCategory(null)
+          setSelectedCategory(undefined)
           setIsCategoryModalOpen(true)
         }}
         onUpdateOrder={handleUpdateOrder}
+        onRenamePage={handleRenamePage}
+        onRenameCategory={handleRenameCategory}
+        onUpdatePageIcon={handleUpdatePageIcon}
       />
 
-      <CategoryFormModal
-        open={isCategoryModalOpen}
-        onOpenChange={setIsCategoryModalOpen}
-        onSubmit={selectedCategory ? handleEditCategory : handleCreateCategory}
-        category={selectedCategory}
-      />
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente
+              {deleteType === "category" ? " a categoria e todas as suas páginas" : " a página"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {selectedCategory !== undefined && (
+        <CategoryFormModal
+          open={isCategoryModalOpen}
+          onOpenChange={setIsCategoryModalOpen}
+          onSubmit={selectedCategory ? handleEditCategory : handleCreateCategory}
+          category={selectedCategory}
+        />
+      )}
 
       <PageFormModal
         open={isPageModalOpen}
@@ -270,28 +425,9 @@ export default function PaginasPage() {
           open={isPageContentModalOpen}
           onOpenChange={setIsPageContentModalOpen}
           page={selectedPage}
-          onPageUpdated={fetchData}
+          onPageUpdated={() => queryClient.invalidateQueries({ queryKey: ['pages'] })}
         />
       )}
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteType === "category"
-                ? "Esta ação não pode ser desfeita. Isso excluirá permanentemente a categoria e todas as suas páginas."
-                : "Esta ação não pode ser desfeita. Isso excluirá permanentemente a página e todo o seu conteúdo."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 } 

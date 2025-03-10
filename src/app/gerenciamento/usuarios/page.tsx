@@ -14,6 +14,7 @@ import { User, NovoUsuarioData, UpdateUsuarioData } from "@/types/user"
 import { userService } from "@/services/userService"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { UsuariosTable } from "@/components/usuarios-table"
 
 interface FilterState {
   [key: string]: Set<string>
@@ -261,7 +262,7 @@ export default function UsuariosPage() {
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1">
         {error && (
           <Alert variant="destructive" className="mb-3">
             <AlertCircle className="h-4 w-4" />
@@ -274,55 +275,23 @@ export default function UsuariosPage() {
           {isLoading ? (
             <div className="h-full flex items-center justify-center">Carregando usuários...</div>
           ) : (
-            <DataTable
-              data={filteredUsuarios}
-              columns={columns}
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              rowsPerPage={rowsPerPage}
-              filters={filters}
-              filterOptions={filterOptions}
-              onFilterToggle={handleFilterToggle}
-              onFilterClear={handleClearFilter}
-              actions={(usuario) => (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 p-0"
-                    onClick={() => handleViewUsuario(usuario)}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 p-0"
-                    onClick={() => handleEditClick(usuario)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 p-0"
-                    onClick={() => handleDeleteUsuario(usuario.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+            <UsuariosTable
+              usuarios={filteredUsuarios}
+              onView={handleViewUsuario}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteUsuario}
             />
           )}
         </div>
       </div>
 
-      <NovoUsuarioModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        onSubmit={handleCreateUsuario}
-      />
+      {isNovoUsuarioModalOpen && (
+        <NovoUsuarioModal
+          open={isNovoUsuarioModalOpen}
+          onOpenChange={setIsNovoUsuarioModalOpen}
+          onSubmit={handleCreateUsuario}
+        />
+      )}
 
       {selectedUsuario && (
         <>
@@ -330,16 +299,6 @@ export default function UsuariosPage() {
             usuario={selectedUsuario}
             open={isViewModalOpen}
             onOpenChange={setIsViewModalOpen}
-          />
-
-          <EditarUsuarioModal
-            usuarioData={selectedUsuario}
-            open={isEditModalOpen}
-            onOpenChange={setIsEditModalOpen}
-            onUsuarioEdited={(updates) => {
-              handleEditUsuario(selectedUsuario.id, updates)
-              setIsEditModalOpen(false)
-            }}
           />
 
           <GerenciarPermissoesModal

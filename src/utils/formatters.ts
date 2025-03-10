@@ -31,4 +31,35 @@ export function formatName(name: string): string {
 
 export function formatPatrimonioCode(code: string): string {
   return code.padStart(6, "0")
+}
+
+export function formatDateTime(dateString: string | null | undefined): string {
+  if (!dateString) return "—"
+  
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleString('pt-BR', {
+      timeZone: 'UTC',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  } catch (error) {
+    console.error('Erro ao formatar data:', error)
+    return dateString
+  }
+}
+
+export function formatDateOnly(dateString: string | null | undefined): string {
+  if (!dateString) return "—"
+  
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo"
+  }).format(new Date(dateString))
 } 

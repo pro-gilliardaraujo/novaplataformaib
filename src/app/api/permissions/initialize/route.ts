@@ -1,0 +1,1 @@
+// Este arquivo pode ser removido pois a inicialização agora é feita pelo middleware 

@@ -1,116 +1,91 @@
-'use client'
+"use client"
 
-import Link from 'next/link'
-import Image from 'next/image'
-import { useState, useEffect } from 'react'
-import { 
-  ChartBarIcon, 
-  WrenchScrewdriverIcon, 
-  TruckIcon, 
-  ClipboardDocumentListIcon, 
-  ChevronDownIcon,
-  CircleStackIcon,
-  UsersIcon,
-  DocumentDuplicateIcon,
-  Cog6ToothIcon,
-  ArrowRightOnRectangleIcon,
-  KeyIcon
-} from '@heroicons/react/24/outline'
-import { pageService } from '@/services/pageService'
-import { Category, Page } from '@/types/pages'
+import { useState, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
-import { useRouter } from "next/navigation"
-import { cn } from '@/lib/utils'
-import { AnimatePresence, motion } from 'framer-motion'
+import { pageService } from "@/services/pageService"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { supabase } from "@/lib/supabase"
+import { useToast } from "@/components/ui/use-toast"
+import {
+  Cog6ToothIcon,
+  KeyIcon,
+  ArrowRightOnRectangleIcon,
+  ChevronDownIcon,
+  DocumentDuplicateIcon,
+  UsersIcon,
+  ClipboardDocumentListIcon,
+  ChartBarIcon,
+  DocumentIcon,
+  CircleStackIcon,
+  WrenchScrewdriverIcon,
+} from "@heroicons/react/24/outline"
+import { Save } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import Image from 'next/image'
+import { Category, Page } from "@/types/pages"
+import { Button } from "@/components/ui/button"
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 
-// Ícones personalizados como componentes
-const ComputerIcon = ({ className = "" }: { className?: string }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M20 4H4C2.89543 4 2 4.89543 2 6V15C2 16.1046 2.89543 17 4 17H20C21.1046 17 22 16.1046 22 15V6C22 4.89543 21.1046 4 20 4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8 21H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 17V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
-
-const BonificacoesIcon = ({ className = "" }: { className?: string }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
-
-const DocumentIcon = ({ className = "" }: { className?: string }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16 13H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16 17H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M10 9H9H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
-
-const PaginasIcon = ({ className = "" }: { className?: string }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M7 7H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M7 12H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M7 17H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
-
-const CavIcon = ({ className = "" }: { className?: string }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
-
-const PlantioIcon = ({ className = "" }: { className?: string }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 16L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8 12L16 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
-
-const OleosIcon = ({ className = "" }: { className?: string }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 8V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8 12H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
+// Ícones personalizados como alias
+const TruckIcon = DocumentDuplicateIcon
+const CavIcon = DocumentDuplicateIcon
+const PlantioIcon = DocumentDuplicateIcon
+const OleosIcon = DocumentDuplicateIcon
+const BonificacoesIcon = DocumentDuplicateIcon
+const PaginasIcon = DocumentDuplicateIcon
 
 export default function Sidebar() {
-  const { signOut } = useAuth()
+  const { user, signOut } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
   const [openCategory, setOpenCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [pages, setPages] = useState<Page[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [localCategories, setLocalCategories] = useState<Category[]>([])
+  const [hasChanges, setHasChanges] = useState(false)
+
+  // Use React Query to fetch categories and pages
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('order_index')
+      if (error) throw error
+      return data as Category[]
+    }
+  })
+
+  const { data: pages = [], isLoading: isPagesLoading } = useQuery({
+    queryKey: ['pages'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pages')
+        .select('*')
+      if (error) throw error
+      return data as Page[]
+    }
+  })
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-        const [categoriesData, pagesData] = await Promise.all([
-          pageService.getCategories(),
-          pageService.getAllPages()
-        ])
-        setCategories(categoriesData)
-        setPages(pagesData)
-      } catch (error) {
-        console.error("Erro ao carregar dados:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [])
+    setLocalCategories(categories)
+  }, [categories])
 
   const toggleCategory = (category: string) => {
-    setOpenCategory(openCategory === category ? null : category)
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(category)) {
+        next.delete(category)
+      } else {
+        next.add(category)
+      }
+      return next
+    })
   }
 
   const getCategoryPages = (categoryId: string) => {
@@ -141,6 +116,87 @@ export default function Sidebar() {
     router.push("/login")
   }
 
+  const isLoading = isCategoriesLoading || isPagesLoading
+
+  const handleUpdateOrder = async () => {
+    try {
+      const categoriesToSend = localCategories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        order_index: cat.order_index,
+        section: cat.section
+      }))
+
+      const response = await fetch("/api/categories/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categories: categoriesToSend })
+      })
+
+      console.log('Status da resposta:', response.status)
+      const data = await response.json()
+      console.log('Dados da resposta:', data)
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar ordem')
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setHasChanges(false)
+
+      toast({
+        title: "Sucesso",
+        description: "Ordem atualizada com sucesso",
+      })
+    } catch (error) {
+      console.error('=== ERRO NA ATUALIZAÇÃO DE ORDEM ===')
+      console.error('Detalhes do erro:', error)
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível atualizar a ordem",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDragEnd = (result: any) => {
+    if (!result.destination) return
+    if (result.source.index === result.destination.index) return
+
+    const section = result.source.droppableId as "reports" | "management"
+    const sectionCategories = localCategories.filter(cat => cat.section === section)
+    const otherCategories = localCategories.filter(cat => cat.section !== section)
+    
+    const items = Array.from(sectionCategories)
+    const [reorderedItem] = items.splice(result.source.index, 1)
+    items.splice(result.destination.index, 0, reorderedItem)
+
+    // Atualiza order_index para os itens reordenados
+    const updatedSectionCategories = items.map((cat, index) => ({
+      ...cat,
+      order_index: index + 1
+    }))
+
+    // Combina as categorias atualizadas com as outras categorias
+    setLocalCategories([...updatedSectionCategories, ...otherCategories])
+    setHasChanges(true)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-screen bg-white border-r w-64">
+        <div className="flex items-center px-3 py-4 border-b h-[10%]">
+          <span>Carregando...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Filter categories by section
+  const reportCategories = categories.filter(cat => cat.section === 'reports')
+  const managementCategories = categories.filter(cat => cat.section === 'management')
+
   return (
     <div className="flex flex-col h-screen bg-white border-r w-64">
       {/* Logo - 10% */}
@@ -166,46 +222,63 @@ export default function Sidebar() {
             <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
               Relatórios
             </h2>
-            <nav className="space-y-1">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <span className="text-sm text-gray-500">Carregando...</span>
-                </div>
-              ) : (
-                categories.map((category) => (
-                  <div key={category.id}>
-                    <button
-                      onClick={() => toggleCategory(category.slug)}
-                      className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                    >
-                      <div className="flex items-center">
-                        {getIconForCategory(category.slug)}
-                        <span className="ml-2">{category.name}</span>
-                      </div>
-                      <ChevronDownIcon 
-                        className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                          openCategory === category.slug ? 'transform rotate-180' : ''
-                        }`} 
-                      />
-                    </button>
-                    {openCategory === category.slug && (
-                      <div className="ml-7 space-y-1">
-                        {getCategoryPages(category.id).map((page) => (
-                          <Link
-                            key={page.id}
-                            href={`/${category.slug}/${page.slug}`}
-                            className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="reports">
+                {(provided) => (
+                  <nav 
+                    className="space-y-1"
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                  >
+                    {reportCategories.map((category, index) => (
+                      <Draggable 
+                        key={category.id} 
+                        draggableId={category.id} 
+                        index={index}
+                      >
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
                           >
-                            <DocumentIcon className="h-4 w-4 text-gray-500" />
-                            <span className="ml-2">{page.name}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </nav>
+                            <button
+                              onClick={() => toggleCategory(category.id)}
+                              className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                            >
+                              <div className="flex items-center">
+                                {getIconForCategory(category.slug)}
+                                <span className="ml-2">{category.name}</span>
+                              </div>
+                              <ChevronDownIcon 
+                                className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                                  openCategory === category.id ? 'transform rotate-180' : ''
+                                }`} 
+                              />
+                            </button>
+                            {openCategory === category.id && (
+                              <div className="ml-7 space-y-1">
+                                {getCategoryPages(category.id).map((page) => (
+                                  <Link
+                                    key={page.id}
+                                    href={`/relatorios/${category.slug}/${page.slug}`}
+                                    className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                                  >
+                                    <DocumentDuplicateIcon className="h-4 w-4 text-gray-500" />
+                                    <span className="ml-2">{page.name}</span>
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </nav>
+                )}
+              </Droppable>
+            </DragDropContext>
           </div>
         </div>
 
@@ -215,79 +288,78 @@ export default function Sidebar() {
             <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
               Gerenciamento
             </h2>
-            <nav className="space-y-1">
-              {/* Usuários */}
-              <Link
-                href="/gerenciamento/usuarios"
-                className="flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-              >
-                <UsersIcon className="h-5 w-5 text-gray-500" />
-                <span className="ml-2">Usuários</span>
-              </Link>
-
-              {/* Páginas */}
-              <Link
-                href="/gerenciamento/paginas"
-                className="flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-              >
-                <PaginasIcon className="h-5 w-5 text-gray-500" />
-                <span className="ml-2">Páginas</span>
-              </Link>
-
-              {/* Tratativas */}
-              <div>
-                <button
-                  onClick={() => toggleCategory('tratativas')}
-                  className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                >
-                  <div className="flex items-center">
-                    <ClipboardDocumentListIcon className="h-5 w-5 text-gray-500" />
-                    <span className="ml-2">Tratativas</span>
-                  </div>
-                  <ChevronDownIcon 
-                    className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                      openCategory === 'tratativas' ? 'transform rotate-180' : ''
-                    }`} 
-                  />
-                </button>
-                {openCategory === 'tratativas' && (
-                  <div className="ml-7 space-y-1">
-                    <Link
-                      href="/gerenciamento/tratativas/dashboard"
-                      className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                    >
-                      <ChartBarIcon className="h-4 w-4 text-gray-500" />
-                      <span className="ml-2">Dashboard</span>
-                    </Link>
-                    <Link
-                      href="/gerenciamento/tratativas/lista"
-                      className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                    >
-                      <DocumentIcon className="h-4 w-4 text-gray-500" />
-                      <span className="ml-2">Lista</span>
-                    </Link>
-                  </div>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="management">
+                {(provided) => (
+                  <nav 
+                    className="space-y-1"
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                  >
+                    {managementCategories.map((category, index) => {
+                      const pages = getCategoryPages(category.id)
+                      return (
+                        <Draggable 
+                          key={category.id} 
+                          draggableId={category.id} 
+                          index={index}
+                        >
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                            >
+                              {pages.length > 1 ? (
+                                <>
+                                  <button
+                                    onClick={() => toggleCategory(category.id)}
+                                    className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      {getIconForCategory(category.slug)}
+                                      <span className="ml-2">{category.name}</span>
+                                    </div>
+                                    <ChevronDownIcon 
+                                      className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                                        openCategory === category.id ? 'transform rotate-180' : ''
+                                      }`} 
+                                    />
+                                  </button>
+                                  {openCategory === category.id && (
+                                    <div className="ml-7 space-y-1">
+                                      {pages.map((page) => (
+                                        <Link
+                                          key={page.id}
+                                          href={`/gerenciamento/${category.slug}/${page.slug}`}
+                                          className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                                        >
+                                          <DocumentDuplicateIcon className="h-4 w-4 text-gray-500" />
+                                          <span className="ml-2">{page.name}</span>
+                                        </Link>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <Link
+                                  href={pages[0] ? `/gerenciamento/${category.slug}` : '#'}
+                                  className="flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                                >
+                                  {getIconForCategory(category.slug)}
+                                  <span className="ml-2">{category.name}</span>
+                                </Link>
+                              )}
+                            </div>
+                          )}
+                        </Draggable>
+                      )
+                    })}
+                    {provided.placeholder}
+                  </nav>
                 )}
-              </div>
-
-              {/* Retiradas */}
-              <Link
-                href="/gerenciamento/retiradas"
-                className="flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-              >
-                <CircleStackIcon className="h-5 w-5 text-gray-500" />
-                <span className="ml-2">Retiradas</span>
-              </Link>
-
-              {/* Equipamentos */}
-              <Link
-                href="/gerenciamento/equipamentos"
-                className="flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-              >
-                <WrenchScrewdriverIcon className="h-5 w-5 text-gray-500" />
-                <span className="ml-2">Equipamentos</span>
-              </Link>
-            </nav>
+              </Droppable>
+            </DragDropContext>
           </div>
         </div>
 
@@ -310,27 +382,49 @@ export default function Sidebar() {
                 />
               </button>
               {isSettingsOpen && (
-                <div className="absolute bottom-full left-0 w-full bg-white border-t border-l border-r rounded-t-lg shadow-lg">
-                  <Link
-                    href="/alterar-senha"
-                    className="flex items-center px-5 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                  >
-                    <KeyIcon className="h-5 w-5 text-gray-500" />
-                    <span className="ml-2">Trocar Senha</span>
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full flex items-center px-5 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                  >
-                    <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
-                    <span className="ml-2">Sair</span>
-                  </button>
+                <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
+                  <div className="p-4 border-b bg-gray-50">
+                    <div className="flex flex-col space-y-1">
+                      <span className="font-medium">{user?.profile?.nome}</span>
+                      <Badge variant={user?.profile?.adminProfile ? "default" : "secondary"} className="w-fit">
+                        {user?.profile?.adminProfile ? "Administrador" : "Usuário"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="mx-2 my-1">
+                    <Link
+                      href="/alterar-senha"
+                      className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
+                    >
+                      <KeyIcon className="h-5 w-5 text-gray-500" />
+                      <span className="ml-2">Trocar Senha</span>
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
+                    >
+                      <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
+                      <span className="ml-2">Sair</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {hasChanges && (
+        <div className="p-4 border-t">
+          <Button 
+            onClick={handleUpdateOrder}
+            className="w-full bg-black hover:bg-black/90"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Salvar Ordenação
+          </Button>
+        </div>
+      )}
     </div>
   )
 } 

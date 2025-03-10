@@ -3,9 +3,18 @@ import { NextResponse } from "next/server"
 import { NovoUsuarioData } from "@/types/user"
 import { normalizeText } from "@/utils/formatters"
 
+// Verificação das variáveis de ambiente
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined')
+}
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined')
+}
+
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
   {
     auth: {
       autoRefreshToken: false,
@@ -56,6 +65,27 @@ export async function POST(request: Request) {
     }
 
     const email = generateEmail(nome)
+
+    // Verifica se o usuário já existe
+    const { data: existingUser, error: searchError } = await supabaseAdmin
+      .auth.admin.listUsers()
+
+    if (searchError) {
+      console.error("Erro ao buscar usuários:", searchError)
+      return NextResponse.json(
+        { error: "Erro ao verificar usuário existente" },
+        { status: 500 }
+      )
+    }
+
+    const userExists = existingUser.users.some(user => user.email === email)
+    if (userExists) {
+      return NextResponse.json(
+        { error: `Já existe um usuário com o email ${email}` },
+        { status: 400 }
+      )
+    }
+
     const password = await getDefaultPassword()
 
     // Cria o usuário no auth.users com a senha padrão

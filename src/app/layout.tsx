@@ -1,14 +1,11 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import Sidebar from "@/components/layout/Sidebar";
+"use client"
 
-const inter = Inter({ subsets: ["latin"] });
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { Toaster } from "@/components/ui/toaster"
+import ClientLayout from "@/components/layout/ClientLayout"
 
-export const metadata: Metadata = {
-  title: "Nova Plataforma",
-  description: "Nova Plataforma IB",
-};
+const inter = Inter({ subsets: ["latin"] })
 
 export default function RootLayout({
   children,
@@ -18,13 +15,11 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${inter.className} overflow-hidden`}>
-        <div className="flex h-screen">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent">
-            {children}
-          </main>
-        </div>
+        <ClientLayout>
+          {children}
+        </ClientLayout>
+        <Toaster />
       </body>
     </html>
-  );
+  )
 }
