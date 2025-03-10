@@ -21,22 +21,16 @@ interface FilterState {
 }
 
 export default function UsuariosPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [usuarios, setUsuarios] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
   const [selectedUsuario, setSelectedUsuario] = useState<User | null>(null)
-  const [selectedUsuarioForEdit, setSelectedUsuarioForEdit] = useState<User | null>(null)
-  const [filters, setFilters] = useState<FilterState>({})
   const [isNovoUsuarioModalOpen, setIsNovoUsuarioModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isPermissoesModalOpen, setIsPermissoesModalOpen] = useState(false)
   const { toast } = useToast()
-
-  const rowsPerPage = 15
 
   const fetchUsuarios = useCallback(async () => {
     try {
@@ -65,7 +59,7 @@ export default function UsuariosPage() {
     try {
       await userService.createUser(formData)
       await fetchUsuarios()
-      setIsModalOpen(false)
+      setIsNovoUsuarioModalOpen(false)
       toast({
         title: "Sucesso",
         description: "Usuário criado com sucesso!",
@@ -135,112 +129,15 @@ export default function UsuariosPage() {
   }
 
   const filteredUsuarios = usuarios.filter(usuario => {
-    // Primeiro aplica o filtro de busca
-    const matchesSearch = Object.values(usuario).some(value => 
-      value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    ) || 
-    Object.values(usuario.profile).some(value =>
-      value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const searchFields = [
+      usuario.profile.nome,
+      usuario.email,
+      usuario.profile.cargo,
+      usuario.profile.adminProfile ? "Administrador" : "Usuário"
+    ].join(" ").toLowerCase()
 
-    // Depois aplica os filtros de coluna
-    const matchesFilters = Object.entries(filters).every(([columnKey, selectedOptions]) => {
-      if (selectedOptions.size === 0) return true
-      
-      let value = ""
-      if (columnKey === "nome") value = usuario.profile.nome
-      else if (columnKey === "email") value = usuario.email
-      else if (columnKey === "cargo") value = usuario.profile.cargo || ""
-      else if (columnKey === "tipo") value = usuario.profile.adminProfile ? "Administrador" : "Usuário"
-      
-      return selectedOptions.has(value)
-    })
-
-    return matchesSearch && matchesFilters
+    return searchFields.includes(searchTerm.toLowerCase())
   })
-
-  const filterOptions = {
-    nome: Array.from(new Set(usuarios.map(u => u.profile.nome))),
-    email: Array.from(new Set(usuarios.map(u => u.email))),
-    cargo: Array.from(new Set(usuarios.map(u => u.profile.cargo || "").filter(Boolean))),
-    tipo: ["Administrador", "Usuário"]
-  }
-
-  const handleFilterToggle = (columnKey: string, option: string) => {
-    setFilters(prev => {
-      const newFilters = { ...prev }
-      if (!newFilters[columnKey]) {
-        newFilters[columnKey] = new Set([option])
-      } else {
-        const newSet = new Set(newFilters[columnKey])
-        if (newSet.has(option)) {
-          newSet.delete(option)
-        } else {
-          newSet.add(option)
-        }
-        newFilters[columnKey] = newSet
-      }
-      return newFilters
-    })
-  }
-
-  const handleClearFilter = (columnKey: string) => {
-    setFilters(prev => {
-      const newFilters = { ...prev }
-      delete newFilters[columnKey]
-      return newFilters
-    })
-  }
-
-  const columns = [
-    { 
-      key: "profile" as keyof User,
-      title: "Nome",
-      render: (value: any, item: User) => item.profile?.nome || ""
-    },
-    { key: "email" as keyof User, title: "Email" },
-    { 
-      key: "profile" as keyof User,
-      title: "Cargo",
-      render: (value: any, item: User) => item.profile?.cargo || ""
-    },
-    { 
-      key: "profile" as keyof User,
-      title: "Permissão",
-      render: (value: any, item: User) => {
-        const permissionType = item.profile?.base_profile || "custom";
-        const colorMap: Record<string, { bg: string; text: string; ring: string }> = {
-          admin: { bg: "bg-blue-50", text: "text-blue-700", ring: "ring-blue-700/10" },
-          manager: { bg: "bg-green-50", text: "text-green-700", ring: "ring-green-700/10" },
-          user: { bg: "bg-yellow-50", text: "text-yellow-700", ring: "ring-yellow-700/10" },
-          custom: { bg: "bg-gray-50", text: "text-gray-700", ring: "ring-gray-700/10" }
-        };
-        const colors = colorMap[permissionType] || colorMap.custom;
-        return (
-          <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${colors.bg} ${colors.text} ${colors.ring}`}>
-            {permissionType.charAt(0).toUpperCase() + permissionType.slice(1)}
-          </span>
-        );
-      }
-    },
-    {
-      key: "profile" as keyof User,
-      title: "Último Acesso",
-      render: (value: any, item: User) => {
-        if (!item.profile?.ultimo_acesso) return "—"
-        const date = new Date(item.profile.ultimo_acesso)
-        return date.toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      }
-    }
-  ]
-
-  const totalPages = Math.ceil(filteredUsuarios.length / rowsPerPage)
 
   return (
     <div className="h-screen flex flex-col p-4 bg-white">
@@ -255,7 +152,7 @@ export default function UsuariosPage() {
         />
         <Button
           className="bg-black hover:bg-black/90 text-white"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsNovoUsuarioModalOpen(true)}
         >
           <Plus className="mr-2 h-4 w-4" /> Novo Usuário
         </Button>
@@ -285,13 +182,11 @@ export default function UsuariosPage() {
         </div>
       </div>
 
-      {isNovoUsuarioModalOpen && (
-        <NovoUsuarioModal
-          open={isNovoUsuarioModalOpen}
-          onOpenChange={setIsNovoUsuarioModalOpen}
-          onSubmit={handleCreateUsuario}
-        />
-      )}
+      <NovoUsuarioModal
+        open={isNovoUsuarioModalOpen}
+        onOpenChange={setIsNovoUsuarioModalOpen}
+        onSubmit={handleCreateUsuario}
+      />
 
       {selectedUsuario && (
         <>
@@ -299,6 +194,13 @@ export default function UsuariosPage() {
             usuario={selectedUsuario}
             open={isViewModalOpen}
             onOpenChange={setIsViewModalOpen}
+          />
+
+          <EditarUsuarioModal
+            open={isEditModalOpen}
+            onOpenChange={setIsEditModalOpen}
+            usuario={selectedUsuario}
+            onSuccess={fetchUsuarios}
           />
 
           <GerenciarPermissoesModal

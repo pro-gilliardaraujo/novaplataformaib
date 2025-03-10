@@ -55,7 +55,7 @@ async function getDefaultPassword(): Promise<string> {
 export async function POST(request: Request) {
   try {
     const data = await request.json()
-    const { nome, cargo, tipo_usuario } = data as NovoUsuarioData
+    const { nome, cargo, tipo_usuario, permissions } = data as NovoUsuarioData
 
     if (!nome || tipo_usuario === undefined) {
       return NextResponse.json(
@@ -67,31 +67,31 @@ export async function POST(request: Request) {
     const email = generateEmail(nome)
 
     // Verifica se o usuário já existe
-    const { data: existingUser, error: searchError } = await supabaseAdmin
-      .auth.admin.listUsers()
+    const { data: existingProfile, error: searchError } = await supabaseAdmin
+      .from("profiles")
+      .select("user_email")
+      .eq("user_email", email)
+      .single()
 
-    if (searchError) {
-      console.error("Erro ao buscar usuários:", searchError)
+    if (searchError && searchError.code !== "PGRST116") { // Ignora erro "não encontrado"
+      console.error("Erro ao buscar usuário:", searchError)
       return NextResponse.json(
         { error: "Erro ao verificar usuário existente" },
         { status: 500 }
       )
     }
 
-    const userExists = existingUser.users.some(user => user.email === email)
-    if (userExists) {
+    if (existingProfile) {
       return NextResponse.json(
         { error: `Já existe um usuário com o email ${email}` },
         { status: 400 }
       )
     }
 
-    const password = await getDefaultPassword()
-
     // Cria o usuário no auth.users com a senha padrão
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password,
+      password: "IB@2024",
       email_confirm: true,
     })
 
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!authData.user) {
+    if (!user) {
       console.error("Usuário não foi criado no auth")
       return NextResponse.json(
         { error: "Erro ao criar usuário" },
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .insert({
-        user_id: authData.user.id,
+        user_id: user.id,
         nome,
         cargo,
         adminProfile: tipo_usuario,
@@ -126,18 +126,64 @@ export async function POST(request: Request) {
     if (profileError) {
       console.error("Erro ao criar perfil:", profileError)
       // Tenta deletar o usuário do auth se o perfil falhar
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(user.id)
       return NextResponse.json(
         { error: "Erro ao criar perfil do usuário" },
         { status: 500 }
       )
     }
 
+    // Se houver permissões definidas e não for admin, insere as permissões
+    if (permissions && !tipo_usuario) {
+      console.log("Inserindo permissões:", permissions)
+
+      // Primeiro, verifica se a tabela user_page_permissions existe e sua estrutura
+      const { error: tableError } = await supabaseAdmin
+        .from("user_page_permissions")
+        .select()
+        .limit(1)
+
+      if (tableError) {
+        console.error("Erro ao verificar tabela de permissões:", tableError)
+        return NextResponse.json(
+          { error: "Erro ao verificar tabela de permissões" },
+          { status: 500 }
+        )
+      }
+
+      // Prepara os dados para inserção
+      const permissionsData = permissions.map(permission => ({
+        user_id: user.id,
+        page_id: permission.page_id,
+        can_access: permission.can_access
+      }))
+
+      console.log("Dados de permissões preparados:", permissionsData)
+
+      // Insere as permissões
+      const { error: permissionsError } = await supabaseAdmin
+        .from("user_page_permissions")
+        .insert(permissionsData)
+
+      if (permissionsError) {
+        console.error("Erro detalhado ao criar permissões:", permissionsError)
+        // Tenta deletar o usuário e o perfil se as permissões falharem
+        await supabaseAdmin.auth.admin.deleteUser(user.id)
+        return NextResponse.json(
+          { 
+            error: "Erro ao criar permissões do usuário",
+            details: permissionsError
+          },
+          { status: 500 }
+        )
+      }
+    }
+
     return NextResponse.json({
       message: "Usuário criado com sucesso",
       user: {
-        id: authData.user.id,
-        email: authData.user.email,
+        id: user.id,
+        email: user.email,
       },
     })
   } catch (error) {

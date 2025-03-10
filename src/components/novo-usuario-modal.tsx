@@ -1,17 +1,18 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog"
-import { X } from "lucide-react"
+import { X, ChevronDown, ChevronRight } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { NovoUsuarioData } from "@/types/user"
-import { formatName, normalizeText } from "@/utils/formatters"
+import { formatName } from "@/utils/formatters"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { supabase } from "@/lib/supabase"
 
 interface NovoUsuarioModalProps {
   open: boolean
@@ -19,11 +20,22 @@ interface NovoUsuarioModalProps {
   onSubmit: (data: NovoUsuarioData) => void
 }
 
-function generateEmail(nome: string): string {
-  const normalizedName = normalizeText(nome)
-  const [firstName, ...rest] = normalizedName.split(" ")
-  const lastName = rest.length > 0 ? rest[rest.length - 1] : ""
-  return `${firstName}${lastName ? "." + lastName : ""}@ib.logistica`
+interface PagePermission {
+  page_id: string
+  can_access: boolean
+}
+
+interface Category {
+  id: string
+  name: string
+  order_index: number
+  section: 'reports' | 'management'
+}
+
+interface Page {
+  id: string
+  name: string
+  category_id: string
 }
 
 export function NovoUsuarioModal({
@@ -38,7 +50,45 @@ export function NovoUsuarioModal({
   })
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [pages, setPages] = useState<Page[]>([])
+  const [permissions, setPermissions] = useState<PagePermission[]>([])
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const { toast } = useToast()
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      // Busca categorias
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .order('order_index')
+
+      if (categoriesError) throw categoriesError
+
+      // Busca páginas
+      const { data: pagesData, error: pagesError } = await supabase
+        .from('pages')
+        .select('*')
+
+      if (pagesError) throw pagesError
+
+      setCategories(categoriesData || [])
+      setPages(pagesData || [])
+
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados",
+        variant: "destructive",
+      })
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -53,6 +103,44 @@ export function NovoUsuarioModal({
       ...prev,
       tipo_usuario: value === "admin"
     }))
+
+    // Se for admin, dá acesso a todas as páginas
+    if (value === "admin") {
+      const allPermissions = pages.map(page => ({
+        page_id: page.id,
+        can_access: true
+      }))
+      setPermissions(allPermissions)
+    } else {
+      setPermissions([])
+    }
+  }
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId)
+      } else {
+        newSet.add(categoryId)
+      }
+      return newSet
+    })
+  }
+
+  const togglePagePermission = (pageId: string) => {
+    setPermissions(prev => {
+      const existingPermission = prev.find(p => p.page_id === pageId)
+      if (existingPermission) {
+        return prev.map(p => 
+          p.page_id === pageId 
+            ? { ...p, can_access: !p.can_access }
+            : p
+        )
+      } else {
+        return [...prev, { page_id: pageId, can_access: true }]
+      }
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,7 +153,7 @@ export function NovoUsuarioModal({
         ...formData,
         nome: formatName(formData.nome),
         cargo: formData.cargo ? formatName(formData.cargo) : undefined,
-        email: generateEmail(formData.nome)
+        permissions: permissions
       }
 
       await onSubmit(formattedData)
@@ -76,11 +164,7 @@ export function NovoUsuarioModal({
         description: "Usuário criado com sucesso!",
       })
     } catch (error) {
-      console.error("Error details:", {
-        error,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      })
+      console.error("Error details:", error)
       toast({
         title: "Erro",
         description: "Erro ao criar usuário. Por favor, tente novamente.",
@@ -92,11 +176,114 @@ export function NovoUsuarioModal({
     }
   }
 
-  const previewEmail = formData.nome ? generateEmail(formData.nome) : ""
+  const getCategoryPages = (categoryId: string) => {
+    return pages.filter(page => page.category_id === categoryId)
+  }
+
+  const isPageChecked = (pageId: string) => {
+    const permission = permissions.find(p => p.page_id === pageId)
+    return permission?.can_access || false
+  }
+
+  const renderSection = (section: 'reports' | 'management') => {
+    const sectionCategories = categories
+      .filter(category => category.section === section)
+      .sort((a, b) => a.order_index - b.order_index)
+
+    return (
+      <div className="border rounded-lg p-4 mb-4">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            checked={sectionCategories.every(cat => 
+              getCategoryPages(cat.id).every(page => isPageChecked(page.id))
+            )}
+            onCheckedChange={() => {
+              const allPages = sectionCategories.flatMap(cat => getCategoryPages(cat.id))
+              const allChecked = allPages.every(page => isPageChecked(page.id))
+              setPermissions(prev => {
+                const newPermissions = prev.filter(p => 
+                  !allPages.some(page => page.id === p.page_id)
+                )
+                if (!allChecked) {
+                  allPages.forEach(page => {
+                    newPermissions.push({ page_id: page.id, can_access: true })
+                  })
+                }
+                return newPermissions
+              })
+            }}
+          />
+          <div className="text-base font-bold uppercase">
+            {section === 'reports' ? 'Relatórios' : 'Gerenciamento'}
+          </div>
+        </div>
+        <div className="space-y-2 mt-2">
+          {sectionCategories.map(category => (
+            <div key={category.id} className="border rounded-lg">
+              <div className="flex items-center p-2">
+                <button
+                  type="button"
+                  className="flex items-center justify-between hover:bg-gray-50 rounded p-1"
+                  onClick={() => toggleCategory(category.id)}
+                >
+                  {expandedCategories.has(category.id) ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </button>
+                <div className="flex items-center space-x-2 ml-2">
+                  <Checkbox
+                    checked={getCategoryPages(category.id).every(page => isPageChecked(page.id))}
+                    onCheckedChange={() => {
+                      const categoryPages = getCategoryPages(category.id)
+                      const allChecked = categoryPages.every(page => isPageChecked(page.id))
+                      setPermissions(prev => {
+                        const newPermissions = prev.filter(p => 
+                          !categoryPages.some(page => page.id === p.page_id)
+                        )
+                        if (!allChecked) {
+                          categoryPages.forEach(page => {
+                            newPermissions.push({ page_id: page.id, can_access: true })
+                          })
+                        }
+                        return newPermissions
+                      })
+                    }}
+                  />
+                  <span className="font-medium">{category.name}</span>
+                </div>
+              </div>
+              
+              {expandedCategories.has(category.id) && (
+                <div className="p-2 space-y-2 border-t">
+                  {getCategoryPages(category.id).map(page => (
+                    <div key={page.id} className="flex items-center space-x-2 pl-6">
+                      <Checkbox
+                        id={page.id}
+                        checked={isPageChecked(page.id)}
+                        onCheckedChange={() => togglePagePermission(page.id)}
+                      />
+                      <label
+                        htmlFor={page.id}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {page.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
+      <DialogContent className="sm:max-w-[1200px] p-0 flex flex-col h-[90vh]">
         <div className="flex items-center px-4 h-12 border-b relative">
           <div className="flex-1 text-center">
             <span className="text-base font-medium">Novo Usuário</span>
@@ -111,66 +298,71 @@ export function NovoUsuarioModal({
           </DialogClose>
         </div>
 
-        <ScrollArea className="flex-grow px-6 py-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome</Label>
-                <Input
-                  id="nome"
-                  name="nome"
-                  value={formData.nome}
-                  onChange={handleInputChange}
-                  placeholder="Nome completo"
-                  required
-                />
+        <div className="flex flex-1 overflow-hidden">
+          {/* Coluna da esquerda - Informações */}
+          <div className="w-1/2 p-6 border-r overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4 text-center">Informações do Usuário</h3>
+            <form className="space-y-4">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome</Label>
+                  <Input
+                    id="nome"
+                    name="nome"
+                    value={formData.nome}
+                    onChange={handleInputChange}
+                    placeholder="Nome completo"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cargo">Cargo</Label>
+                  <Input
+                    id="cargo"
+                    name="cargo"
+                    value={formData.cargo}
+                    onChange={handleInputChange}
+                    placeholder="Cargo do usuário"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tipo">Tipo de Usuário</Label>
+                  <Select
+                    value={formData.tipo_usuario ? "admin" : "user"}
+                    onValueChange={handleSelectChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo de usuário" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Usuário</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email (gerado automaticamente)</Label>
-                <Input
-                  id="email"
-                  value={previewEmail}
-                  disabled
-                  className="bg-gray-50"
-                />
-              </div>
-            </div>
+            </form>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cargo">Cargo</Label>
-                <Input
-                  id="cargo"
-                  name="cargo"
-                  value={formData.cargo}
-                  onChange={handleInputChange}
-                  placeholder="Cargo do usuário"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tipo_usuario">Tipo de Usuário</Label>
-                <Select
-                  value={formData.tipo_usuario ? "admin" : "user"}
-                  onValueChange={handleSelectChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo de usuário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="user">Usuário</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Coluna da direita - Permissões */}
+          <div className="w-1/2 p-6 overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4 text-center">Permissões de Acesso</h3>
+            <div className="space-y-6">
+              {renderSection('reports')}
+              {renderSection('management')}
             </div>
-          </form>
-        </ScrollArea>
+          </div>
+        </div>
 
-        <div className="border-t bg-gray-50 p-4 flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        <div className="flex justify-end gap-2 p-4 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isLoading}
+            className="bg-black hover:bg-black/90"
+          >
             {isLoading ? "Criando..." : "Criar Usuário"}
           </Button>
         </div>
