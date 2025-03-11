@@ -1,21 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { X, Plus, Trash2 } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
 import { Page, Tab } from "@/types/pages"
 import { pageService } from "@/services/pageService"
+import { useToast } from "@/components/ui/use-toast"
+import { getDefaultTabContent } from "@/utils/templates"
 
 interface GerenciarPaginaModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   page: Page
-  onPageUpdated: () => void
+  onPageUpdated?: () => void
 }
 
 export function GerenciarPaginaModal({
@@ -53,7 +51,7 @@ export function GerenciarPaginaModal({
       ...prev,
       {
         name: `Nova Aba ${prev.length + 1}`,
-        content: '',
+        content: getDefaultTabContent(),
         order_index: prev.length
       }
     ])
@@ -83,7 +81,7 @@ export function GerenciarPaginaModal({
         title: "Sucesso",
         description: "Página atualizada com sucesso!",
       })
-      onPageUpdated()
+      onPageUpdated?.()
       onOpenChange(false)
     } catch (error) {
       console.error("Erro ao atualizar página:", error)
@@ -99,78 +97,59 @@ export function GerenciarPaginaModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
-        <div className="flex items-center px-4 h-12 border-b relative">
-          <div className="flex-1 text-center">
-            <span className="text-base font-medium">Gerenciar Página: {page.name}</span>
-          </div>
-          <DialogClose asChild>
-            <Button 
-              variant="outline"
-              className="h-8 w-8 p-0 absolute right-2 top-2"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogClose>
-        </div>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Gerenciar Abas - {page.name}</DialogTitle>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-auto">
-          <div className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             {tabs.map((tab, index) => (
-              <div key={index} className="space-y-4 p-4 border rounded-lg relative">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-2"
-                  onClick={() => handleRemoveTab(index)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-
-                <div className="space-y-2">
-                  <Label>Nome da Aba</Label>
+              <div key={index} className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center gap-2">
                   <Input
                     value={tab.name}
-                    onChange={e => handleTabChange(index, "name", e.target.value)}
-                    required
+                    onChange={(e) => handleTabChange(index, 'name', e.target.value)}
+                    placeholder="Nome da aba"
+                    className="flex-1"
                   />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => handleRemoveTab(index)}
+                  >
+                    Remover
+                  </Button>
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Conteúdo (iframe)</Label>
-                  <Textarea
+                <div className="relative">
+                  <iframe
+                    srcDoc={tab.content}
+                    className="w-full h-[300px] border rounded"
+                    title={`Preview da aba ${tab.name}`}
+                  />
+                  <textarea
                     value={tab.content}
-                    onChange={e => handleTabChange(index, "content", e.target.value)}
-                    className="min-h-[200px]"
-                    required
+                    onChange={(e) => handleTabChange(index, 'content', e.target.value)}
+                    className="absolute inset-0 opacity-0"
+                    style={{ width: '100%', height: '100%' }}
                   />
                 </div>
               </div>
             ))}
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleAddTab}
-              className="w-full"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Aba
-            </Button>
           </div>
 
-          <div className="border-t bg-gray-50 p-4 flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancelar
+          <div className="flex justify-between">
+            <Button type="button" onClick={handleAddTab}>
+              Adicionar Aba
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Salvando..." : "Salvar"}
-            </Button>
+            <div className="space-x-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} type="button">
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>
