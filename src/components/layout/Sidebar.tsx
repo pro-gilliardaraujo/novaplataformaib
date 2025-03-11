@@ -19,7 +19,7 @@ import {
 } from "@heroicons/react/24/outline"
 import { Badge } from "@/components/ui/badge"
 import Image from 'next/image'
-import { Category, Page } from "@/types/pages"
+import { Category, Page, Tab } from "@/types/pages"
 import { Button } from "@/components/ui/button"
 import * as HeroIconsOutline from "@heroicons/react/24/outline"
 import * as HeroIconsSolid from "@heroicons/react/24/solid"
@@ -83,25 +83,30 @@ export default function Sidebar() {
         `)
         .order('order_index', { ascending: true })
       if (error) throw error
-      return data.map(item => ({
-        id: item.id,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        name: item.name,
-        slug: item.slug,
-        category_id: item.category_id,
-        icon: item.icon,
-        order_index: item.order_index,
-        tabs: item.tabs.map(tab => ({
+      const mappedData = data.map(item => {
+        const mappedTabs = item.tabs.map(tab => ({
           id: tab.id,
           name: tab.name,
           content: tab.content,
           order_index: tab.order_index,
-          created_at: tab.created_at || new Date().toISOString(),
-          updated_at: tab.updated_at || new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
           page_id: item.id
-        }))
-      })) as Page[]
+        })) as Tab[]
+
+        return {
+          id: item.id,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          name: item.name,
+          slug: item.slug,
+          category_id: item.category_id,
+          icon: item.icon,
+          order_index: item.order_index,
+          tabs: mappedTabs
+        } as Page
+      })
+      return mappedData
     },
     staleTime: 30000 // Cache por 30 segundos
   })
@@ -111,7 +116,7 @@ export default function Sidebar() {
   }
 
   const getCategoryPages = (categoryId: string) => {
-    return pages.filter(page => page.category_id === categoryId)
+    return pages.filter((page: Page) => page.category_id === categoryId)
   }
 
   const getIconForCategory = (category: Category) => {
@@ -275,7 +280,7 @@ export default function Sidebar() {
   const isLoading = isCategoriesLoading || isPagesLoading
 
   const renderSection = (section: 'reports' | 'management') => {
-    const sectionCategories = categories.filter(cat => cat.section === section)
+    const sectionCategories = categories.filter((cat: Category) => cat.section === section)
 
     return (
       <div className="h-[45%] overflow-y-auto border-t">
@@ -284,7 +289,7 @@ export default function Sidebar() {
             {section === 'reports' ? 'Relatórios' : 'Gerenciamento'}
           </h2>
           <nav className="space-y-1">
-            {sectionCategories.map((category) => {
+            {sectionCategories.map((category: Category) => {
               const pages = getCategoryPages(category.id)
               
               // Se for seção de relatórios OU se tiver mais de uma página, mostra como dropdown
@@ -309,7 +314,7 @@ export default function Sidebar() {
                     </button>
                     {(section === 'reports' ? expandedCategory === category.id : true) && (
                       <div className="ml-7 space-y-1">
-                        {pages.map((page) => (
+                        {pages.map((page: Page) => (
                           <Link
                             key={page.id}
                             href={`/${section === 'reports' ? 'relatorios' : 'gerenciamento'}/${category.slug}/${page.slug}`}
