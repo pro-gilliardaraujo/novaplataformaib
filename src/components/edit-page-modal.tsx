@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Page } from "@/types/pages"
 import { IconSelectorDialog } from "./icon-selector-dialog"
 import { RenameDialog } from "./rename-dialog"
+import { GerenciarPaginaModal } from "@/components/gerenciar-pagina-modal"
 
 interface EditPageModalProps {
   open: boolean
@@ -22,6 +23,7 @@ export function EditPageModal({
 }: EditPageModalProps) {
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [showRenameDialog, setShowRenameDialog] = useState(false)
+  const [showTabsEditor, setShowTabsEditor] = useState(false)
 
   return (
     <>
@@ -45,6 +47,15 @@ export function EditPageModal({
             >
               Alterar Ícone
             </Button>
+            {page.category_name?.toLowerCase().includes('relatório') && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowTabsEditor(true)}
+              >
+                Editar Abas
+              </Button>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -70,6 +81,18 @@ export function EditPageModal({
         itemType="página"
         parentName={page.category_name}
       />
+
+      {showTabsEditor && (
+        <GerenciarPaginaModal
+          open={showTabsEditor}
+          onOpenChange={setShowTabsEditor}
+          page={page}
+          onPageUpdated={() => {
+            setShowTabsEditor(false)
+            onOpenChange(false)
+          }}
+        />
+      )}
     </>
   )
 } 
