@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
 
       if (!session?.user && pathname !== '/login') {
-        router.replace('/login')
+        window.location.href = '/login'
       }
     })
 
@@ -40,18 +40,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
 
       if (!session?.user && pathname !== '/login') {
-        router.replace('/login')
+        window.location.href = '/login'
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [router, pathname])
+  }, [pathname])
 
   const signOut = async () => {
     try {
       await supabase.auth.signOut()
       setUser(null)
-      router.replace('/login')
+      window.location.href = '/login'
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
     }

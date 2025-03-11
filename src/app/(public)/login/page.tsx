@@ -64,7 +64,12 @@ export default function LoginPage() {
       })
 
       if (error) throw error
-      router.push("/")
+
+      // Aguarda a sessão ser estabelecida
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Força um refresh da página
+      window.location.href = "/"
     } catch (error) {
       console.error("Erro ao fazer login:", error)
       toast({
@@ -122,7 +127,7 @@ export default function LoginPage() {
         description: "Senha alterada com sucesso!",
       })
 
-      // Força um refresh da página antes do redirecionamento
+      // Força um refresh da página
       window.location.href = "/"
     } catch (error) {
       console.error("Erro ao atualizar senha:", error)
