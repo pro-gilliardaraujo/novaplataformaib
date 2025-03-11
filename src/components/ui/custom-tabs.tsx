@@ -1,7 +1,7 @@
 "use client"
 
 import { Tab } from "@/types/pages"
-import { Tabs as TabsRoot, TabsList, TabsTrigger, TabsContent } from "./tabs"
+import { Tabs as TabsRoot, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 
 interface CustomTabsProps {
   tabs: Tab[]
