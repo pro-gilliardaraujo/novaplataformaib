@@ -163,7 +163,7 @@ export default function UsuariosPage() {
       <NovoUsuarioModal
         open={isNovoUsuarioModalOpen}
         onOpenChange={setIsNovoUsuarioModalOpen}
-        onUsuarioCreated={handleCreateUsuario}
+        onSubmit={handleCreateUsuario}
       />
 
       {selectedUsuario && (
@@ -171,8 +171,11 @@ export default function UsuariosPage() {
           <EditarUsuarioModal
             open={isEditModalOpen}
             onOpenChange={setIsEditModalOpen}
-            onUsuarioEdited={(updates) => handleEditUsuario(selectedUsuario.id, updates)}
-            usuarioData={selectedUsuario}
+            usuario={selectedUsuario}
+            onSuccess={() => {
+              fetchUsuarios()
+              setIsEditModalOpen(false)
+            }}
           />
 
           <UsuarioDetailsModal

@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 
 interface AuthContextType {
   user: User | null
@@ -21,6 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     // Verifica o estado inicial da autenticação
@@ -28,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null)
       setLoading(false)
 
-      if (!session?.user && window.location.pathname !== '/login') {
+      if (!session?.user && pathname !== '/login') {
         router.replace('/login')
       }
     })
@@ -37,10 +38,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
+
+      if (!session?.user && pathname !== '/login') {
+        router.replace('/login')
+      }
     })
 
     return () => subscription.unsubscribe()
-  }, [router])
+  }, [router, pathname])
 
   const signOut = async () => {
     try {

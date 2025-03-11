@@ -11,6 +11,8 @@ export interface UserProfile {
   adminProfile: boolean
   firstLogin: boolean
   ultimo_acesso?: string
+  base_profile?: "global_admin" | "global_viewer" | "regional_admin" | "regional_viewer" | "custom"
+  unit_id?: string
 }
 
 export interface NovoUsuarioData {
@@ -38,7 +40,7 @@ export type PermissionType = "view" | "edit" | "admin"
 export interface ResourcePermission {
   id: string
   name?: string
-  type: "category" | "page" | "panel"
+  type: "category" | "page" | "panel" | "unit"
   permissions: PermissionType[]
 }
 

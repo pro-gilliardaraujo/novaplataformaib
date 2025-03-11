@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
-import { UserPermissions, ResourcePermission } from "@/types/user"
+import { UserPermissions, ResourcePermission, PermissionType } from "@/types/user"
 
 export function usePermissions(userId: string) {
-  return useQuery({
+  const query = useQuery({
     queryKey: ["permissions", userId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -42,4 +42,25 @@ export function usePermissions(userId: string) {
     },
     enabled: !!userId,
   })
+
+  const checkPermission = (resourceId: string, requiredPermission: PermissionType): boolean => {
+    if (!query.data) return false
+    if (query.data.base_profile === "global_admin") return true
+
+    const resource = query.data.resources.find(r => r.id === resourceId)
+    return resource?.permissions.includes(requiredPermission) || false
+  }
+
+  const isGlobalAdmin = query.data?.base_profile === "global_admin"
+  const userUnitId = query.data?.unit_id
+  const unitResources = query.data?.resources.filter(r => r.type === "unit") || []
+
+  return {
+    ...query,
+    checkPermission,
+    isGlobalAdmin,
+    userUnitId,
+    unitResources,
+    loading: query.isLoading
+  }
 } 

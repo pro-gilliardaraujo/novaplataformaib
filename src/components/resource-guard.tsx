@@ -6,6 +6,7 @@ import { usePermissions } from "@/hooks/usePermissions"
 import { PermissionType } from "@/types/user"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { useAuth } from "@/hooks/useAuth"
 
 interface ResourceGuardProps {
   resourceId: string
@@ -23,13 +24,14 @@ export function ResourceGuard({
   fallback
 }: ResourceGuardProps) {
   const router = useRouter()
-  const { checkPermission, loading, isGlobalAdmin, userUnitId, unitResources } = usePermissions()
+  const { user } = useAuth()
+  const { checkPermission, loading, isGlobalAdmin, userUnitId, unitResources } = usePermissions(user?.id || "")
   const [hasPermission, setHasPermission] = useState(false)
   const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
     const verifyPermission = async () => {
-      if (loading) return
+      if (loading || !user) return
       
       // Administradores globais têm acesso a tudo
       if (isGlobalAdmin) {
@@ -57,7 +59,7 @@ export function ResourceGuard({
     }
 
     verifyPermission()
-  }, [resourceId, requiredPermission, unitId, loading, isGlobalAdmin, userUnitId, checkPermission])
+  }, [resourceId, requiredPermission, unitId, loading, isGlobalAdmin, userUnitId, checkPermission, user])
 
   if (isChecking || loading) {
     return (

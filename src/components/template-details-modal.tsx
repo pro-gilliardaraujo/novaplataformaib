@@ -112,6 +112,7 @@ export default function TratativaDetailsModal({ open, onOpenChange, tratativa }:
         onOpenChange={setIsDocumentViewerOpen}
         documentoEnviado={tratativa.url_documento_enviado}
         documentoDevolvido={tratativa.url_documento_devolvido}
+        numeroTratativa={tratativa.numero_tratativa}
       />
     </Dialog>
   )

@@ -109,9 +109,9 @@ export default function UsuariosPage() {
 
       {showEditarUsuarioModal && selectedUsuario && (
         <EditarUsuarioModal
-          isOpen={showEditarUsuarioModal}
-          onClose={() => setShowEditarUsuarioModal(false)}
-          user={selectedUsuario}
+          open={showEditarUsuarioModal}
+          onOpenChange={setShowEditarUsuarioModal}
+          usuario={selectedUsuario}
           onSuccess={loadUsuarios}
         />
       )}
