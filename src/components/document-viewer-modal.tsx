@@ -12,6 +12,7 @@ interface DocumentViewerModalProps {
   onOpenChange: (open: boolean) => void
   documentoEnviado: string
   documentoDevolvido?: string | null
+  numeroTratativa: string
 }
 
 export function DocumentViewerModal({
@@ -19,13 +20,14 @@ export function DocumentViewerModal({
   onOpenChange,
   documentoEnviado,
   documentoDevolvido,
+  numeroTratativa,
 }: DocumentViewerModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
         <div className="flex items-center px-4 h-12 border-b relative">
           <div className="flex-1 text-center">
-            <span className="text-base font-medium">Visualizar Documento</span>
+            <span className="text-base font-medium">Visualizar Documento - Tratativa {numeroTratativa}</span>
           </div>
           <DialogClose asChild>
             <Button 

@@ -34,70 +34,119 @@ function formatDate(dateString: string): string {
   return `${day}/${month}/${year}`
 }
 
+function calcularDiasParaDevolver(dataInfracao: string, dataDevolvida: string | null): string {
+  if (!dataDevolvida) return "—"
+  
+  const inicio = new Date(dataInfracao)
+  const fim = new Date(dataDevolvida)
+  const diffTime = Math.abs(fim.getTime() - inicio.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  return `${diffDays} dia${diffDays !== 1 ? 's' : ''}`
+}
+
 export default function TratativaDetailsModal({ open, onOpenChange, tratativa }: TratativaDetailsModalProps) {
   const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
-        <div className="flex items-center px-4 h-12 border-b relative">
+      <DialogContent className="sm:max-w-[1100px] p-0 flex flex-col h-[90vh]">
+        <div className="flex items-center px-6 h-14 border-b relative">
           <div className="flex-1 text-center">
-            <span className="text-base font-medium">Detalhes da Tratativa #{tratativa.numero_tratativa}</span>
+            <span className="text-lg font-medium">Detalhes da Tratativa #{tratativa.numero_tratativa}</span>
           </div>
           <DialogClose asChild>
             <Button 
               variant="outline"
-              className="h-8 w-8 p-0 absolute right-2 top-2"
+              className="h-8 w-8 p-0 absolute right-4 top-3"
             >
               <X className="h-4 w-4" />
             </Button>
           </DialogClose>
         </div>
 
-        <div className="px-6 py-4 space-y-6 flex-grow overflow-auto">
+        <div className="px-8 py-6 space-y-8 flex-grow overflow-auto">
           <div>
             <SectionTitle title="Identificação" />
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-6">
               <DetailItem label="Documento" value={tratativa.numero_tratativa} />
-              <DetailItem label="Status" value={tratativa.status} />
               <DetailItem label="Funcionário" value={tratativa.funcionario} />
               <DetailItem label="Função" value={tratativa.funcao} />
               <DetailItem label="Setor" value={tratativa.setor} />
-              <DetailItem label="Líder" value={tratativa.lider} />
-            </div>
-          </div>
-
-          <Separator />
-
-          <div>
-            <SectionTitle title="Infração" />
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <DetailItem label="Data" value={formatDate(tratativa.data_infracao)} />
-                <DetailItem label="Hora" value={tratativa.hora_infracao} />
-                <DetailItem label="Código" value={tratativa.codigo_infracao} />
-                <DetailItem label="Infração Cometida" value={tratativa.descricao_infracao} />
+              <div className="col-span-2">
+                <DetailItem label="Líder" value={tratativa.lider} />
               </div>
-              <DetailItem label="Texto da Advertência" value={tratativa.texto_advertencia} />
             </div>
           </div>
 
           <Separator />
 
           <div>
-            <SectionTitle title="Penalidade" />
-            <DetailItem label="Penalidade Aplicada" value={tratativa.penalidade} />
+            <SectionTitle title="Infração e Penalidade" />
+            <div className="grid grid-cols-4 gap-6">
+              <DetailItem label="Data" value={formatDate(tratativa.data_infracao)} />
+              <DetailItem label="Hora" value={tratativa.hora_infracao} />
+              <DetailItem label="Código" value={tratativa.codigo_infracao} />
+              <DetailItem label="Infração Cometida" value={tratativa.descricao_infracao} />
+              <div className="col-span-2">
+                <DetailItem label="Penalidade Aplicada" value={tratativa.penalidade} />
+              </div>
+              <div className="col-span-2">
+                <DetailItem label="Texto da Advertência" value={tratativa.texto_advertencia} />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div>
+            <SectionTitle title="Status e Devolução" />
+            <div className="grid grid-cols-4 gap-6">
+              <DetailItem 
+                label="Status" 
+                value={
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    tratativa.status === 'DEVOLVIDA' ? 'bg-green-100 text-green-800' :
+                    tratativa.status === 'CANCELADA' ? 'bg-red-100 text-red-800' :
+                    tratativa.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {tratativa.status}
+                  </span>
+                } 
+              />
+              {tratativa.data_devolvida && (
+                <>
+                  <DetailItem 
+                    label="Data de Devolução" 
+                    value={formatDate(tratativa.data_devolvida)} 
+                  />
+                  <DetailItem 
+                    label="Dias para devolver" 
+                    value={calcularDiasParaDevolver(tratativa.data_infracao, tratativa.data_devolvida)}
+                  />
+                </>
+              )}
+              {tratativa.status === 'CANCELADA' && (
+                <div className="col-span-3">
+                  <DetailItem 
+                    label="Justificativa" 
+                    value={tratativa.texto_limite || "—"} 
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="border-t bg-white p-4">
+        <div className="border-t bg-white px-8 py-5">
           <SectionTitle title="Documentos" />
-          <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-4">
+          <div className="flex justify-center mt-4">
             {(tratativa.url_documento_enviado || tratativa.url_documento_devolvido) && (
               <Button
                 variant="outline"
                 onClick={() => setIsDocumentViewerOpen(true)}
-                className="w-full sm:w-auto"
+                className="w-auto min-w-[200px]"
               >
                 <FileText className="mr-2 h-4 w-4" />
                 Visualizar documentos
@@ -112,6 +161,7 @@ export default function TratativaDetailsModal({ open, onOpenChange, tratativa }:
         onOpenChange={setIsDocumentViewerOpen}
         documentoEnviado={tratativa.url_documento_enviado}
         documentoDevolvido={tratativa.url_documento_devolvido}
+        numeroTratativa={tratativa.numero_tratativa}
       />
     </Dialog>
   )
