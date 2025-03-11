@@ -1,43 +1,60 @@
 "use client"
 
-import { useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
-import { useCheckPermission } from "@/hooks/useCheckPermission"
-import { PermissionType } from "@/types/user"
+import { useEffect } from "react"
+import { supabase } from "@/lib/supabase"
 
 interface PermissionGuardProps {
-  resourceType: "category" | "page" | "panel"
-  resourceName: string
-  requiredPermission: PermissionType
   children: React.ReactNode
-  fallback?: React.ReactNode
+  pageSlug: string
 }
 
-export function PermissionGuard({
-  resourceType,
-  resourceName,
-  requiredPermission,
-  children,
-  fallback
-}: PermissionGuardProps) {
+export function PermissionGuard({ children, pageSlug }: PermissionGuardProps) {
+  const { user, loading } = useAuth()
   const router = useRouter()
-  const checkPermission = useCheckPermission()
 
   useEffect(() => {
-    const verifyPermission = async () => {
-      const hasPermission = await checkPermission(
-        resourceType,
-        resourceName,
-        requiredPermission
-      )
+    const checkPermission = async () => {
+      if (!user) return
 
-      if (!hasPermission && !fallback) {
-        router.push("/unauthorized")
+      // Verifica se é admin
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('adminProfile')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.adminProfile) {
+        return // Admin tem acesso a tudo
+      }
+
+      // Verifica permissão específica
+      const { data: permission } = await supabase
+        .from('user_page_permissions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('page_slug', pageSlug)
+        .single()
+
+      if (!permission) {
+        router.replace('/unauthorized')
       }
     }
 
-    verifyPermission()
-  }, [resourceType, resourceName, requiredPermission, router, checkPermission, fallback])
+    if (!loading) {
+      checkPermission()
+    }
+  }, [user, loading, pageSlug, router])
 
-  return children
+  if (loading) {
+    return <div>Carregando...</div>
+  }
+
+  if (!user) {
+    router.replace('/login')
+    return null
+  }
+
+  return <>{children}</>
 } 

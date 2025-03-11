@@ -6,6 +6,7 @@ export type Category = {
   slug: string;
   order_index: number;
   section: 'reports' | 'management';
+  icon?: string;
 };
 
 export type Page = {
@@ -13,6 +14,7 @@ export type Page = {
   created_at: string;
   updated_at: string;
   category_id: string;
+  category_name?: string;
   name: string;
   slug: string;
   icon?: string;

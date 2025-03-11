@@ -66,6 +66,9 @@ export function EditPageModal({
         open={showIconSelector}
         onOpenChange={setShowIconSelector}
         onSelectIcon={(iconName) => onUpdatePage(page.id, { icon: iconName })}
+        itemName={page.name}
+        itemType="página"
+        parentName={page.category_name}
       />
     </>
   )

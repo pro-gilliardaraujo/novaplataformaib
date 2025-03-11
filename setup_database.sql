@@ -4,6 +4,9 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS section text NOT NULL DEFAULT 'r
 -- Adicionar coluna icon na tabela pages
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS icon text;
 
+-- Adicionar coluna icon na tabela categories
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon text;
+
 -- Atualizar categorias existentes para a seção 'reports'
 UPDATE categories SET section = 'reports' WHERE section IS NULL;
 

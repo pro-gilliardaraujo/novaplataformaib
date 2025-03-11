@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 interface AuthContextType {
   user: User | null
@@ -19,12 +20,17 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     // Verifica o estado inicial da autenticação
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       setLoading(false)
+
+      if (!session?.user && window.location.pathname !== '/login') {
+        router.replace('/login')
+      }
     })
 
     // Escuta mudanças na autenticação
@@ -34,10 +40,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [router])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+      router.replace('/login')
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+    }
   }
 
   return (

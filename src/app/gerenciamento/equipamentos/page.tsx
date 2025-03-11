@@ -2,15 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { PageLayout } from "@/components/page-layout"
-import { DataTable } from "@/components/data-table"
+import { EquipamentosTable } from "@/components/equipamentos-table"
 import { NovoEquipamentoModal } from "@/components/novo-equipamento-modal"
 import { EditarEquipamentoModal } from "@/components/editar-equipamento-modal"
 import { EquipamentoDetailsModal } from "@/components/equipamento-details-modal"
 import { Button } from "@/components/ui/button"
-import { Eye, Pencil } from "lucide-react"
+import { Plus } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Equipamento, NovoEquipamentoData, UpdateEquipamentoData } from "@/types/equipamento"
 import { equipamentoService } from "@/services/equipamentoService"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 export default function EquipamentosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -18,7 +21,6 @@ export default function EquipamentosPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
   const [selectedEquipamento, setSelectedEquipamento] = useState<Equipamento | null>(null)
   const [selectedEquipamentoForEdit, setSelectedEquipamentoForEdit] = useState<Equipamento | null>(null)
   const { toast } = useToast()
@@ -110,51 +112,48 @@ export default function EquipamentosPage() {
     )
   )
 
-  const columns = [
-    { key: "codigo_patrimonio" as keyof Equipamento, title: "Código" },
-    { key: "descricao" as keyof Equipamento, title: "Descrição" },
-    { key: "num_serie" as keyof Equipamento, title: "Número de Série" },
-  ]
-
-  const totalPages = Math.ceil(filteredEquipamentos.length / 15)
-
   return (
-    <PageLayout
-      title="Novo Equipamento"
-      searchPlaceholder="Buscar equipamentos..."
-      searchValue={searchTerm}
-      onSearchChange={setSearchTerm}
-      onNewClick={() => setIsModalOpen(true)}
-      isLoading={isLoading}
-      error={error}
-    >
-      <DataTable
-        data={filteredEquipamentos}
-        columns={columns}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-        actions={(equipamento) => (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setSelectedEquipamento(equipamento)}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setSelectedEquipamentoForEdit(equipamento)}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </div>
+    <div className="h-screen flex flex-col p-4 bg-white">
+      {/* Top bar */}
+      <div className="flex justify-between items-center mb-3 bg-white">
+        <Input 
+          className="max-w-md" 
+          placeholder="Buscar equipamentos..." 
+          type="search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Button
+          className="bg-black hover:bg-black/90 text-white"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <Plus className="mr-2 h-4 w-4" /> Novo Equipamento
+        </Button>
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-1">
+        {error && (
+          <Alert variant="destructive" className="mb-3">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
-      />
+        
+        {/* Table with fixed height */}
+        <div className="flex-1">
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">Carregando equipamentos...</div>
+          ) : (
+            <EquipamentosTable
+              equipamentos={filteredEquipamentos}
+              onView={(equipamento) => setSelectedEquipamento(equipamento)}
+              onEdit={(equipamento) => setSelectedEquipamentoForEdit(equipamento)}
+              onDelete={handleDeleteEquipamento}
+            />
+          )}
+        </div>
+      </div>
 
       <NovoEquipamentoModal
         open={isModalOpen}
@@ -181,6 +180,6 @@ export default function EquipamentosPage() {
           equipamentoData={selectedEquipamentoForEdit}
         />
       )}
-    </PageLayout>
+    </div>
   )
 } 

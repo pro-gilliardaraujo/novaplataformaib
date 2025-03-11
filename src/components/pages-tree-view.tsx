@@ -10,12 +10,90 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { EditPageModal } from "./edit-page-modal"
+import { IconSelectorDialog } from "@/components/icon-selector-dialog"
+import { DocumentDuplicateIcon, ClipboardDocumentListIcon } from "@heroicons/react/24/outline"
+import * as HeroIconsOutline from "@heroicons/react/24/outline"
+import * as HeroIconsSolid from "@heroicons/react/24/solid"
+import * as HeroIconsMini from "@heroicons/react/20/solid"
+import * as Pi from "phosphor-react"
+import * as Fa from "react-icons/fa"
+import * as Md from "react-icons/md"
+import * as Io from "react-icons/io"
+import * as Ri from "react-icons/ri"
+import * as Bi from "react-icons/bi"
+import { IconContext as PhosphorIconContext } from "phosphor-react"
 
 interface ActionButton {
   icon: React.ReactNode
   label: string
   onClick: () => void
   show?: boolean
+}
+
+interface EditCategoryModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  category: Category
+  onUpdateCategory: (categoryId: string, updates: { name?: string; icon?: string }) => void
+}
+
+function EditCategoryModal({
+  open,
+  onOpenChange,
+  category,
+  onUpdateCategory
+}: EditCategoryModalProps) {
+  const [showIconSelector, setShowIconSelector] = useState(false)
+  const [showRenameDialog, setShowRenameDialog] = useState(false)
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Categoria: {category.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowRenameDialog(true)}
+            >
+              Renomear Categoria
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowIconSelector(true)}
+            >
+              Alterar Ícone
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <RenameDialog
+        open={showRenameDialog}
+        onOpenChange={setShowRenameDialog}
+        title="Renomear Categoria"
+        currentName={category.name}
+        onConfirm={(newName) => onUpdateCategory(category.id, { name: newName })}
+      />
+
+      <IconSelectorDialog
+        open={showIconSelector}
+        onOpenChange={setShowIconSelector}
+        onSelectIcon={(iconName) => onUpdateCategory(category.id, { icon: iconName })}
+        itemName={category.name}
+        itemType="categoria"
+      />
+    </>
+  )
 }
 
 interface PagesTreeViewProps {
@@ -31,6 +109,7 @@ interface PagesTreeViewProps {
   onRenamePage: (pageId: string, newName: string) => void
   onRenameCategory: (categoryId: string, newName: string) => void
   onUpdatePageIcon: (pageId: string, iconName: string) => void
+  onUpdateCategoryIcon: (categoryId: string, iconName: string) => void
 }
 
 interface RenameDialogProps {
@@ -81,6 +160,67 @@ function RenameDialog({ open, onOpenChange, title, currentName, onConfirm }: Ren
   )
 }
 
+const getIconComponent = (iconName: string | undefined) => {
+  if (!iconName) return DocumentDuplicateIcon
+
+  const [library, style, name] = iconName.split('/')
+  let iconSet: Record<string, any>
+
+  // Função auxiliar para renderizar ícone do Phosphor
+  const renderPhosphorIcon = (Icon: any) => {
+    return function PhosphorIconWrapper(props: any) {
+      return (
+        <PhosphorIconContext.Provider
+          value={{
+            size: props.className?.includes('h-4') ? 16 : 20,
+            weight: style as any,
+            mirrored: false,
+          }}
+        >
+          <Icon {...props} />
+        </PhosphorIconContext.Provider>
+      )
+    }
+  }
+
+  switch (library) {
+    case 'heroicons':
+      switch (style) {
+        case 'solid':
+          iconSet = HeroIconsSolid
+          break
+        case 'mini':
+          iconSet = HeroIconsMini
+          break
+        default:
+          iconSet = HeroIconsOutline
+      }
+      break
+    case 'remixicon':
+      iconSet = Ri
+      break
+    case 'boxicons':
+      iconSet = Bi
+      break
+    case 'phosphor':
+      const PhosphorIcon = Pi[name as keyof typeof Pi]
+      return PhosphorIcon ? renderPhosphorIcon(PhosphorIcon) : DocumentDuplicateIcon
+    case 'fontawesome':
+      iconSet = Fa
+      break
+    case 'material':
+      iconSet = Md
+      break
+    case 'ionicons':
+      iconSet = Io
+      break
+    default:
+      iconSet = HeroIconsOutline
+  }
+
+  return iconSet[name] || DocumentDuplicateIcon
+}
+
 export function PagesTreeView({
   categories,
   pages,
@@ -93,7 +233,8 @@ export function PagesTreeView({
   onUpdateOrder,
   onRenamePage,
   onRenameCategory,
-  onUpdatePageIcon
+  onUpdatePageIcon,
+  onUpdateCategoryIcon
 }: PagesTreeViewProps) {
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [orderedCategories, setOrderedCategories] = useState(categories)
@@ -103,6 +244,8 @@ export function PagesTreeView({
   const [itemToRename, setItemToRename] = useState<{ id: string; type: 'page' | 'category'; name: string } | null>(null)
   const [selectedPage, setSelectedPage] = useState<Page | null>(null)
   const [showEditPageModal, setShowEditPageModal] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false)
 
   useEffect(() => {
     setOrderedCategories(categories)
@@ -176,6 +319,15 @@ export function PagesTreeView({
     setHasChanges(false)
   }
 
+  const handleUpdateCategory = (categoryId: string, updates: { name?: string; icon?: string }) => {
+    if (updates.name) {
+      onRenameCategory(categoryId, updates.name)
+    }
+    if (updates.icon) {
+      onUpdateCategoryIcon(categoryId, updates.icon)
+    }
+  }
+
   const renderActionButton = ({ icon, label, onClick, show = true }: ActionButton) => {
     if (!show) return null
 
@@ -210,8 +362,11 @@ export function PagesTreeView({
       },
       {
         icon: <Pencil className="h-4 w-4" />,
-        label: "Renomear Categoria",
-        onClick: () => handleRename(category.id, 'category', category.name)
+        label: "Editar Categoria",
+        onClick: () => {
+          setSelectedCategory(category)
+          setShowEditCategoryModal(true)
+        }
       },
       {
         icon: <Trash className="h-4 w-4" />,
@@ -351,6 +506,29 @@ export function PagesTreeView({
     )
   }
 
+  const getIconForCategory = (category: Category) => {
+    if (category.icon) {
+      const IconComponent = getIconComponent(category.icon)
+      return <IconComponent className="h-5 w-5 text-gray-500" />
+    }
+
+    // Ícones padrão baseados no slug
+    switch (category.slug) {
+      case 'operacional':
+        return <ClipboardDocumentListIcon className="h-5 w-5 text-gray-500" />
+      default:
+        return <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
+    }
+  }
+
+  const getIconForPage = (page: Page) => {
+    if (page.icon) {
+      const IconComponent = getIconComponent(page.icon)
+      return <IconComponent className="h-4 w-4 text-gray-500" />
+    }
+    return <DocumentDuplicateIcon className="h-4 w-4 text-gray-500" />
+  }
+
   return (
     <>
       <div className="space-y-8">
@@ -376,6 +554,15 @@ export function PagesTreeView({
           onOpenChange={setShowEditPageModal}
           page={selectedPage}
           onUpdatePage={handleUpdatePage}
+        />
+      )}
+
+      {selectedCategory && (
+        <EditCategoryModal
+          open={showEditCategoryModal}
+          onOpenChange={setShowEditCategoryModal}
+          category={selectedCategory}
+          onUpdateCategory={handleUpdateCategory}
         />
       )}
 

@@ -52,9 +52,20 @@ export default function PaginasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pages')
-        .select('*')
+        .select(`
+          *,
+          categories:category_id (
+            name
+          )
+        `)
+      
       if (error) throw error
-      return data as Page[]
+
+      // Mapeia os resultados para incluir category_name
+      return data.map(page => ({
+        ...page,
+        category_name: page.categories?.name
+      })) as Page[]
     }
   })
 
@@ -305,6 +316,43 @@ export default function PaginasPage() {
     }
   })
 
+  const updateCategoryIconMutation = useMutation({
+    mutationFn: async ({ categoryId, iconName }: { categoryId: string; iconName: string }) => {
+      // Primeiro atualiza o ícone da categoria
+      const { error: categoryError } = await supabase
+        .from('categories')
+        .update({ icon: iconName })
+        .eq('id', categoryId)
+
+      if (categoryError) throw categoryError
+
+      // Depois atualiza todas as páginas dessa categoria
+      const { error: pagesError } = await supabase
+        .from('pages')
+        .update({ icon: iconName })
+        .eq('category_id', categoryId)
+
+      if (pagesError) throw pagesError
+    },
+    onSuccess: () => {
+      // Invalida tanto as categorias quanto as páginas para recarregar os dados
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['pages'] })
+      toast({
+        title: "Sucesso",
+        description: "Ícone atualizado com sucesso em toda a categoria",
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar ícone:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar os ícones",
+        variant: "destructive",
+      })
+    }
+  })
+
   const handleUpdateOrder = (updatedCategories: Category[]) => {
     updateOrderMutation.mutate(updatedCategories)
   }
@@ -384,6 +432,9 @@ export default function PaginasPage() {
         onRenamePage={handleRenamePage}
         onRenameCategory={handleRenameCategory}
         onUpdatePageIcon={handleUpdatePageIcon}
+        onUpdateCategoryIcon={(categoryId, iconName) => {
+          updateCategoryIconMutation.mutate({ categoryId, iconName })
+        }}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
