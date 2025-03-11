@@ -15,6 +15,7 @@ export type Page = {
   updated_at: string;
   category_id: string;
   category_name?: string;
+  categories?: Category;
   name: string;
   slug: string;
   icon?: string;

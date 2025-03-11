@@ -47,7 +47,7 @@ export function EditPageModal({
             >
               Alterar Ícone
             </Button>
-            {page.category_name?.toLowerCase().includes('relatório') && (
+            {page.categories?.section === 'reports' && (
               <Button
                 variant="outline"
                 className="w-full"
