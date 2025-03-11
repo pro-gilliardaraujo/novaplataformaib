@@ -7,6 +7,9 @@ export interface User {
 }
 
 export interface UserProfile {
+  id: string
+  created_at: string
+  user_id: string
   nome: string
   cargo?: string
   adminProfile: boolean
