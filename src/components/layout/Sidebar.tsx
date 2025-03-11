@@ -67,10 +67,13 @@ export default function Sidebar() {
         .from('pages')
         .select(`
           id,
+          created_at,
+          updated_at,
           name,
           slug,
           category_id,
           icon,
+          order_index,
           tabs (
             id,
             name,
@@ -78,7 +81,7 @@ export default function Sidebar() {
             order_index
           )
         `)
-        .order('id')
+        .order('order_index', { ascending: true })
       if (error) throw error
       return data as Page[]
     },

@@ -9,6 +9,7 @@ import { CategoryFormModal } from "@/components/category-form-modal"
 import { PageFormModal } from "@/components/page-form-modal"
 import { GerenciarPaginaModal } from "@/components/gerenciar-pagina-modal"
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query"
+import { getDefaultTabContent } from "@/utils/templates"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,8 +55,13 @@ export default function PaginasPage() {
         .from('pages')
         .select(`
           *,
+          tabs(*),
           categories:category_id (
-            name
+            id,
+            name,
+            slug,
+            section,
+            order_index
           )
         `)
       
@@ -173,20 +179,43 @@ export default function PaginasPage() {
 
   const createPageMutation = useMutation({
     mutationFn: async (data: { name: string; categoryId: string }) => {
-      const { data: newPage, error } = await supabase
+      // Primeiro busca a categoria para verificar se é relatório
+      const { data: category, error: categoryError } = await supabase
+        .from('categories')
+        .select('section')
+        .eq('id', data.categoryId)
+        .single()
+
+      if (categoryError) throw categoryError
+
+      // Cria a página
+      const { data: page, error: pageError } = await supabase
         .from('pages')
-        .insert([
-          { 
-            name: data.name,
-            slug: data.name.toLowerCase().replace(/\s+/g, '-'),
-            category_id: data.categoryId
-          }
-        ])
+        .insert([{
+          name: data.name,
+          slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+          category_id: data.categoryId
+        }])
         .select()
         .single()
 
-      if (error) throw error
-      return newPage
+      if (pageError) throw pageError
+
+      // Se for uma categoria de relatórios, cria uma aba inicial
+      if (category.section === 'reports') {
+        const { error: tabError } = await supabase
+          .from('tabs')
+          .insert([{
+            page_id: page.id,
+            name: 'Principal',
+            content: getDefaultTabContent(),
+            order_index: 0
+          }])
+
+        if (tabError) throw tabError
+      }
+
+      return page
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pages'] })

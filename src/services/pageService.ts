@@ -63,31 +63,53 @@ export const pageService = {
   },
 
   getAllPages: async (): Promise<Page[]> => {
+    console.log("Buscando todas as páginas...")
     const { data, error } = await supabase
       .from("pages")
       .select(`
         *,
         tabs(*),
-        categories:category_id(*)
+        categories:category_id(
+          id,
+          name,
+          slug,
+          section,
+          order_index
+        )
       `)
       .order("name")
 
-    if (error) throw error
+    if (error) {
+      console.error("Erro ao buscar páginas:", error)
+      throw error
+    }
+    console.log("Páginas encontradas:", data)
     return data
   },
 
   getPages: async (categoryId: string): Promise<Page[]> => {
+    console.log("Buscando páginas da categoria:", categoryId)
     const { data, error } = await supabase
       .from("pages")
       .select(`
         *,
         tabs(*),
-        categories:category_id(*)
+        categories:category_id(
+          id,
+          name,
+          slug,
+          section,
+          order_index
+        )
       `)
       .eq("category_id", categoryId)
       .order("name")
 
-    if (error) throw error
+    if (error) {
+      console.error("Erro ao buscar páginas da categoria:", error)
+      throw error
+    }
+    console.log("Páginas da categoria encontradas:", data)
     return data
   },
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Page } from "@/types/pages"
@@ -24,6 +24,14 @@ export function EditPageModal({
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [showRenameDialog, setShowRenameDialog] = useState(false)
   const [showTabsEditor, setShowTabsEditor] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      console.log("EditPageModal - Página recebida:", page)
+      console.log("EditPageModal - Categoria:", page.categories)
+      console.log("EditPageModal - É seção de relatórios?", page.categories?.section === 'reports')
+    }
+  }, [open, page])
 
   return (
     <>

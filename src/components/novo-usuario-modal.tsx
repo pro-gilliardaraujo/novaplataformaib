@@ -54,11 +54,41 @@ export function NovoUsuarioModal({
   const [pages, setPages] = useState<Page[]>([])
   const [permissions, setPermissions] = useState<PagePermission[]>([])
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [generatedEmail, setGeneratedEmail] = useState("")
   const { toast } = useToast()
 
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    // Gera o email sempre que o nome mudar
+    if (formData.nome) {
+      const normalizedName = formData.nome
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, "")
+        .replace(/\s+/g, " ")
+      const [firstName, ...rest] = normalizedName.split(" ")
+      const lastName = rest.length > 0 ? rest[rest.length - 1] : ""
+      setGeneratedEmail(`${firstName}${lastName ? "." + lastName : ""}@ib.logistica`)
+    } else {
+      setGeneratedEmail("")
+    }
+  }, [formData.nome])
+
+  const resetForm = () => {
+    setFormData({
+      nome: "",
+      cargo: "",
+      tipo_usuario: false
+    })
+    setPermissions([])
+    setExpandedCategories(new Set())
+    setError("")
+  }
 
   const loadData = async () => {
     try {
@@ -157,6 +187,7 @@ export function NovoUsuarioModal({
       }
 
       await onSubmit(formattedData)
+      resetForm()
       onOpenChange(false)
       
       toast({
@@ -282,7 +313,12 @@ export function NovoUsuarioModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        resetForm()
+      }
+      onOpenChange(isOpen)
+    }}>
       <DialogContent className="sm:max-w-[1200px] p-0 flex flex-col h-[90vh]">
         <div className="flex items-center px-4 h-12 border-b relative">
           <div className="flex-1 text-center">
@@ -313,6 +349,15 @@ export function NovoUsuarioModal({
                     onChange={handleInputChange}
                     placeholder="Nome completo"
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email (gerado automaticamente)</Label>
+                  <Input
+                    id="email"
+                    value={generatedEmail}
+                    disabled
+                    className="bg-gray-50"
                   />
                 </div>
                 <div className="space-y-2">
