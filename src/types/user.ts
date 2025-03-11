@@ -10,6 +10,7 @@ export interface UserProfile {
   id: string
   created_at: string
   user_id: string
+  user_email: string
   nome: string
   cargo?: string
   adminProfile: boolean
