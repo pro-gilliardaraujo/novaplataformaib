@@ -65,7 +65,20 @@ export default function Sidebar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pages')
-        .select('id, name, slug, category_id, icon')
+        .select(`
+          id,
+          name,
+          slug,
+          category_id,
+          icon,
+          tabs (
+            id,
+            name,
+            content,
+            order_index
+          )
+        `)
+        .order('id')
       if (error) throw error
       return data as Page[]
     },
