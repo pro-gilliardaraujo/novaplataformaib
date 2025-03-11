@@ -31,6 +31,7 @@ import * as Io from "react-icons/io"
 import * as Ri from "react-icons/ri"
 import * as Bi from "react-icons/bi"
 import { IconContext as PhosphorIconContext } from "phosphor-react"
+import { Plus } from "lucide-react"
 
 // Ícones personalizados como alias
 const TruckIcon = DocumentDuplicateIcon
@@ -42,7 +43,7 @@ const BonificacoesIcon = DocumentDuplicateIcon
 export default function Sidebar() {
   const { user, signOut } = useAuth()
   const router = useRouter()
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   // Queries com configurações otimizadas
@@ -72,15 +73,7 @@ export default function Sidebar() {
   })
 
   const toggleCategory = (categoryId: string) => {
-    setExpandedCategories(prev => {
-      const next = new Set(prev)
-      if (next.has(categoryId)) {
-        next.delete(categoryId)
-      } else {
-        next.add(categoryId)
-      }
-      return next
-    })
+    setExpandedCategory(prev => prev === categoryId ? null : categoryId)
   }
 
   const getCategoryPages = (categoryId: string) => {
@@ -247,6 +240,80 @@ export default function Sidebar() {
 
   const isLoading = isCategoriesLoading || isPagesLoading
 
+  const renderSection = (section: 'reports' | 'management') => {
+    const sectionCategories = categories.filter(cat => cat.section === section)
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
+            {section === 'reports' ? 'Relatórios' : 'Gerenciamento'}
+          </h2>
+          <div className="flex gap-2">
+            {renderActionButton({
+              icon: <Plus className="h-4 w-4" />,
+              label: "Nova Categoria",
+              onClick: onAddCategory
+            })}
+          </div>
+        </div>
+
+        <nav className="space-y-1">
+          {sectionCategories.map((category) => (
+            <div key={category.id}>
+              <button
+                onClick={() => toggleCategory(category.id)}
+                className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+              >
+                <div className="flex items-center gap-2">
+                  {getIconForCategory(category)}
+                  <span>{category.name}</span>
+                </div>
+                <ChevronDownIcon 
+                  className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                    expandedCategory === category.id ? 'transform rotate-180' : ''
+                  }`} 
+                />
+              </button>
+              
+              {expandedCategory === category.id && (
+                <div className="ml-7 space-y-1">
+                  {getCategoryPages(category.id).map(page => (
+                    <Link
+                      key={page.id}
+                      href={`/${section === 'reports' ? 'relatorios' : 'gerenciamento'}/${category.slug}/${page.slug}`}
+                      className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                    >
+                      {getIconForPage(page)}
+                      <span className="ml-2">{page.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+      </div>
+    )
+  }
+
+  const renderActionButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => {
+    return (
+      <button
+        onClick={onClick}
+        className="p-1 hover:bg-gray-100 rounded-md"
+        title={label}
+      >
+        {icon}
+      </button>
+    )
+  }
+
+  const onAddCategory = () => {
+    // Implementar lógica de adicionar categoria
+    console.log('Adicionar categoria')
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-white border-r w-64">
@@ -271,10 +338,6 @@ export default function Sidebar() {
     )
   }
 
-  // Filter categories by section
-  const reportCategories = categories.filter(cat => cat.section === 'reports')
-  const managementCategories = categories.filter(cat => cat.section === 'management')
-
   return (
     <div className="flex flex-col h-screen bg-white border-r w-64">
       {/* Logo - 10% */}
@@ -294,109 +357,8 @@ export default function Sidebar() {
       </div>
 
       <div className="flex flex-col h-[90%]">
-        {/* Relatórios - 45% */}
-        <div className="h-[45%] overflow-y-auto">
-          <div className="px-3 py-4">
-            <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
-              Relatórios
-            </h2>
-            <nav className="space-y-1">
-              {reportCategories.map((category) => (
-                <div key={category.id}>
-                  <button
-                    onClick={() => toggleCategory(category.id)}
-                    className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                  >
-                    <div className="flex items-center gap-2">
-                      {getIconForCategory(category)}
-                      <span>{category.name}</span>
-                    </div>
-                    <ChevronDownIcon 
-                      className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                        expandedCategories.has(category.id) ? 'transform rotate-180' : ''
-                      }`} 
-                    />
-                  </button>
-                  
-                  {expandedCategories.has(category.id) && (
-                    <div className="ml-7 space-y-1">
-                      {getCategoryPages(category.id).map(page => (
-                        <Link
-                          key={page.id}
-                          href={`/relatorios/${category.slug}/${page.slug}`}
-                          className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                        >
-                          {getIconForPage(page)}
-                          <span className="ml-2">{page.name}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </nav>
-          </div>
-        </div>
-
-        {/* Gerenciamento - 45% */}
-        <div className="h-[45%] overflow-y-auto border-t">
-          <div className="px-3 py-4">
-            <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
-              Gerenciamento
-            </h2>
-            <nav className="space-y-1">
-              {managementCategories.map((category) => {
-                const pages = getCategoryPages(category.id)
-                return (
-                  <div key={category.id}>
-                    {pages.length > 1 ? (
-                      <>
-                        <button
-                          onClick={() => toggleCategory(category.id)}
-                          className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                        >
-                          <div className="flex items-center gap-2">
-                            {getIconForCategory(category)}
-                            <span>{category.name}</span>
-                          </div>
-                          <ChevronDownIcon 
-                            className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                              expandedCategories.has(category.id) ? 'transform rotate-180' : ''
-                            }`} 
-                          />
-                        </button>
-                        {expandedCategories.has(category.id) && (
-                          <div className="ml-7 space-y-1">
-                            {pages.map((page) => (
-                              <Link
-                                key={page.id}
-                                href={`/gerenciamento/${category.slug}/${page.slug}`}
-                                className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                              >
-                                {getIconForPage(page)}
-                                <span className="ml-2">{page.name}</span>
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <Link
-                        href={pages[0] ? `/gerenciamento/${category.slug}` : '#'}
-                        className="flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                      >
-                        <div className="flex items-center gap-2">
-                          {getIconForCategory(category)}
-                          <span>{category.name}</span>
-                        </div>
-                      </Link>
-                    )}
-                  </div>
-                )
-              })}
-            </nav>
-          </div>
-        </div>
+        {renderSection('reports')}
+        {renderSection('management')}
 
         {/* Configurações - 10% */}
         <div className="h-[10%] border-t mt-auto relative">
