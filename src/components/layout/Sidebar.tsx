@@ -66,32 +66,38 @@ export default function Sidebar() {
       const { data, error } = await supabase
         .from('pages')
         .select(`
-          id,
-          created_at,
-          updated_at,
-          name,
-          slug,
-          category_id,
-          icon,
-          order_index,
+          *,
+          categories!inner (
+            id,
+            name,
+            slug,
+            section,
+            order_index,
+            icon
+          ),
           tabs (
             id,
             name,
             content,
-            order_index
+            order_index,
+            created_at,
+            updated_at,
+            page_id
           )
         `)
         .order('order_index', { ascending: true })
       if (error) throw error
+      
+      // Mapeia os dados garantindo que todos os campos necessários estejam presentes
       const mappedData = data.map(item => {
-        const mappedTabs = item.tabs.map(tab => ({
+        const mappedTabs = (item.tabs || []).map((tab: any) => ({
           id: tab.id,
           name: tab.name,
-          content: tab.content,
+          content: tab.content || '',
           order_index: tab.order_index,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          page_id: item.id
+          created_at: tab.created_at,
+          updated_at: tab.updated_at,
+          page_id: tab.page_id || item.id
         })) as Tab[]
 
         return {
@@ -101,11 +107,15 @@ export default function Sidebar() {
           name: item.name,
           slug: item.slug,
           category_id: item.category_id,
+          category_name: item.categories?.name,
+          categories: item.categories,
           icon: item.icon,
           order_index: item.order_index,
           tabs: mappedTabs
         } as Page
       })
+
+      console.log('Dados mapeados:', mappedData) // Para debug
       return mappedData
     },
     staleTime: 30000 // Cache por 30 segundos
