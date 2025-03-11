@@ -245,73 +245,64 @@ export default function Sidebar() {
 
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="px-3 py-4">
           <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
             {section === 'reports' ? 'Relatórios' : 'Gerenciamento'}
           </h2>
-          <div className="flex gap-2">
-            {renderActionButton({
-              icon: <Plus className="h-4 w-4" />,
-              label: "Nova Categoria",
-              onClick: onAddCategory
-            })}
-          </div>
-        </div>
-
-        <nav className="space-y-1">
-          {sectionCategories.map((category) => (
-            <div key={category.id}>
-              <button
-                onClick={() => toggleCategory(category.id)}
-                className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-              >
-                <div className="flex items-center gap-2">
-                  {getIconForCategory(category)}
-                  <span>{category.name}</span>
-                </div>
-                <ChevronDownIcon 
-                  className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                    expandedCategory === category.id ? 'transform rotate-180' : ''
-                  }`} 
-                />
-              </button>
-              
-              {expandedCategory === category.id && (
-                <div className="ml-7 space-y-1">
-                  {getCategoryPages(category.id).map(page => (
+          <nav className="space-y-1">
+            {sectionCategories.map((category) => {
+              const pages = getCategoryPages(category.id)
+              return (
+                <div key={category.id}>
+                  {pages.length > 1 || section === 'reports' ? (
+                    <>
+                      <button
+                        onClick={() => toggleCategory(category.id)}
+                        className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                      >
+                        <div className="flex items-center gap-2">
+                          {getIconForCategory(category)}
+                          <span>{category.name}</span>
+                        </div>
+                        <ChevronDownIcon 
+                          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                            expandedCategory === category.id ? 'transform rotate-180' : ''
+                          }`} 
+                        />
+                      </button>
+                      {expandedCategory === category.id && (
+                        <div className="ml-7 space-y-1">
+                          {pages.map((page) => (
+                            <Link
+                              key={page.id}
+                              href={`/${section === 'reports' ? 'relatorios' : 'gerenciamento'}/${category.slug}/${page.slug}`}
+                              className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                            >
+                              {getIconForPage(page)}
+                              <span className="ml-2">{page.name}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
                     <Link
-                      key={page.id}
-                      href={`/${section === 'reports' ? 'relatorios' : 'gerenciamento'}/${category.slug}/${page.slug}`}
-                      className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                      href={pages[0] ? `/gerenciamento/${category.slug}` : '#'}
+                      className="flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
                     >
-                      {getIconForPage(page)}
-                      <span className="ml-2">{page.name}</span>
+                      <div className="flex items-center gap-2">
+                        {getIconForCategory(category)}
+                        <span>{category.name}</span>
+                      </div>
                     </Link>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
-        </nav>
+              )
+            })}
+          </nav>
+        </div>
       </div>
     )
-  }
-
-  const renderActionButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => {
-    return (
-      <button
-        onClick={onClick}
-        className="p-1 hover:bg-gray-100 rounded-md"
-        title={label}
-      >
-        {icon}
-      </button>
-    )
-  }
-
-  const onAddCategory = () => {
-    // Implementar lógica de adicionar categoria
-    console.log('Adicionar categoria')
   }
 
   if (isLoading) {
