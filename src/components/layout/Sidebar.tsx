@@ -83,7 +83,25 @@ export default function Sidebar() {
         `)
         .order('order_index', { ascending: true })
       if (error) throw error
-      return data as Page[]
+      return data.map(item => ({
+        id: item.id,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        name: item.name,
+        slug: item.slug,
+        category_id: item.category_id,
+        icon: item.icon,
+        order_index: item.order_index,
+        tabs: item.tabs.map(tab => ({
+          id: tab.id,
+          name: tab.name,
+          content: tab.content,
+          order_index: tab.order_index,
+          created_at: tab.created_at || new Date().toISOString(),
+          updated_at: tab.updated_at || new Date().toISOString(),
+          page_id: item.id
+        }))
+      })) as Page[]
     },
     staleTime: 30000 // Cache por 30 segundos
   })
