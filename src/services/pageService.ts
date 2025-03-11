@@ -65,7 +65,11 @@ export const pageService = {
   getAllPages: async (): Promise<Page[]> => {
     const { data, error } = await supabase
       .from("pages")
-      .select("*, tabs(*)")
+      .select(`
+        *,
+        tabs(*),
+        categories:category_id(*)
+      `)
       .order("name")
 
     if (error) throw error
@@ -75,7 +79,11 @@ export const pageService = {
   getPages: async (categoryId: string): Promise<Page[]> => {
     const { data, error } = await supabase
       .from("pages")
-      .select("*, tabs(*)")
+      .select(`
+        *,
+        tabs(*),
+        categories:category_id(*)
+      `)
       .eq("category_id", categoryId)
       .order("name")
 
