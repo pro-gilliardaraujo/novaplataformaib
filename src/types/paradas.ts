@@ -1,6 +1,6 @@
 export interface Frota {
   id: string
-  codigo_patrimonio: string
+  frota: string
   descricao: string
   unidade_id: string
   created_at: string

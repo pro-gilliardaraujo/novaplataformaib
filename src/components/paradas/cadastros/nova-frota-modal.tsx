@@ -70,7 +70,7 @@ export function NovaFrotaModal({
       const { error } = await supabase
         .from("frotas")
         .insert([{ 
-          codigo_patrimonio: frota,
+          frota: frota,
           descricao,
           unidade_id: unidadeId
         }])

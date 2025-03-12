@@ -16,7 +16,7 @@ import { NovaFrotaModal } from "./nova-frota-modal"
 
 interface Frota {
   id: number
-  codigo_patrimonio: string
+  frota: string
   descricao: string
   unidade_id: number
   unidade: {
@@ -99,7 +99,7 @@ export function FrotasTable() {
   const { toast } = useToast()
 
   const columns: ColumnType[] = [
-    { key: "codigo_patrimonio", title: "Frota" },
+    { key: "frota", title: "Frota" },
     { key: "descricao", title: "Descrição" },
     { key: "unidade", title: "Unidade", getValue: (f: Frota) => f.unidade?.nome || '-' },
   ]
@@ -110,7 +110,7 @@ export function FrotasTable() {
       const { data, error } = await supabase
         .from("frotas")
         .select("*, unidade:unidades(nome)")
-        .order("codigo_patrimonio")
+        .order("frota")
 
       if (error) throw error
 
@@ -326,7 +326,7 @@ export function FrotasTable() {
               <>
                 {paginatedData.map((frota) => (
                   <TableRow key={frota.id} className="h-[44px] hover:bg-gray-50 border-b border-gray-200">
-                    <TableCell className="py-0 border-x border-gray-100">{frota.codigo_patrimonio}</TableCell>
+                    <TableCell className="py-0 border-x border-gray-100">{frota.frota}</TableCell>
                     <TableCell className="py-0 border-x border-gray-100">{frota.descricao}</TableCell>
                     <TableCell className="py-0 border-x border-gray-100">{frota.unidade.nome}</TableCell>
                     <TableCell className="py-0 border-x border-gray-100">
@@ -360,7 +360,7 @@ export function FrotasTable() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Esta ação não pode ser desfeita. Isso excluirá permanentemente a frota {frota.codigo_patrimonio}.
+                                Esta ação não pode ser desfeita. Isso excluirá permanentemente a frota {frota.frota}.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -433,7 +433,7 @@ export function FrotasTable() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader className="flex items-center px-4 py-2 border-b relative">
             <DialogTitle className="flex-1 text-center">
-              Editar - {selectedFrota?.codigo_patrimonio}
+              Editar - {selectedFrota?.frota}
             </DialogTitle>
             <DialogClose className="absolute right-2 top-2">
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

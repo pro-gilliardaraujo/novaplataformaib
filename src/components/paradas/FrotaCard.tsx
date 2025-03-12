@@ -38,7 +38,7 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
       <CardContent className="p-4">
         {/* Cabeçalho com código e descrição */}
         <div className="mb-3">
-          <h3 className="font-semibold text-lg">{frota.codigo_patrimonio}</h3>
+          <h3 className="font-semibold text-lg">{frota.frota}</h3>
           <p className="text-sm text-gray-500">{frota.descricao}</p>
         </div>
 
