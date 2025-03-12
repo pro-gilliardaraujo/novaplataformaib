@@ -1,58 +1,81 @@
-export type Category = {
+export interface Category {
   id: string;
-  created_at: string;
-  updated_at: string;
   name: string;
   slug: string;
   order_index: number;
   section: 'reports' | 'management';
   icon?: string;
-};
+  pages?: Page[];
+}
 
-export type Page = {
+export interface Tab {
   id: string;
   created_at: string;
   updated_at: string;
-  category_id: string;
-  category_name?: string;
-  categories?: Category;
-  name: string;
-  slug: string;
-  icon?: string;
-  tabs: Tab[];
-};
-
-export type Tab = {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  page_id: string;
+  page_id: string | null;
   name: string;
   content: string;
   order_index: number;
-};
+}
+
+export interface Page {
+  id: string;
+  name: string;
+  slug: string;
+  icon?: string;
+  tabs?: Tab[];
+  categories?: {
+    id: string;
+    name: string;
+    slug: string;
+    section: 'reports' | 'management';
+    order_index: number;
+  };
+}
 
 // Tipos para criação/atualização
 export interface CreateCategoryData {
   name: string;
+  slug: string;
   order_index: number;
+  section: 'reports' | 'management';
+  icon?: string;
 }
 
-export interface UpdateCategoryOrder {
-  id: string;
-  order_index: number;
+export interface UpdateCategoryData {
+  name?: string;
+  slug?: string;
+  order_index?: number;
+  section?: 'reports' | 'management';
+  icon?: string;
 }
 
 export interface CreatePageData {
-  category_id: string;
   name: string;
+  slug: string;
+  category_id?: string;
+  category_type?: string;
+  icon?: string;
 }
 
-export interface UpdateTabsData {
-  page_id: string;
-  tabs: Array<{
-    name: string;
-    content: string;
-    order_index: number;
-  }>;
+export interface UpdatePageData {
+  name?: string;
+  slug?: string;
+  category_id?: string;
+  category_type?: string;
+  icon?: string;
+}
+
+export interface CreateTabData {
+  name: string;
+  content: string;
+  order_index: number;
+  page_id?: string;
+}
+
+export interface UpdateTabData {
+  name?: string;
+  content?: string;
+  order_index?: number;
+  page_id?: string;
 } 

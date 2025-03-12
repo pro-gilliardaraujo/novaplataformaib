@@ -47,86 +47,49 @@ export default function Sidebar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   // Queries com configurações otimizadas
-  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
-    queryKey: ['categories'],
+  const { data: menuData = { reports: [], management: [] }, isLoading } = useQuery({
+    queryKey: ['menu-data'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id, name, slug, order_index, section, icon')
-        .order('order_index')
-      if (error) throw error
-      return data as Category[]
-    },
-    staleTime: 30000 // Cache por 30 segundos
-  })
-
-  const { data: pages = [], isLoading: isPagesLoading } = useQuery({
-    queryKey: ['pages'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('pages')
-        .select(`
-          *,
-          categories!inner (
+      try {
+        // Busca todas as categorias com suas páginas em uma única query
+        const { data: categories, error } = await supabase
+          .from('categories')
+          .select(`
             id,
             name,
             slug,
             section,
+            icon,
             order_index,
-            icon
-          ),
-          tabs (
-            id,
-            name,
-            content,
-            order_index,
-            created_at,
-            updated_at,
-            page_id
-          )
-        `)
-        .order('order_index', { ascending: true })
-      if (error) throw error
-      
-      // Mapeia os dados garantindo que todos os campos necessários estejam presentes
-      const mappedData = data.map(item => {
-        const mappedTabs = (item.tabs || []).map((tab: any) => ({
-          id: tab.id,
-          name: tab.name,
-          content: tab.content || '',
-          order_index: tab.order_index,
-          created_at: tab.created_at,
-          updated_at: tab.updated_at,
-          page_id: tab.page_id || item.id
-        })) as Tab[]
+            pages (
+              id,
+              name,
+              slug,
+              icon
+            )
+          `)
+          .order('order_index')
 
-        return {
-          id: item.id,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          name: item.name,
-          slug: item.slug,
-          category_id: item.category_id,
-          category_name: item.categories?.name,
-          categories: item.categories,
-          icon: item.icon,
-          order_index: item.order_index,
-          tabs: mappedTabs
-        } as Page
-      })
+        if (error) throw error
 
-      console.log('Dados mapeados:', mappedData) // Para debug
-      return mappedData
+        // Organiza os dados por seção
+        const organized = {
+          reports: categories?.filter(cat => cat.section === 'reports') || [],
+          management: categories?.filter(cat => cat.section === 'management') || []
+        }
+
+        return organized
+      } catch (error) {
+        console.error('Erro ao buscar dados do menu:', error)
+        return { reports: [], management: [] }
+      }
     },
-    staleTime: 30000 // Cache por 30 segundos
+    staleTime: 30000,
+    retry: 1
   })
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(prev => prev === categoryId ? null : categoryId)
-  }
-
-  const getCategoryPages = (categoryId: string) => {
-    return pages.filter((page: Page) => page.category_id === categoryId)
   }
 
   const getIconForCategory = (category: Category) => {
@@ -287,10 +250,8 @@ export default function Sidebar() {
     router.push("/login")
   }
 
-  const isLoading = isCategoriesLoading || isPagesLoading
-
   const renderSection = (section: 'reports' | 'management') => {
-    const sectionCategories = categories.filter((cat: Category) => cat.section === section)
+    const categories = menuData[section]
 
     return (
       <div className="h-[45%] overflow-y-auto border-t">
@@ -299,47 +260,9 @@ export default function Sidebar() {
             {section === 'reports' ? 'Relatórios' : 'Gerenciamento'}
           </h2>
           <nav className="space-y-1">
-            {sectionCategories.map((category: Category) => {
-              const pages = getCategoryPages(category.id)
-              
-              // Se for seção de relatórios OU se tiver mais de uma página, mostra como dropdown
-              if (section === 'reports' || pages.length > 1) {
-                return (
-                  <div key={category.id}>
-                    <button
-                      onClick={() => section === 'reports' ? toggleCategory(category.id) : undefined}
-                      className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                    >
-                      <div className="flex items-center gap-2">
-                        {getIconForCategory(category)}
-                        <span>{category.name}</span>
-                      </div>
-                      {(section === 'reports' || pages.length > 1) && (
-                        <ChevronDownIcon 
-                          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                            (section === 'reports' ? expandedCategory === category.id : true) ? 'transform rotate-180' : ''
-                          }`} 
-                        />
-                      )}
-                    </button>
-                    {(section === 'reports' ? expandedCategory === category.id : true) && (
-                      <div className="ml-7 space-y-1">
-                        {pages.map((page: Page) => (
-                          <Link
-                            key={page.id}
-                            href={`/${section === 'reports' ? 'relatorios' : 'gerenciamento'}/${category.slug}/${page.slug}`}
-                            className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                          >
-                            {getIconForPage(page)}
-                            <span className="ml-2">{page.name}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              } else {
-                // Se for página única no gerenciamento, mostra como link direto
+            {categories.map((category) => {
+              // Link direto para categorias com uma única página no gerenciamento
+              if (section === 'management' && category.pages?.length === 1) {
                 return (
                   <Link
                     key={category.id}
@@ -353,6 +276,37 @@ export default function Sidebar() {
                   </Link>
                 )
               }
+              
+              // Dropdown para os demais casos
+              return (
+                <div key={category.id}>
+                  <button
+                    onClick={() => toggleCategory(category.id)}
+                    className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      {getIconForCategory(category)}
+                      <span>{category.name}</span>
+                    </div>
+                    <ChevronDownIcon 
+                      className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                        expandedCategory === category.id ? 'transform rotate-180' : ''
+                      }`} 
+                    />
+                  </button>
+                  <div className={`ml-7 space-y-1 ${expandedCategory === category.id ? 'block' : 'hidden'}`}>
+                    {category.pages?.map((page) => (
+                      <Link
+                        key={page.id}
+                        href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}
+                        className="block px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                      >
+                        {page.name}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )
             })}
           </nav>
         </div>
