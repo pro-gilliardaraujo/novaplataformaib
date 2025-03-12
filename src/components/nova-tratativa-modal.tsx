@@ -102,6 +102,7 @@ export function NovaTratativaModal({
     imagem_evidencia1: "",
     data_formatada: "",
     mock: false,
+    analista: "Gilliard (gilliard@ib.logistica)"
   })
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -250,6 +251,7 @@ export function NovaTratativaModal({
         advertido: advertidoStatus,
         data_formatada: formatarData(formData.data_infracao),
         mock: formData.mock,
+        analista: formData.analista
       }
 
       console.log("Submitting tratativa data:", tratativaData)
@@ -339,6 +341,7 @@ export function NovaTratativaModal({
       imagem_evidencia1: "",
       data_formatada: "",
       mock: false,
+      analista: "Gilliard (gilliard@ib.logistica)"
     })
     setFiles([])
   }
