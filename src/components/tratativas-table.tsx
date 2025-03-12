@@ -34,6 +34,7 @@ interface Tratativa {
   mock: boolean
   texto_advertencia: string
   metrica: string
+  analista: string
 }
 
 interface FilterState {
@@ -102,6 +103,12 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
   const [currentPage, setCurrentPage] = useState(1)
   const rowsPerPage = 15  // Updated to match retiradas table
 
+  const formatAnalista = (analista: string) => {
+    if (!analista) return "";
+    // Retorna apenas o nome antes do parênteses
+    return analista.split(" (")[0];
+  }
+
   const columns = [
     { key: "numero_tratativa", title: "Tratativa" },
     { key: "data_infracao", title: "Data" },
@@ -110,6 +117,7 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
     { key: "lider", title: "Líder" },
     { key: "penalidade", title: "Penalidade" },
     { key: "status", title: "Situação" },
+    { key: "analista", title: "Analista" }
   ] as const
 
   const filterOptions = useMemo(() => {
@@ -223,37 +231,34 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
               <TableCell className="py-0">{tratativa.lider}</TableCell>
               <TableCell className="py-0">{tratativa.penalidade}</TableCell>
               <TableCell className="py-0">
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    tratativa.status === "ENVIADA"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : tratativa.status === "DEVOLVIDA"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
-                >
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  tratativa.status === 'DEVOLVIDA' ? 'bg-green-100 text-green-800' :
+                  tratativa.status === 'CANCELADA' ? 'bg-red-100 text-red-800' :
+                  tratativa.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' :
+                  tratativa.status === 'ENVIADA' ? 'bg-amber-100 text-amber-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
                   {tratativa.status}
                 </span>
               </TableCell>
-              <TableCell className="py-0 whitespace-nowrap">
-                <div className="flex items-center gap-2">
+              <TableCell className="py-0">{formatAnalista(tratativa.analista)}</TableCell>
+              <TableCell className="py-0">
+                <div className="flex items-center space-x-2">
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setSelectedTratativa({
-                      ...tratativa,
-                      texto_advertencia: tratativa.texto_advertencia || "",
-                      metrica: tratativa.metrica || "",
-                    })}
+                    size="icon"
+                    onClick={() => {
+                      setSelectedTratativa(tratativa)
+                    }}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => handleEditClick(tratativa)}
+                    size="icon"
+                    onClick={() => {
+                      setSelectedTratativaForEdit(tratativa)
+                    }}
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>

@@ -109,11 +109,16 @@ export default function TratativaDetailsModal({ open, onOpenChange, tratativa }:
                     tratativa.status === 'DEVOLVIDA' ? 'bg-green-100 text-green-800' :
                     tratativa.status === 'CANCELADA' ? 'bg-red-100 text-red-800' :
                     tratativa.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' :
+                    tratativa.status === 'ENVIADA' ? 'bg-amber-100 text-amber-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
                     {tratativa.status}
                   </span>
                 } 
+              />
+              <DetailItem 
+                label="Analista" 
+                value={tratativa.analista}
               />
               {tratativa.data_devolvida && (
                 <>
