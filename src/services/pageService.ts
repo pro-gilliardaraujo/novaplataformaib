@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase"
-import { Category, Page, Tab, CreateCategoryData, CreatePageData, UpdateCategoryOrder, UpdateTabsData } from "@/types/pages"
+import { Category, Page, Tab, CreateCategoryData, CreatePageData, UpdateCategoryData, UpdateTabData } from "@/types/pages"
 
 export const pageService = {
   getCategories: async (): Promise<Category[]> => {
@@ -42,7 +42,7 @@ export const pageService = {
     return category
   },
 
-  updateCategoriesOrder: async (updates: UpdateCategoryOrder[]): Promise<void> => {
+  updateCategoriesOrder: async (updates: UpdateCategoryData[]): Promise<void> => {
     for (const update of updates) {
       const { error } = await supabase
         .from("categories")
@@ -153,18 +153,35 @@ export const pageService = {
   },
 
   getPageBySlug: async (categorySlug: string, pageSlug: string): Promise<Page> => {
+    console.log("Buscando página:", { categorySlug, pageSlug })
     const { data, error } = await supabase
       .from("pages")
       .select(`
         *,
-        tabs(*),
-        categories!inner(*)
+        tabs (
+          id,
+          name,
+          content,
+          order_index
+        ),
+        categories!inner (
+          id,
+          name,
+          slug,
+          section,
+          order_index
+        )
       `)
       .eq("slug", pageSlug)
       .eq("categories.slug", categorySlug)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("Erro ao buscar página:", error)
+      throw error
+    }
+
+    console.log("Dados da página encontrados:", data)
     return data
   },
 
@@ -180,7 +197,7 @@ export const pageService = {
     return data
   },
 
-  updateTabs: async (data: UpdateTabsData): Promise<void> => {
+  updateTabs: async (data: UpdateTabData): Promise<void> => {
     try {
       // Primeiro, remove todas as abas existentes da página
       const { error: deleteError } = await supabase

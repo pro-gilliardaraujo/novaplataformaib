@@ -3,12 +3,20 @@
 import { useParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
+import { Page } from "@/types/pages"
+
+interface CategoryData {
+  id: string
+  name: string
+  slug: string
+  pages: Page[]
+}
 
 export default function DynamicReportPage() {
   const params = useParams()
   const { category } = params
 
-  const { data: pageData, isLoading } = useQuery({
+  const { data: pageData, isLoading } = useQuery<CategoryData | null>({
     queryKey: ['report-page-data', category],
     queryFn: async () => {
       try {
