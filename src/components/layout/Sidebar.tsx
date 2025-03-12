@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
@@ -51,6 +51,7 @@ export default function Sidebar() {
     queryKey: ['menu-data'],
     queryFn: async () => {
       try {
+        console.log("Buscando dados do menu...")
         // Busca todas as categorias com suas páginas em uma única query
         const { data: categories, error } = await supabase
           .from('categories')
@@ -65,12 +66,18 @@ export default function Sidebar() {
               id,
               name,
               slug,
-              icon
+              icon,
+              category_id
             )
           `)
           .order('order_index')
 
-        if (error) throw error
+        if (error) {
+          console.error("Erro ao buscar categorias:", error)
+          throw error
+        }
+
+        console.log("Categorias encontradas:", categories)
 
         // Organiza os dados por seção
         const organized = {
@@ -78,6 +85,7 @@ export default function Sidebar() {
           management: categories?.filter(cat => cat.section === 'management') || []
         }
 
+        console.log("Dados organizados:", organized)
         return organized
       } catch (error) {
         console.error('Erro ao buscar dados do menu:', error)
@@ -88,8 +96,14 @@ export default function Sidebar() {
     retry: 1
   })
 
+  // Adiciona log para debug do menuData
+  useEffect(() => {
+    console.log("MenuData atualizado:", menuData)
+  }, [menuData])
+
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(prev => prev === categoryId ? null : categoryId)
+    console.log("Categoria expandida:", categoryId)
   }
 
   const getIconForCategory = (category: Category) => {
@@ -241,7 +255,7 @@ export default function Sidebar() {
       }
     }
 
-    // Se não tiver ícone personalizado, usa o ícone padrão
+    // Ícone padrão
     return <DocumentDuplicateIcon className="h-4 w-4 text-gray-500" />
   }
 
@@ -252,6 +266,7 @@ export default function Sidebar() {
 
   const renderSection = (section: 'reports' | 'management') => {
     const categories = menuData[section]
+    console.log(`Renderizando seção ${section}:`, categories)
 
     return (
       <div className="h-[45%] overflow-y-auto border-t">
@@ -260,9 +275,11 @@ export default function Sidebar() {
             {section === 'reports' ? 'Relatórios' : 'Gerenciamento'}
           </h2>
           <nav className="space-y-1">
-            {categories.map((category) => {
-              // Link direto para categorias com uma única página no gerenciamento
-              if (section === 'management' && category.pages?.length === 1) {
+            {categories?.map((category) => {
+              console.log(`Renderizando categoria ${category.name}:`, category)
+              
+              // Link direto para categorias que são páginas únicas no gerenciamento
+              if (section === 'management' && (!category.pages || category.pages.length === 0 || (category.pages.length === 1 && category.pages[0].slug === category.slug))) {
                 return (
                   <Link
                     key={category.id}
@@ -277,7 +294,7 @@ export default function Sidebar() {
                 )
               }
               
-              // Dropdown para os demais casos
+              // Dropdown para categorias com múltiplas páginas
               return (
                 <div key={category.id}>
                   <button
@@ -295,44 +312,26 @@ export default function Sidebar() {
                     />
                   </button>
                   <div className={`ml-7 space-y-1 ${expandedCategory === category.id ? 'block' : 'hidden'}`}>
-                    {category.pages?.map((page) => (
-                      <Link
-                        key={page.id}
-                        href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}
-                        className="block px-2 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                      >
-                        {page.name}
-                      </Link>
-                    ))}
+                    {category.pages?.map((page) => {
+                      console.log(`Renderizando página ${page.name}:`, page)
+                      return (
+                        <Link
+                          key={page.id}
+                          href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}
+                          className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                        >
+                          <div className="flex items-center gap-2">
+                            {getIconForPage(page)}
+                            <span>{page.name}</span>
+                          </div>
+                        </Link>
+                      )
+                    })}
                   </div>
                 </div>
               )
             })}
           </nav>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col h-screen bg-white border-r w-64">
-        <div className="flex items-center px-3 py-4 border-b h-[10%]">
-          <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-            <Image
-              src="https://kjlwqezxzqjfhacmjhbh.supabase.co/storage/v1/object/public/sourcefiles//logo.png"
-              alt="IB Logística"
-              width={36}
-              height={36}
-              className="rounded"
-            />
-            <span className="ml-3 text-base font-medium text-gray-900">
-              IB Logística
-            </span>
-          </Link>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
         </div>
       </div>
     )
@@ -356,60 +355,69 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <div className="flex flex-col h-[90%]">
-        {renderSection('reports')}
-        {renderSection('management')}
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+        </div>
+      ) : (
+        <div className="flex flex-col h-[90%]">
+          {/* Relatórios - 45% */}
+          {renderSection('reports')}
 
-        {/* Configurações - 10% */}
-        <div className="h-[10%] border-t mt-auto relative">
-          <div className="px-3 py-4">
-            <div className="space-y-1">
-              <button
-                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-              >
-                <div className="flex items-center gap-2">
-                  <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
-                  <span>Configurações</span>
-                </div>
-                <ChevronDownIcon 
-                  className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                    isSettingsOpen ? 'transform rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {isSettingsOpen && (
-                <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
-                  <div className="p-4 border-b bg-gray-50">
-                    <div className="flex flex-col space-y-1">
-                      <span className="font-medium">{user?.profile?.nome}</span>
-                      <Badge variant={user?.profile?.adminProfile ? "default" : "secondary"} className="w-fit">
-                        {user?.profile?.adminProfile ? "Administrador" : "Usuário"}
-                      </Badge>
+          {/* Gerenciamento - 45% */}
+          {renderSection('management')}
+
+          {/* Configurações - 10% */}
+          <div className="h-[10%] border-t mt-auto relative">
+            <div className="px-3 py-4">
+              <div className="space-y-1">
+                <button
+                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                >
+                  <div className="flex items-center gap-2">
+                    <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
+                    <span>Configurações</span>
+                  </div>
+                  <ChevronDownIcon 
+                    className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                      isSettingsOpen ? 'transform rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {isSettingsOpen && (
+                  <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
+                    <div className="p-4 border-b bg-gray-50">
+                      <div className="flex flex-col space-y-1">
+                        <span className="font-medium">{user?.profile?.nome}</span>
+                        <Badge variant={user?.profile?.adminProfile ? "default" : "secondary"} className="w-fit">
+                          {user?.profile?.adminProfile ? "Administrador" : "Usuário"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="mx-2 my-1">
+                      <Link
+                        href="/alterar-senha"
+                        className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
+                      >
+                        <KeyIcon className="h-5 w-5 text-gray-500" />
+                        <span className="ml-2">Trocar Senha</span>
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
+                      >
+                        <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
+                        <span className="ml-2">Sair</span>
+                      </button>
                     </div>
                   </div>
-                  <div className="mx-2 my-1">
-                    <Link
-                      href="/alterar-senha"
-                      className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
-                    >
-                      <KeyIcon className="h-5 w-5 text-gray-500" />
-                      <span className="ml-2">Trocar Senha</span>
-                    </Link>
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
-                    >
-                      <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
-                      <span className="ml-2">Sair</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 } 

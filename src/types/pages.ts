@@ -24,6 +24,8 @@ export interface Page {
   slug: string;
   icon?: string;
   tabs?: Tab[];
+  category_name?: string;
+  category_id?: string;
   categories?: {
     id: string;
     name: string;
@@ -43,6 +45,7 @@ export interface CreateCategoryData {
 }
 
 export interface UpdateCategoryData {
+  id: string;
   name?: string;
   slug?: string;
   order_index?: number;
@@ -74,8 +77,10 @@ export interface CreateTabData {
 }
 
 export interface UpdateTabData {
-  name?: string;
-  content?: string;
-  order_index?: number;
-  page_id?: string;
+  page_id: string;
+  tabs: Array<{
+    name: string;
+    content: string;
+    order_index: number;
+  }>;
 } 
