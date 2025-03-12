@@ -9,32 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import { Eye, Filter, Pencil, ChevronLeft, ChevronRight } from "lucide-react"
 import TratativaDetailsModal from "./tratativa-details-modal"
 import { EditarTratativaModal } from "./editar-tratativa-modal"
-
-interface Tratativa {
-  id: string
-  numero_tratativa: string
-  funcionario: string
-  data_infracao: string
-  hora_infracao: string
-  codigo_infracao: string
-  descricao_infracao: string
-  penalidade: string
-  lider: string
-  status: string
-  created_at: string
-  texto_infracao: string
-  texto_limite: string
-  url_documento_enviado: string
-  url_documento_devolvido: string | null
-  data_devolvida: string | null
-  funcao: string
-  setor: string
-  medida: string
-  valor_praticado: string
-  mock: boolean
-  texto_advertencia: string
-  metrica: string
-}
+import { Tratativa, TratativaDetailsProps } from "@/types/tratativas"
 
 interface FilterState {
   [key: string]: Set<string>
@@ -96,7 +71,7 @@ interface TratativasTableProps {
 
 export function TratativasTable({ tratativas }: TratativasTableProps) {
   const [filters, setFilters] = useState<FilterState>({})
-  const [selectedTratativa, setSelectedTratativa] = useState<Tratativa | null>(null)
+  const [selectedTratativa, setSelectedTratativa] = useState<TratativaDetailsProps | null>(null)
   const [selectedTratativaForEdit, setSelectedTratativaForEdit] = useState<Tratativa | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const rowsPerPage = 13 // Back to 15 rows
@@ -240,11 +215,14 @@ export function TratativasTable({ tratativas }: TratativasTableProps) {
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
-                    onClick={() => setSelectedTratativa({
-                      ...tratativa,
-                      texto_advertencia: tratativa.texto_advertencia || "",
-                      metrica: tratativa.metrica || "",
-                    })}
+                    onClick={() => {
+                      const { id, ...rest } = tratativa
+                      setSelectedTratativa({
+                        ...rest,
+                        id: id.toString(),
+                        analista: "", // Add the required analista field
+                      })
+                    }}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>

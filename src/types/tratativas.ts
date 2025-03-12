@@ -1,5 +1,5 @@
 export interface Tratativa {
-  id: number
+  id: string
   numero_tratativa: string
   funcionario: string
   data_infracao: string
