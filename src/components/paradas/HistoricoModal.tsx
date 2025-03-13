@@ -64,7 +64,7 @@ export function HistoricoModal({ open, onOpenChange, frota }: HistoricoModalProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Histórico de Paradas - {frota.codigo_patrimonio}</DialogTitle>
+          <DialogTitle>Histórico de Paradas - {frota.frota}</DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">
