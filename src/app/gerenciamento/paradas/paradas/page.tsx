@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { ParadasProvider } from "@/contexts/ParadasContext"
 import { useParadas } from "@/contexts/ParadasContext"
 import { Button } from "@/components/ui/button"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { RefreshCw, Settings, Search, Calendar } from "lucide-react"
+import { RefreshCw, Settings, Search, Calendar, Minimize2, Maximize2, GripVertical } from "lucide-react"
 import { FrotaCard } from "@/components/paradas/FrotaCard"
 import { ParadaModal } from "@/components/paradas/ParadaModal"
 import { HistoricoModal } from "@/components/paradas/HistoricoModal"
@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Frota } from "@/types/paradas"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import "@/styles/columns.css"
+import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from "@hello-pangea/dnd"
 
 // Lista de cores disponíveis para seleção aleatória inicial
 const availableColors = [
@@ -48,6 +50,28 @@ function ParadasContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedUnidade, setSelectedUnidade] = useState<string>("todas")
   const [unidadeColors, setUnidadeColors] = useState<Record<string, string>>({})
+  const [minimizedColumns, setMinimizedColumns] = useState<Set<string>>(new Set())
+  const [columnOrder, setColumnOrder] = useState<string[]>([])
+
+  // Load minimized columns state from localStorage
+  useEffect(() => {
+    const savedMinimized = localStorage.getItem('minimizedColumns')
+    if (savedMinimized) {
+      setMinimizedColumns(new Set(JSON.parse(savedMinimized)))
+    }
+  }, [])
+
+  // Save minimized columns state
+  const toggleMinimized = (unidadeId: string) => {
+    const newMinimized = new Set(minimizedColumns)
+    if (newMinimized.has(unidadeId)) {
+      newMinimized.delete(unidadeId)
+    } else {
+      newMinimized.add(unidadeId)
+    }
+    setMinimizedColumns(newMinimized)
+    localStorage.setItem('minimizedColumns', JSON.stringify(Array.from(newMinimized)))
+  }
 
   // Load saved colors on mount or generate random ones
   useEffect(() => {
@@ -73,6 +97,41 @@ function ParadasContent() {
     setUnidadeColors(newColors)
     localStorage.setItem('unidadeColors', JSON.stringify(newColors))
   }
+
+  // Load column order from localStorage
+  useEffect(() => {
+    const savedOrder = localStorage.getItem('columnOrder')
+    if (savedOrder) {
+      setColumnOrder(JSON.parse(savedOrder))
+    } else {
+      // Initialize with current unidades order
+      const initialOrder = unidades.map(u => u.id)
+      setColumnOrder(initialOrder)
+      localStorage.setItem('columnOrder', JSON.stringify(initialOrder))
+    }
+  }, [unidades])
+
+  // Save column order
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return
+
+    const newOrder = Array.from(columnOrder)
+    const [reorderedItem] = newOrder.splice(result.source.index, 1)
+    newOrder.splice(result.destination.index, 0, reorderedItem)
+
+    setColumnOrder(newOrder)
+    localStorage.setItem('columnOrder', JSON.stringify(newOrder))
+  }
+
+  // Sort unidades based on columnOrder
+  const sortedUnidades = useMemo(() => {
+    const orderMap = new Map(columnOrder.map((id, index) => [id, index]))
+    return [...unidades].sort((a, b) => {
+      const orderA = orderMap.get(a.id) ?? Number.MAX_VALUE
+      const orderB = orderMap.get(b.id) ?? Number.MAX_VALUE
+      return orderA - orderB
+    })
+  }, [unidades, columnOrder])
 
   // Handlers
   const handleParar = (frota: Frota) => {
@@ -160,79 +219,147 @@ function ParadasContent() {
             </SelectContent>
           </Select>
 
-          {/* Botões de ação */}
+          {/* Botão de ação */}
           <Button
             variant="outline"
             className="h-10 w-[200px]"
             onClick={() => setModalSeletor(true)}
           >
-            <Settings className="h-4 w-4 mr-2" />
-            Configurar
-          </Button>
-          <Button
-            variant="outline"
-            className="h-10 w-[200px]"
-            onClick={atualizarCenario}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar Cenário
           </Button>
         </div>
       </div>
 
       {/* Área de conteúdo com colunas */}
       <div className="flex-1 px-2 py-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 h-full">
-          {unidades.map((unidade, index) => {
-            const frotasUnidade = frotasPorUnidade[unidade.id]
-            if (!frotasUnidade?.length) return null
-
-            const bgColor = unidadeColors[unidade.id] || getRandomColor()
-
-            return (
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="columns" direction="horizontal">
+            {(provided: DroppableProvided) => (
               <div
-                key={unidade.id}
-                className={`flex flex-col rounded-lg ${bgColor} min-h-0`}
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className="grid-responsive"
               >
-                {/* Cabeçalho da coluna */}
-                <div className="p-4 border-b bg-white/50 backdrop-blur-sm rounded-t-lg">
-                  <div className="flex items-center gap-3">
-                    <ColorPicker
-                      color={unidadeColors[unidade.id] || getRandomColor()}
-                      onChange={(color) => updateUnidadeColor(unidade.id, color)}
-                    />
-                    <h3 className="font-semibold flex-1">{unidade.nome}</h3>
-                    <span className="text-sm text-gray-500">
-                      {frotasUnidade.length} {frotasUnidade.length === 1 ? 'frota' : 'frotas'}
-                    </span>
-                  </div>
-                </div>
+                {sortedUnidades.map((unidade, index) => {
+                  const frotasUnidade = frotasPorUnidade[unidade.id]
+                  if (!frotasUnidade?.length) return null
 
-                {/* Lista de frotas */}
-                <ScrollArea className="flex-1">
-                  <div className="p-2 space-y-2">
-                    {frotasUnidade.map((frota) => {
-                      const status = statusFrotas.get(frota.id)
-                      if (!status) return null
+                  const bgColor = unidadeColors[unidade.id] || getRandomColor()
+                  const isMinimized = minimizedColumns.has(unidade.id)
 
-                      return (
-                        <FrotaCard
-                          key={frota.id}
-                          status={status}
-                          onParar={() => handleParar(frota)}
-                          onLiberar={() => handleLiberar(frota)}
-                          onHistorico={() => handleHistorico(frota)}
-                        />
-                      )
-                    })}
-                  </div>
-                  <ScrollBar />
-                </ScrollArea>
+                  return (
+                    <Draggable
+                      key={unidade.id}
+                      draggableId={unidade.id}
+                      index={index}
+                    >
+                      {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={`flex flex-col rounded-lg ${bgColor} min-h-0 column-transition ${
+                            isMinimized ? 'minimized-column' : ''
+                          } ${snapshot.isDragging ? 'shadow-lg' : ''}`}
+                        >
+                          <div className="column-header">
+                            {isMinimized ? (
+                              <div className="h-full flex flex-col justify-between">
+                                <div className="flex justify-between">
+                                  <div {...provided.dragHandleProps}>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                                    >
+                                      <GripVertical className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => toggleMinimized(unidade.id)}
+                                  >
+                                    <Maximize2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="h-full flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div {...provided.dragHandleProps}>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                                    >
+                                      <GripVertical className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <ColorPicker
+                                    color={unidadeColors[unidade.id] || getRandomColor()}
+                                    onChange={(color) => updateUnidadeColor(unidade.id, color)}
+                                  />
+                                  <div>
+                                    <h3 className="font-semibold inline">
+                                      {unidade.nome}
+                                    </h3>
+                                    <span className="text-sm text-gray-500 ml-1">
+                                      ({frotasUnidade.length} {frotasUnidade.length === 1 ? 'frota' : 'frotas'})
+                                    </span>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => toggleMinimized(unidade.id)}
+                                >
+                                  <Minimize2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="column-content">
+                            {isMinimized ? (
+                              <div className="column-title">
+                                {unidade.nome}
+                              </div>
+                            ) : (
+                              <ScrollArea className="flex-1">
+                                <div className="p-2 space-y-2">
+                                  {frotasUnidade.map((frota) => {
+                                    const status = statusFrotas.get(frota.id)
+                                    if (!status) return null
+
+                                    return (
+                                      <FrotaCard
+                                        key={frota.id}
+                                        status={status}
+                                        onParar={() => handleParar(frota)}
+                                        onLiberar={() => handleLiberar(frota)}
+                                        onHistorico={() => handleHistorico(frota)}
+                                      />
+                                    )
+                                  })}
+                                </div>
+                                <ScrollBar />
+                              </ScrollArea>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  )
+                })}
+                {provided.placeholder}
               </div>
-            )
-          })}
-        </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       </div>
 
       {/* Modais */}

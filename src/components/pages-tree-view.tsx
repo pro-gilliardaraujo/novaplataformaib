@@ -104,7 +104,7 @@ interface PagesTreeViewProps {
   onAddPage: (categoryId: string) => void
   onEditCategory: (category: Category) => void
   onDeleteCategory: (category: Category) => void
-  onAddCategory: () => void
+  onAddCategory: (section: 'reports' | 'management') => void
   onUpdateOrder: (categories: Category[]) => void
   onRenamePage: (pageId: string, newName: string) => void
   onRenameCategory: (categoryId: string, newName: string) => void
@@ -415,15 +415,17 @@ export function PagesTreeView({
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">
-            {section === 'reports' ? 'Relatórios' : 'Gerenciamento'}
+            {section === 'reports' ? 'Visualizações' : 'Gerenciamento'}
           </h2>
-          <div className="flex gap-2">
-            {renderActionButton({
-              icon: <Plus className="h-4 w-4" />,
-              label: "Nova Categoria",
-              onClick: onAddCategory
-            })}
-          </div>
+          {section === 'reports' && (
+            <div className="flex gap-2">
+              {renderActionButton({
+                icon: <Plus className="h-4 w-4" />,
+                label: "Nova Categoria",
+                onClick: () => onAddCategory('reports')
+              })}
+            </div>
+          )}
         </div>
 
         <div className="border rounded-lg">
@@ -473,7 +475,7 @@ export function PagesTreeView({
                               )}
                               <span>{category.name}</span>
                             </div>
-                            {renderCategoryActions(category, section)}
+                            {section === 'reports' && renderCategoryActions(category, section)}
                           </div>
                           
                           {expandedCategories.includes(category.id) && (
@@ -487,7 +489,7 @@ export function PagesTreeView({
                                     <File className="h-4 w-4 text-gray-500" />
                                     <span>{page.name}</span>
                                   </div>
-                                  {renderPageActions(page, section)}
+                                  {section === 'reports' && renderPageActions(page, section)}
                                 </div>
                               ))}
                             </div>

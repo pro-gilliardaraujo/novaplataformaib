@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,6 +21,7 @@ import * as Ri from "react-icons/ri"
 import * as Bi from "react-icons/bi"
 import { IconContext as PhosphorIconContext } from "phosphor-react"
 import "@/styles/material-icons.css"
+import { X } from "lucide-react"
 
 // Helper function to get icon component
 function getIconComponent(iconPath: string | undefined) {
@@ -133,18 +134,17 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
     setIsLoading(true)
 
     try {
-      // Convert time string to minutes
-      let previsaoMinutos: number | undefined = undefined
+      // Use the datetime-local value directly as ISO string
+      let previsaoHorario: string | undefined = undefined
       if (previsao) {
-        const [hours, minutes] = previsao.split(':').map(Number)
-        previsaoMinutos = (hours * 60) + minutes
+        previsaoHorario = new Date(previsao).toISOString()
       }
 
       await paradasService.registrarParada(
         frota.id,
         tipoParadaId,
         motivo,
-        previsaoMinutos
+        previsaoHorario
       )
 
       toast({
@@ -179,11 +179,25 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-[900px]">
-        <DialogHeader className="flex flex-col items-center space-y-2 pb-4">
-          <DialogTitle className="text-xl font-semibold">Registrar Parada {frota.frota}</DialogTitle>
-        </DialogHeader>
+        <div>
+          <div className="flex items-center">
+            <div className="flex-1" />
+            <DialogTitle className="text-xl font-semibold flex-1 text-center">Registrar Parada {frota.frota}</DialogTitle>
+            <div className="flex-1 flex justify-end">
+              <DialogClose asChild>
+                <Button 
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+          </div>
+          <div className="border-b mt-4" />
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-4">
+        <form onSubmit={handleSubmit} className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column - Tipo de Parada */}
             <div className="space-y-2">
@@ -226,13 +240,17 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="previsao">Previsão (opcional)</Label>
+                <Label htmlFor="previsao">Previsão de Liberação</Label>
                 <Input
                   id="previsao"
-                  type="time"
+                  type="datetime-local"
                   value={previsao}
                   onChange={(e) => setPrevisao(e.target.value)}
+                  className="resize-none"
                 />
+                <span className="text-sm text-gray-500">
+                  Selecione a data e hora prevista para a liberação
+                </span>
               </div>
             </div>
           </div>

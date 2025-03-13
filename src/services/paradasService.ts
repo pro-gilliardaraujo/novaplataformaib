@@ -6,7 +6,7 @@ export const paradasService = {
     frotaId: string,
     tipoParadaId: string,
     motivo: string,
-    previsaoMinutos?: number
+    previsaoHorario?: string
   ): Promise<Parada> {
     const now = new Date().toISOString()
 
@@ -16,7 +16,7 @@ export const paradasService = {
         frota_id: frotaId,
         tipo_parada_id: tipoParadaId,
         motivo,
-        previsao_minutos: previsaoMinutos,
+        previsao_horario: previsaoHorario,
         inicio: now,
       }])
       .select(`

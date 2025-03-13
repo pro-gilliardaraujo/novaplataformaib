@@ -30,7 +30,7 @@ export interface Parada {
   motivo: string
   inicio: string // ISO string
   fim?: string | null // ISO string
-  previsao_minutos?: number | null
+  previsao_horario?: string | null // ISO string
   created_at: string
   updated_at: string
   // Campos expandidos via join

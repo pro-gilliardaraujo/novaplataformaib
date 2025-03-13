@@ -272,7 +272,7 @@ export default function Sidebar() {
       <div className="h-[45%] overflow-y-auto border-t">
         <div className="px-3 py-4">
           <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
-            {section === 'reports' ? 'Relatórios' : 'Gerenciamento'}
+            {section === 'reports' ? 'Visualizações' : 'Gerenciamento'}
           </h2>
           <nav className="space-y-1">
             {categories?.map((category) => {

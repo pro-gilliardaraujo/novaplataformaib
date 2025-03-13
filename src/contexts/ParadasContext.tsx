@@ -12,6 +12,8 @@ interface ParadasContextType {
   isLoading: boolean
   error: string | null
   atualizarCenario: () => Promise<void>
+  frotasSelecionadas: Set<string>
+  setFrotasSelecionadas: (frotas: Set<string>) => void
 }
 
 const ParadasContext = createContext<ParadasContextType | undefined>(undefined)
@@ -25,6 +27,7 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [frotasSelecionadas, setFrotasSelecionadas] = useState<Set<string>>(new Set())
 
   // Carregar unidades e frotas
   useEffect(() => {
@@ -56,6 +59,10 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
       }))
 
       setUnidades(unidadesComFrotas)
+      
+      // Start with no frotas selected
+      setFrotasSelecionadas(new Set())
+      
       await atualizarCenario(unidadesComFrotas, frotasData)
     } catch (err) {
       console.error('Erro ao carregar unidades:', err)
@@ -136,7 +143,9 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
     unidades,
     isLoading,
     error,
-    atualizarCenario: () => atualizarCenario()
+    atualizarCenario: () => atualizarCenario(),
+    frotasSelecionadas,
+    setFrotasSelecionadas
   }
 
   return (
