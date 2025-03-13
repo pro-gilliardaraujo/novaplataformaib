@@ -192,13 +192,13 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
                 <RadioGroup
                   value={tipoParadaId}
                   onValueChange={setTipoParadaId}
-                  className="divide-y max-h-[300px] overflow-y-auto"
+                  className="divide-y max-h-[264px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                 >
                   {tiposParada.map(tipo => (
                     <div
                       key={tipo.id}
-                      className={`flex items-center space-x-3 p-3 ${
-                        tipoParadaId === tipo.id ? 'bg-gray-50' : ''
+                      className={`flex items-center space-x-3 p-3 hover:bg-gray-50 ${
+                        tipoParadaId === tipo.id ? 'bg-gray-100' : ''
                       }`}
                     >
                       <RadioGroupItem value={tipo.id} id={tipo.id} />
