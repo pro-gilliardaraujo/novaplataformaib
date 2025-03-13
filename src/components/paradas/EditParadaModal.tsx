@@ -1,105 +1,54 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
-import { ParadaModalProps } from "@/types/paradas"
+import { Parada, TipoParada } from "@/types/paradas"
 import { paradasService } from "@/services/paradasService"
-import * as HeroIconsOutline from "@heroicons/react/24/outline"
-import * as HeroIconsSolid from "@heroicons/react/24/solid"
-import * as HeroIconsMini from "@heroicons/react/20/solid"
-import * as Pi from "phosphor-react"
-import * as Fa from "react-icons/fa"
-import * as Md from "react-icons/md"
-import * as Io from "react-icons/io"
-import * as Ri from "react-icons/ri"
-import * as Bi from "react-icons/bi"
-import { IconContext as PhosphorIconContext } from "phosphor-react"
-import "@/styles/material-icons.css"
-import { X } from "lucide-react"
+import { Clock, ClipboardList, X } from "lucide-react"
+import { renderIcon } from "@/utils/icon-utils"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
-// Helper function to get icon component
-function getIconComponent(iconPath: string | undefined) {
-  if (!iconPath) return null
-
-  const [library, style, name] = iconPath.split('/')
-  let iconSet: Record<string, any>
-
-  // Função auxiliar para renderizar ícone do Phosphor
-  const renderPhosphorIcon = (Icon: any) => {
-    return (
-      <PhosphorIconContext.Provider
-        value={{
-          size: 16,
-          weight: style as any,
-          mirrored: false,
-        }}
-      >
-        <Icon />
-      </PhosphorIconContext.Provider>
-    )
-  }
-
-  switch (library) {
-    case 'heroicons':
-      switch (style) {
-        case 'solid':
-          iconSet = HeroIconsSolid
-          break
-        case 'mini':
-          iconSet = HeroIconsMini
-          break
-        default:
-          iconSet = HeroIconsOutline
-      }
-      break
-    case 'remixicon':
-      iconSet = Ri
-      break
-    case 'boxicons':
-      iconSet = Bi
-      break
-    case 'phosphor':
-      const PhosphorIcon = Pi[name as keyof typeof Pi]
-      if (PhosphorIcon) {
-        return renderPhosphorIcon(PhosphorIcon)
-      }
-      return null
-    case 'fontawesome':
-      iconSet = Fa
-      break
-    case 'material':
-      iconSet = Md
-      break
-    case 'ionicons':
-      iconSet = Io
-      break
-    default:
-      return null
-  }
-
-  const IconComponent = iconSet[name]
-  if (IconComponent) {
-    return <IconComponent className="h-4 w-4 text-gray-500" />
-  }
-
-  return null
+interface EditParadaModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  parada: Parada | null;
+  onParadaUpdated: () => void;
 }
 
-export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: ParadaModalProps) {
-  const [tipoParadaId, setTipoParadaId] = useState("")
-  const [motivo, setMotivo] = useState("")
-  const [previsao, setPrevisao] = useState("")
-  const [tiposParada, setTiposParada] = useState<Array<{ id: string; nome: string; icone?: string }>>([])
+export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }: EditParadaModalProps) {
+  const [tipoParadaId, setTipoParadaId] = useState<string>("")
+  const [motivo, setMotivo] = useState<string>("")
+  const [previsao, setPrevisao] = useState<string>("")
+  const [tiposParada, setTiposParada] = useState<TipoParada[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
-  // Carregar tipos de parada
+  // Update state when parada changes
+  useEffect(() => {
+    if (parada) {
+      setTipoParadaId(parada.tipo_parada_id)
+      setMotivo(parada.motivo || "")
+      if (parada.previsao_horario) {
+        const previsaoDate = new Date(parada.previsao_horario)
+        setPrevisao(previsaoDate.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }))
+      } else {
+        setPrevisao("")
+      }
+    }
+  }, [parada])
+
+  // Load tipos parada when modal opens
   useEffect(() => {
     const carregarTipos = async () => {
       try {
@@ -116,18 +65,15 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
     }
 
     if (open) {
-      // Reset form fields when modal opens
-      setTipoParadaId("")
-      setMotivo("")
-      setPrevisao("")
       carregarTipos()
     }
   }, [open, toast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('ParadaModal form submitted');
     
+    if (!parada) return
+
     if (!tipoParadaId) {
       toast({
         title: "Campo obrigatório",
@@ -149,34 +95,25 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
         previsaoHorario = today.toISOString()
       }
 
-      console.log('Registering parada with:', {
-        frotaId: frota.id,
-        tipoParadaId,
-        motivo,
-        previsaoHorario
-      });
-
-      await paradasService.registrarParada(
-        frota.id,
+      await paradasService.atualizarParada(
+        parada.id,
         tipoParadaId,
         motivo,
         previsaoHorario
       )
 
-      console.log('Parada registered successfully');
-      
       toast({
-        title: "Parada registrada",
-        description: "A parada foi registrada com sucesso",
+        title: "Parada atualizada",
+        description: "A parada foi atualizada com sucesso",
       })
 
-      onParadaRegistrada()
+      onParadaUpdated()
       onOpenChange(false)
     } catch (error) {
-      console.error('Erro ao registrar parada:', error)
+      console.error('Erro ao atualizar parada:', error)
       toast({
         title: "Erro",
-        description: "Não foi possível registrar a parada",
+        description: "Não foi possível atualizar a parada",
         variant: "destructive",
       })
     } finally {
@@ -184,23 +121,18 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
     }
   }
 
-  // Limpar form ao fechar
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      setTipoParadaId("")
-      setMotivo("")
-      setPrevisao("")
-    }
-    onOpenChange(open)
-  }
+  // Don't render if no parada is provided
+  if (!parada) return null
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[900px]">
         <div>
           <div className="flex items-center">
             <div className="flex-1" />
-            <DialogTitle className="text-xl font-semibold flex-1 text-center">Registrar Parada {frota.frota}</DialogTitle>
+            <DialogTitle className="text-xl font-semibold flex-1 text-center whitespace-nowrap">
+              Editar Parada <span className="text-red-500">{parada.frota?.frota} - {parada.frota?.descricao}</span>
+            </DialogTitle>
             <div className="flex-1 flex justify-end">
               <DialogClose asChild>
                 <Button 
@@ -235,7 +167,7 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
                     >
                       <RadioGroupItem value={tipo.id} id={tipo.id} />
                       <Label htmlFor={tipo.id} className="flex items-center gap-2 cursor-pointer">
-                        {tipo.icone && getIconComponent(tipo.icone)}
+                        {tipo.icone && renderIcon(tipo.icone)}
                         <span>{tipo.nome}</span>
                       </Label>
                     </div>
@@ -275,11 +207,11 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
           </div>
 
           <div className="flex justify-end gap-2 mt-6">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
-              {isLoading ? "Registrando..." : "Registrar Parada"}
+              {isLoading ? "Salvando..." : "Salvar"}
             </Button>
           </div>
         </form>

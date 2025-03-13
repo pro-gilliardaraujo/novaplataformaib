@@ -30,7 +30,13 @@
   justify-content: space-between;
 }
 
-.column-header > div > div {
+.column-header > div > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.column-header > div > div:last-child {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -107,4 +113,25 @@
 /* Transition for smooth width changes */
 .column-transition {
   transition: width 0.2s ease-in-out, flex 0.2s ease-in-out, max-width 0.2s ease-in-out;
+}
+
+/* Blinking border animation for overdue paradas */
+@keyframes border-blink {
+  0% {
+    border-color: rgb(239 68 68); /* red-500 */
+    box-shadow: 0 0 5px rgb(239 68 68);
+  }
+  50% {
+    border-color: transparent;
+    box-shadow: none;
+  }
+  100% {
+    border-color: rgb(239 68 68); /* red-500 */
+    box-shadow: 0 0 5px rgb(239 68 68);
+  }
+}
+
+.animate-border-blink {
+  animation: border-blink 1s ease-in-out infinite;
+  border-width: 2px;
 } 

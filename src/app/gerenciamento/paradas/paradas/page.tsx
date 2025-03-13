@@ -18,6 +18,8 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import "@/styles/columns.css"
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from "@hello-pangea/dnd"
+import { toast } from "@/components/ui/use-toast"
+import { paradasService } from "@/services/paradasService"
 
 // Lista de cores disponíveis para seleção aleatória inicial
 const availableColors = [
@@ -135,13 +137,26 @@ function ParadasContent() {
 
   // Handlers
   const handleParar = (frota: Frota) => {
+    console.log('handleParar called for frota:', frota);
     setFrotaSelecionada(frota)
     setModalParada(true)
   }
 
-  const handleLiberar = (frota: Frota) => {
-    setFrotaSelecionada(frota)
-    setModalParada(true)
+  const handleLiberar = async (frota: Frota) => {
+    const status = statusFrotas.get(frota.id);
+    if (!status?.parada_atual) return;
+
+    try {
+      await paradasService.liberarParada(status.parada_atual.id);
+      await atualizarCenario();
+    } catch (error) {
+      console.error('Erro ao liberar parada:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível liberar a parada",
+        variant: "destructive",
+      });
+    }
   }
 
   const handleHistorico = (frota: Frota) => {
@@ -150,6 +165,7 @@ function ParadasContent() {
   }
 
   const handleParadaRegistrada = () => {
+    console.log('handleParadaRegistrada called');
     setModalParada(false)
     atualizarCenario()
   }
@@ -199,8 +215,23 @@ function ParadasContent() {
               <SelectValue>{data === hoje ? "Hoje" : dataFormatada}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={hoje}>Hoje</SelectItem>
-              {/* Adicionar mais opções de data conforme necessário */}
+              {(() => {
+                const dates = [];
+                const today = new Date();
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(today.getDate() - 30);
+
+                for (let d = new Date(today); d >= thirtyDaysAgo; d.setDate(d.getDate() - 1)) {
+                  const dateStr = d.toISOString().split('T')[0];
+                  const isToday = dateStr === hoje;
+                  dates.push(
+                    <SelectItem key={dateStr} value={dateStr}>
+                      {isToday ? "Hoje" : format(d, "dd 'de' MMMM", { locale: ptBR })}
+                    </SelectItem>
+                  );
+                }
+                return dates;
+              })()}
             </SelectContent>
           </Select>
 
@@ -288,15 +319,6 @@ function ParadasContent() {
                             ) : (
                               <div className="h-full flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <div {...provided.dragHandleProps}>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
-                                    >
-                                      <GripVertical className="h-4 w-4" />
-                                    </Button>
-                                  </div>
                                   <ColorPicker
                                     color={unidadeColors[unidade.id] || getRandomColor()}
                                     onChange={(color) => updateUnidadeColor(unidade.id, color)}
@@ -310,14 +332,25 @@ function ParadasContent() {
                                     </span>
                                   </div>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => toggleMinimized(unidade.id)}
-                                >
-                                  <Minimize2 className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                  <div {...provided.dragHandleProps}>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                                    >
+                                      <GripVertical className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => toggleMinimized(unidade.id)}
+                                  >
+                                    <Minimize2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                             )}
                           </div>

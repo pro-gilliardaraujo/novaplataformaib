@@ -35,6 +35,7 @@ export interface Parada {
   updated_at: string
   // Campos expandidos via join
   tipo?: TipoParada
+  frota?: Frota
 }
 
 // Estado do card de frota

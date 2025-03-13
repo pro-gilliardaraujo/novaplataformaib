@@ -1,0 +1,114 @@
+/* Material Icons */
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons+Outlined');
+
+.material-icons-outlined {
+  font-family: 'Material Icons Outlined';
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  vertical-align: middle;
+
+  /* Support for all WebKit browsers. */
+  -webkit-font-smoothing: antialiased;
+  /* Support for Safari and Chrome. */
+  text-rendering: optimizeLegibility;
+  /* Support for Firefox. */
+  -moz-osx-font-smoothing: grayscale;
+  /* Support for IE. */
+  font-feature-settings: 'liga';
+}
+
+/* Heroicons */
+[class^="heroicon-"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  width: 1em !important;
+  height: 1em !important;
+}
+
+/* Phosphor Icons */
+[class^="ph-"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  width: 1em !important;
+  height: 1em !important;
+}
+
+/* Remix Icons */
+[class^="ri-"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  width: 1em !important;
+  height: 1em !important;
+}
+
+/* Box Icons */
+[class^="bx"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  width: 1em !important;
+  height: 1em !important;
+}
+
+/* Font Awesome */
+[class^="fa"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  width: 1em !important;
+  height: 1em !important;
+}
+
+/* Ionicons */
+[class^="ion-"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  width: 1em !important;
+  height: 1em !important;
+}
+
+/* Lucide Icons */
+[class^="lucide-"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  width: 1em !important;
+  height: 1em !important;
+}
+
+/* Common icon styles to ensure consistency */
+.material-icons-outlined,
+[class^="heroicon-"],
+[class^="ph-"],
+[class^="ri-"],
+[class^="bx"],
+[class^="fa"],
+[class^="ion-"],
+[class^="lucide-"] {
+  /* Match Lucide icons size (16px) */
+  font-size: 16px !important;
+  line-height: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+} 

@@ -27,7 +27,23 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [frotasSelecionadas, setFrotasSelecionadas] = useState<Set<string>>(new Set())
+  const [frotasSelecionadas, setFrotasSelecionadas] = useState<Set<string>>(() => {
+    // Try to load from localStorage
+    const saved = localStorage.getItem('frotasSelecionadas')
+    if (!saved) return new Set<string>()
+    try {
+      const parsedData = JSON.parse(saved) as string[]
+      return new Set<string>(parsedData)
+    } catch {
+      return new Set<string>()
+    }
+  })
+
+  // Save to localStorage whenever frotasSelecionadas changes
+  useEffect(() => {
+    const arrayFromSet = Array.from(frotasSelecionadas)
+    localStorage.setItem('frotasSelecionadas', JSON.stringify(arrayFromSet))
+  }, [frotasSelecionadas])
 
   // Carregar unidades e frotas
   useEffect(() => {
@@ -60,8 +76,16 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
 
       setUnidades(unidadesComFrotas)
       
-      // Start with no frotas selected
-      setFrotasSelecionadas(new Set())
+      // Load saved frotas or start with none selected
+      const savedFrotas = localStorage.getItem('frotasSelecionadas')
+      if (savedFrotas) {
+        try {
+          const parsedData = JSON.parse(savedFrotas) as string[]
+          setFrotasSelecionadas(new Set<string>(parsedData))
+        } catch {
+          setFrotasSelecionadas(new Set<string>())
+        }
+      }
       
       await atualizarCenario(unidadesComFrotas, frotasData)
     } catch (err) {
@@ -74,6 +98,7 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
 
   // Função para atualizar o cenário
   const atualizarCenario = async (unidadesAtuais = unidades, frotas = unidades.flatMap(u => u.frotas || [])) => {
+    console.log('Updating scenario...');
     setIsLoading(true)
     setError(null)
 
@@ -93,8 +118,10 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
         .lte('inicio', `${data}T23:59:59`)
 
       if (paradasError) throw paradasError
+      
+      console.log('Found paradas:', paradasDia);
 
-      // 2. Buscar contagem de histórico para cada frota
+      // 2. Buscar contagem de histórico para cada frota (incluindo paradas finalizadas)
       const historicoPromises = frotas.map(async (frota) => {
         const { count } = await supabase
           .from('paradas')
@@ -107,15 +134,18 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
       })
 
       const historicoCounts = await Promise.all(historicoPromises)
+      console.log('History counts:', historicoCounts);
 
       // 3. Montar o mapa de status
       const novoStatus = new Map<string, FrotaStatus>()
 
       frotas.forEach(frota => {
+        // Get active parada (without fim)
         const paradasFrota = paradasDia?.filter(p => 
           p.frota_id === frota.id && !p.fim
         ) || []
 
+        // Get history count including both active and completed paradas
         const historicoCount = historicoCounts.find(h => 
           h.frotaId === frota.id
         )?.count || 0
@@ -127,9 +157,10 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
         })
       })
 
+      console.log('New status map:', Object.fromEntries(novoStatus));
       setStatusFrotas(novoStatus)
-    } catch (err) {
-      console.error('Erro ao atualizar cenário:', err)
+    } catch (error) {
+      console.error('Error updating scenario:', error)
       setError('Erro ao atualizar cenário')
     } finally {
       setIsLoading(false)

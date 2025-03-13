@@ -33,15 +33,25 @@ export const paradasService = {
     return data
   },
 
-  async liberarParada(paradaId: string): Promise<void> {
+  async liberarParada(paradaId: string): Promise<Parada> {
     const now = new Date().toISOString()
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('paradas')
       .update({ fim: now })
       .eq('id', paradaId)
+      .select(`
+        *,
+        tipo:tipo_parada_id (
+          id,
+          nome,
+          icone
+        )
+      `)
+      .single()
 
     if (error) throw error
+    return data
   },
 
   async buscarTiposParada(): Promise<TipoParada[]> {
@@ -66,6 +76,11 @@ export const paradasService = {
           id,
           nome,
           icone
+        ),
+        frota:frota_id (
+          id,
+          frota,
+          descricao
         )
       `)
       .eq('frota_id', frotaId)
@@ -75,6 +90,34 @@ export const paradasService = {
 
     if (error) throw error
     return paradas
+  },
+
+  async atualizarParada(
+    paradaId: string,
+    tipoParadaId: string,
+    motivo: string,
+    previsaoHorario?: string
+  ): Promise<Parada> {
+    const { data, error } = await supabase
+      .from('paradas')
+      .update({
+        tipo_parada_id: tipoParadaId,
+        motivo,
+        previsao_horario: previsaoHorario,
+      })
+      .eq('id', paradaId)
+      .select(`
+        *,
+        tipo:tipo_parada_id (
+          id,
+          nome,
+          icone
+        )
+      `)
+      .single()
+
+    if (error) throw error
+    return data
   },
 
   // Função auxiliar para calcular duração em minutos
