@@ -19,13 +19,15 @@ interface EditParadaModalProps {
   onOpenChange: (open: boolean) => void;
   parada: Parada | null;
   onParadaUpdated: () => void;
+  isFromHistory: boolean;
 }
 
-export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }: EditParadaModalProps) {
+export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated, isFromHistory }: EditParadaModalProps) {
   const [tipoParadaId, setTipoParadaId] = useState<string>("")
   const [motivo, setMotivo] = useState<string>("")
   const [previsao, setPrevisao] = useState<string>("")
   const [inicio, setInicio] = useState<string>("")
+  const [fim, setFim] = useState<string>("")
   const [tiposParada, setTiposParada] = useState<TipoParada[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
@@ -44,6 +46,19 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
         second: '2-digit',
         hour12: false
       }))
+      
+      // Set fim time if it exists
+      if (parada.fim) {
+        const fimDate = new Date(parada.fim)
+        setFim(fimDate.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }))
+      } else {
+        setFim("")
+      }
       
       // Set previsao time
       if (parada.previsao_horario) {
@@ -101,6 +116,7 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
       // Convert time-only values to full datetime
       let previsaoHorario: string | undefined = undefined
       let inicioHorario: string | undefined = undefined
+      let fimHorario: string | undefined = undefined
 
       // Handle previsao time
       if (previsao) {
@@ -118,13 +134,33 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
         inicioHorario = inicioDate.toISOString()
       }
 
-      await paradasService.atualizarParada(
-        parada.id,
-        tipoParadaId,
-        motivo,
-        previsaoHorario,
-        inicioHorario
-      )
+      // Handle fim time for historical entries
+      if (parada.fim && fim) {
+        const fimDate = new Date(parada.fim) // Keep original date, update only time
+        const [hours, minutes, seconds] = fim.split(':').map(Number)
+        fimDate.setHours(hours, minutes, seconds || 0)
+        fimHorario = fimDate.toISOString()
+      }
+
+      // Use different update function based on whether it's a historical entry
+      if (isFromHistory) {
+        await paradasService.atualizarParadaHistorico(
+          parada.id,
+          tipoParadaId,
+          motivo,
+          previsaoHorario,
+          inicioHorario,
+          fimHorario
+        )
+      } else {
+        await paradasService.atualizarParada(
+          parada.id,
+          tipoParadaId,
+          motivo,
+          previsaoHorario,
+          inicioHorario
+        )
+      }
 
       toast({
         title: "Parada atualizada",
@@ -213,6 +249,20 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
                   className="resize-none"
                 />
               </div>
+
+              {parada.fim && (
+                <div className="space-y-2">
+                  <Label htmlFor="fim">Horário de Fim</Label>
+                  <Input
+                    id="fim"
+                    type="time"
+                    step="1"
+                    value={fim}
+                    onChange={(e) => setFim(e.target.value)}
+                    className="resize-none"
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="motivo">Motivo (opcional)</Label>

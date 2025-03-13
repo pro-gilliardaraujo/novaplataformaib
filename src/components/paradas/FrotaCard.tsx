@@ -284,6 +284,7 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
         onOpenChange={setEditModalOpen}
         parada={parada}
         onParadaUpdated={onLiberar}
+        isFromHistory={false}
       />
     </>
   );

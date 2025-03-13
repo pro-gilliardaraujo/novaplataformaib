@@ -99,6 +99,39 @@ export const paradasService = {
     previsaoHorario?: string,
     inicioHorario?: string
   ): Promise<Parada> {
+    // Update only the data fields, completely excluding fim from the update
+    const { data, error } = await supabase
+      .from('paradas')
+      .update({
+        tipo_parada_id: tipoParadaId,
+        motivo,
+        previsao_horario: previsaoHorario,
+        inicio: inicioHorario
+      })
+      .eq('id', paradaId)
+      .select(`
+        *,
+        tipo:tipo_parada_id (
+          id,
+          nome,
+          icone
+        )
+      `)
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async atualizarParadaHistorico(
+    paradaId: string,
+    tipoParadaId: string,
+    motivo: string,
+    previsaoHorario?: string,
+    inicioHorario?: string,
+    fimHorario?: string
+  ): Promise<Parada> {
+    // Update all fields including fim
     const { data, error } = await supabase
       .from('paradas')
       .update({
@@ -106,6 +139,7 @@ export const paradasService = {
         motivo,
         previsao_horario: previsaoHorario,
         inicio: inicioHorario,
+        fim: fimHorario
       })
       .eq('id', paradaId)
       .select(`

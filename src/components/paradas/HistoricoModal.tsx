@@ -306,6 +306,7 @@ export function HistoricoModal({ open, onOpenChange, frota }: HistoricoModalProp
         onOpenChange={(open) => !open && setEditingParada(null)}
         parada={editingParada!}
         onParadaUpdated={handleParadaUpdated}
+        isFromHistory={true}
       />
     </Dialog>
   )
