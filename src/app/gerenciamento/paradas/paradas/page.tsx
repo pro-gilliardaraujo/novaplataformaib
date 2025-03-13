@@ -5,7 +5,7 @@ import { ParadasProvider } from "@/contexts/ParadasContext"
 import { useParadas } from "@/contexts/ParadasContext"
 import { Button } from "@/components/ui/button"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { RefreshCw, Settings, Search, Calendar, Minimize2, Maximize2, GripVertical } from "lucide-react"
+import { RefreshCw, Settings, Search, Minimize2, Maximize2, GripVertical } from "lucide-react"
 import { FrotaCard } from "@/components/paradas/FrotaCard"
 import { ParadaModal } from "@/components/paradas/ParadaModal"
 import { HistoricoModal } from "@/components/paradas/HistoricoModal"
@@ -20,6 +20,8 @@ import "@/styles/columns.css"
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from "@hello-pangea/dnd"
 import { toast } from "@/components/ui/use-toast"
 import { paradasService } from "@/services/paradasService"
+import { CalendarIcon } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 // Lista de cores disponíveis para seleção aleatória inicial
 const availableColors = [
@@ -137,7 +139,6 @@ function ParadasContent() {
 
   // Handlers
   const handleParar = (frota: Frota) => {
-    console.log('handleParar called for frota:', frota);
     setFrotaSelecionada(frota)
     setModalParada(true)
   }
@@ -165,7 +166,6 @@ function ParadasContent() {
   }
 
   const handleParadaRegistrada = () => {
-    console.log('handleParadaRegistrada called');
     setModalParada(false)
     atualizarCenario()
   }
@@ -189,8 +189,16 @@ function ParadasContent() {
     return acc
   }, {} as Record<string, Frota[]>)
 
-  const hoje = new Date().toISOString().split('T')[0]
-  const dataFormatada = format(new Date(data), "dd 'de' MMMM", { locale: ptBR })
+  const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
+  const ontem = new Date(new Date().setDate(new Date().getDate() - 1))
+    .toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })
+    .split(',')[0]
+
+  const formatDisplayDate = (date: Date) => {
+    if (date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0] === hoje) return "Hoje"
+    if (date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0] === ontem) return "Ontem"
+    return format(date, "dd/MM/yyyy")
+  }
 
   return (
     <div className="h-screen flex flex-col">
@@ -209,31 +217,19 @@ function ParadasContent() {
           </div>
 
           {/* Filtro de data */}
-          <Select value={data} onValueChange={setData}>
-            <SelectTrigger className="h-10 w-[200px]">
-              <Calendar className="h-4 w-4 text-gray-500 mr-2" />
-              <SelectValue>{data === hoje ? "Hoje" : dataFormatada}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {(() => {
-                const dates = [];
-                const today = new Date();
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(today.getDate() - 30);
-
-                for (let d = new Date(today); d >= thirtyDaysAgo; d.setDate(d.getDate() - 1)) {
-                  const dateStr = d.toISOString().split('T')[0];
-                  const isToday = dateStr === hoje;
-                  dates.push(
-                    <SelectItem key={dateStr} value={dateStr}>
-                      {isToday ? "Hoje" : format(d, "dd 'de' MMMM", { locale: ptBR })}
-                    </SelectItem>
-                  );
-                }
-                return dates;
-              })()}
-            </SelectContent>
-          </Select>
+          <div className="relative">
+            <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <Input
+              type="date"
+              value={new Date(data).toISOString().split('T')[0]}
+              onChange={(e) => {
+                const date = new Date(e.target.value)
+                setData(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0])
+              }}
+              max={new Date().toISOString().split('T')[0]}
+              className="h-10 w-[200px] pl-9"
+            />
+          </div>
 
           {/* Filtro de unidade */}
           <Select value={selectedUnidade} onValueChange={setSelectedUnidade}>

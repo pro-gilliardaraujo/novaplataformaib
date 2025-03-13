@@ -96,7 +96,8 @@ export const paradasService = {
     paradaId: string,
     tipoParadaId: string,
     motivo: string,
-    previsaoHorario?: string
+    previsaoHorario?: string,
+    inicioHorario?: string
   ): Promise<Parada> {
     const { data, error } = await supabase
       .from('paradas')
@@ -104,6 +105,7 @@ export const paradasService = {
         tipo_parada_id: tipoParadaId,
         motivo,
         previsao_horario: previsaoHorario,
+        inicio: inicioHorario,
       })
       .eq('id', paradaId)
       .select(`

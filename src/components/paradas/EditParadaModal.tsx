@@ -25,6 +25,7 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
   const [tipoParadaId, setTipoParadaId] = useState<string>("")
   const [motivo, setMotivo] = useState<string>("")
   const [previsao, setPrevisao] = useState<string>("")
+  const [inicio, setInicio] = useState<string>("")
   const [tiposParada, setTiposParada] = useState<TipoParada[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
@@ -34,6 +35,17 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
     if (parada) {
       setTipoParadaId(parada.tipo_parada_id)
       setMotivo(parada.motivo || "")
+      
+      // Set inicio time
+      const inicioDate = new Date(parada.inicio)
+      setInicio(inicioDate.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }))
+      
+      // Set previsao time
       if (parada.previsao_horario) {
         const previsaoDate = new Date(parada.previsao_horario)
         setPrevisao(previsaoDate.toLocaleTimeString('pt-BR', {
@@ -86,8 +98,11 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
     setIsLoading(true)
 
     try {
-      // Convert time-only value to full datetime
+      // Convert time-only values to full datetime
       let previsaoHorario: string | undefined = undefined
+      let inicioHorario: string | undefined = undefined
+
+      // Handle previsao time
       if (previsao) {
         const today = new Date()
         const [hours, minutes, seconds] = previsao.split(':').map(Number)
@@ -95,11 +110,20 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
         previsaoHorario = today.toISOString()
       }
 
+      // Handle inicio time
+      if (inicio) {
+        const inicioDate = new Date(parada.inicio) // Keep original date, update only time
+        const [hours, minutes, seconds] = inicio.split(':').map(Number)
+        inicioDate.setHours(hours, minutes, seconds || 0)
+        inicioHorario = inicioDate.toISOString()
+      }
+
       await paradasService.atualizarParada(
         parada.id,
         tipoParadaId,
         motivo,
-        previsaoHorario
+        previsaoHorario,
+        inicioHorario
       )
 
       toast({
@@ -178,6 +202,18 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated }:
 
             {/* Right Column - Motivo e Previsão */}
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="inicio">Horário de Início</Label>
+                <Input
+                  id="inicio"
+                  type="time"
+                  step="1"
+                  value={inicio}
+                  onChange={(e) => setInicio(e.target.value)}
+                  className="resize-none"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="motivo">Motivo (opcional)</Label>
                 <Textarea

@@ -22,6 +22,7 @@ import * as Ri from "react-icons/ri"
 import * as Bi from "react-icons/bi"
 import { IconContext as PhosphorIconContext } from "phosphor-react"
 import "@/styles/material-icons.css"
+import { formatDuration, formatDateTimeBR } from "@/utils/dateUtils"
 
 // Helper function to get icon component
 function getIconComponent(iconPath: string | undefined) {
@@ -110,24 +111,6 @@ export function HistoricoModal({ open, onOpenChange, frota }: HistoricoModalProp
 
     return () => clearInterval(interval)
   }, [open])
-
-  // Calculate duration between two dates or from start until now
-  const calcularDuracaoAtual = useCallback((inicio: string, fim?: string | null) => {
-    const startDate = new Date(inicio)
-    const endDate = fim ? new Date(fim) : currentTime
-    const duration = Math.floor((endDate.getTime() - startDate.getTime()) / 1000) // in seconds
-
-    const hours = Math.floor(duration / 3600)
-    const minutes = Math.floor((duration % 3600) / 60)
-    const seconds = duration % 60
-
-    return {
-      hours,
-      minutes,
-      seconds,
-      total: duration
-    }
-  }, [currentTime])
 
   // Carregar histórico
   const carregarHistorico = useCallback(async () => {
@@ -241,7 +224,7 @@ export function HistoricoModal({ open, onOpenChange, frota }: HistoricoModalProp
             <ScrollArea className="h-[400px]">
               <div className="space-y-2 pr-4">
                 {paradasFiltradas.map((parada) => {
-                  const duracao = calcularDuracaoAtual(parada.inicio, parada.fim)
+                  const tempoCorrido = formatDuration(parada.inicio, parada.fim)
                   const isActive = !parada.fim
                   const previsaoColor = getPrevisaoColor(parada.previsao_horario, parada.fim)
                   const tagColor = getTagColor(parada)
@@ -261,12 +244,10 @@ export function HistoricoModal({ open, onOpenChange, frota }: HistoricoModalProp
                               <span>{parada.tipo?.nome}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1 text-sm">
+                              <div className="flex items-center gap-1">
                                 <Clock className={`h-4 w-4 ${isActive ? 'text-red-500' : ''}`} />
                                 <span className={isActive ? 'text-red-500 font-medium' : 'text-gray-500'}>
-                                  {duracao.hours > 0 && `${duracao.hours}h`}
-                                  {duracao.minutes.toString().padStart(2, '0')}m
-                                  {(isActive || duracao.seconds > 0) && `${duracao.seconds.toString().padStart(2, '0')}s`}
+                                  {tempoCorrido}
                                 </span>
                               </div>
                               {!isActive && (

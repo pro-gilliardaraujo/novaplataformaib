@@ -51,7 +51,6 @@ export default function Sidebar() {
     queryKey: ['menu-data'],
     queryFn: async () => {
       try {
-        console.log("Buscando dados do menu...")
         // Busca todas as categorias com suas páginas em uma única query
         const { data: categories, error } = await supabase
           .from('categories')
@@ -72,12 +71,7 @@ export default function Sidebar() {
           `)
           .order('order_index')
 
-        if (error) {
-          console.error("Erro ao buscar categorias:", error)
-          throw error
-        }
-
-        console.log("Categorias encontradas:", categories)
+        if (error) throw error
 
         // Organiza os dados por seção
         const organized = {
@@ -85,7 +79,6 @@ export default function Sidebar() {
           management: categories?.filter(cat => cat.section === 'management') || []
         }
 
-        console.log("Dados organizados:", organized)
         return organized
       } catch (error) {
         console.error('Erro ao buscar dados do menu:', error)
@@ -96,14 +89,10 @@ export default function Sidebar() {
     retry: 1
   })
 
-  // Adiciona log para debug do menuData
-  useEffect(() => {
-    console.log("MenuData atualizado:", menuData)
-  }, [menuData])
-
   const toggleCategory = (categoryId: string) => {
-    setExpandedCategory(prev => prev === categoryId ? null : categoryId)
-    console.log("Categoria expandida:", categoryId)
+    setExpandedCategory(prev =>
+      prev === categoryId ? null : categoryId
+    )
   }
 
   const getIconForCategory = (category: Category) => {
@@ -266,7 +255,6 @@ export default function Sidebar() {
 
   const renderSection = (section: 'reports' | 'management') => {
     const categories = menuData[section]
-    console.log(`Renderizando seção ${section}:`, categories)
 
     return (
       <div className="h-[45%] overflow-y-auto border-t">
@@ -276,8 +264,6 @@ export default function Sidebar() {
           </h2>
           <nav className="space-y-1">
             {categories?.map((category) => {
-              console.log(`Renderizando categoria ${category.name}:`, category)
-              
               // Link direto para categorias que são páginas únicas no gerenciamento
               if (section === 'management' && (!category.pages || category.pages.length === 0 || (category.pages.length === 1 && category.pages[0].slug === category.slug))) {
                 return (
@@ -312,21 +298,18 @@ export default function Sidebar() {
                     />
                   </button>
                   <div className={`ml-7 space-y-1 ${expandedCategory === category.id ? 'block' : 'hidden'}`}>
-                    {category.pages?.map((page) => {
-                      console.log(`Renderizando página ${page.name}:`, page)
-                      return (
-                        <Link
-                          key={page.id}
-                          href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}
-                          className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                        >
-                          <div className="flex items-center gap-2">
-                            {getIconForPage(page)}
-                            <span>{page.name}</span>
-                          </div>
-                        </Link>
-                      )
-                    })}
+                    {category.pages?.map((page) => (
+                      <Link
+                        key={page.id}
+                        href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}
+                        className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                      >
+                        <div className="flex items-center gap-2">
+                          {getIconForPage(page)}
+                          <span>{page.name}</span>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )

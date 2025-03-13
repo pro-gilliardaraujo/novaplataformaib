@@ -21,7 +21,7 @@ const ParadasContext = createContext<ParadasContextType | undefined>(undefined)
 export function ParadasProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<string>(() => {
     const today = new Date()
-    return today.toISOString().split('T')[0]
+    return today.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
   })
   const [statusFrotas, setStatusFrotas] = useState<Map<string, FrotaStatus>>(new Map())
   const [unidades, setUnidades] = useState<Unidade[]>([])
@@ -98,12 +98,19 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
 
   // Função para atualizar o cenário
   const atualizarCenario = async (unidadesAtuais = unidades, frotas = unidades.flatMap(u => u.frotas || [])) => {
-    console.log('Updating scenario...');
     setIsLoading(true)
     setError(null)
 
     try {
-      // 1. Buscar todas as paradas do dia
+      // Convert date to start/end of day in America/Sao_Paulo timezone
+      const selectedDate = new Date(data)
+      const startOfDay = new Date(selectedDate)
+      startOfDay.setHours(0, 0, 0, 0)
+      
+      const endOfDay = new Date(selectedDate)
+      endOfDay.setHours(23, 59, 59, 999)
+
+      // 1. Buscar todas as paradas do dia selecionado
       const { data: paradasDia, error: paradasError } = await supabase
         .from('paradas')
         .select(`
@@ -114,36 +121,59 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
             icone
           )
         `)
-        .gte('inicio', `${data}T00:00:00`)
-        .lte('inicio', `${data}T23:59:59`)
+        .gte('inicio', startOfDay.toISOString())
+        .lte('inicio', endOfDay.toISOString())
 
       if (paradasError) throw paradasError
-      
-      console.log('Found paradas:', paradasDia);
 
-      // 2. Buscar contagem de histórico para cada frota (incluindo paradas finalizadas)
+      // 2. Buscar paradas ativas de dias anteriores (que ainda não foram finalizadas)
+      const { data: paradasAtivasAnteriores, error: paradasAtivasError } = await supabase
+        .from('paradas')
+        .select(`
+          *,
+          tipo:tipo_parada_id (
+            id,
+            nome,
+            icone
+          )
+        `)
+        .lt('inicio', startOfDay.toISOString())
+        .is('fim', null)
+
+      if (paradasAtivasError) throw paradasAtivasError
+
+      // Combinar paradas do dia com paradas ativas anteriores
+      const todasParadas = [...(paradasDia || []), ...(paradasAtivasAnteriores || [])]
+
+      // 3. Buscar contagem de histórico para cada frota
       const historicoPromises = frotas.map(async (frota) => {
         const { count } = await supabase
           .from('paradas')
           .select('*', { count: 'exact', head: true })
           .eq('frota_id', frota.id)
-          .gte('inicio', `${data}T00:00:00`)
-          .lte('inicio', `${data}T23:59:59`)
+          .gte('inicio', startOfDay.toISOString())
+          .lte('inicio', endOfDay.toISOString())
 
         return { frotaId: frota.id, count: count || 0 }
       })
 
       const historicoCounts = await Promise.all(historicoPromises)
-      console.log('History counts:', historicoCounts);
 
-      // 3. Montar o mapa de status
+      // 4. Montar o mapa de status
       const novoStatus = new Map<string, FrotaStatus>()
 
       frotas.forEach(frota => {
-        // Get active parada (without fim)
-        const paradasFrota = paradasDia?.filter(p => 
-          p.frota_id === frota.id && !p.fim
+        // For historical data (not today), all paradas should be considered finished
+        const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
+        const isHistoricalData = data !== hoje
+        
+        // Get active parada (without fim) - only for today
+        const paradasFrota = todasParadas.filter(p => 
+          p.frota_id === frota.id && (!p.fim || isHistoricalData)
         ) || []
+
+        // Sort paradas by inicio to get the most recent one first
+        paradasFrota.sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime())
 
         // Get history count including both active and completed paradas
         const historicoCount = historicoCounts.find(h => 
@@ -157,7 +187,6 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
         })
       })
 
-      console.log('New status map:', Object.fromEntries(novoStatus));
       setStatusFrotas(novoStatus)
     } catch (error) {
       console.error('Error updating scenario:', error)

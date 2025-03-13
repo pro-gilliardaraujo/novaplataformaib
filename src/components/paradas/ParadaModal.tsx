@@ -126,7 +126,6 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('ParadaModal form submitted');
     
     if (!tipoParadaId) {
       toast({
@@ -149,21 +148,12 @@ export function ParadaModal({ open, onOpenChange, frota, onParadaRegistrada }: P
         previsaoHorario = today.toISOString()
       }
 
-      console.log('Registering parada with:', {
-        frotaId: frota.id,
-        tipoParadaId,
-        motivo,
-        previsaoHorario
-      });
-
       await paradasService.registrarParada(
         frota.id,
         tipoParadaId,
         motivo,
         previsaoHorario
       )
-
-      console.log('Parada registered successfully');
       
       toast({
         title: "Parada registrada",

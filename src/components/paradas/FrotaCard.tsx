@@ -9,6 +9,7 @@ import { paradasService } from "@/services/paradasService"
 import { renderIcon } from "@/utils/icon-utils"
 import { EditParadaModal } from "./EditParadaModal"
 import "@/styles/material-icons.css"
+import { formatDuration } from "@/utils/dateUtils"
 
 interface FrotaCardProps {
   status: FrotaStatus
@@ -182,10 +183,7 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
   const previsaoColor = getPrevisaoColor(parada);
   
   const inicio = new Date(parada.inicio);
-  const horasParada = Math.floor((currentTime.getTime() - inicio.getTime()) / (1000 * 60 * 60));
-  const minutosParada = Math.floor(((currentTime.getTime() - inicio.getTime()) % (1000 * 60 * 60)) / (1000 * 60));
-  const segundosParada = Math.floor(((currentTime.getTime() - inicio.getTime()) % (1000 * 60)) / 1000);
-  const tempoParada = `${horasParada.toString().padStart(2, '0')}:${minutosParada.toString().padStart(2, '0')}:${segundosParada.toString().padStart(2, '0')}`;
+  const tempoCorrido = parada ? formatDuration(parada.inicio, parada.fim) : "00:00:00"
 
   let tempoPrevisao = "";
   if (parada.previsao_horario) {
@@ -255,7 +253,7 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
                 Liberar
               </Button>
               <div className="flex-1 flex items-center justify-center">
-                <span className="text-red-500 font-medium text-xs">{tempoParada}</span>
+                <span className="text-red-500 font-medium text-xs">{tempoCorrido}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Button
