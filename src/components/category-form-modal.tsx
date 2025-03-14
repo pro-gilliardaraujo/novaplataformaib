@@ -12,11 +12,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Category } from "@/types/pages"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface CategoryFormModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (data: { name: string }) => Promise<void>
+  onSubmit: (data: { name: string; section: 'reports' | 'management' }) => Promise<void>
   category?: Category
 }
 
@@ -42,7 +43,7 @@ export function CategoryFormModal({
     setIsLoading(true)
 
     try {
-      await onSubmit({ name })
+      await onSubmit({ name, section: 'reports' }) // Always 'reports' since we only create in Visualizações
       onOpenChange(false)
     } catch (error) {
       console.error("Erro ao salvar categoria:", error)
@@ -88,7 +89,7 @@ export function CategoryFormModal({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || !name.trim()}>
               {isLoading ? "Salvando..." : "Salvar"}
             </Button>
           </div>

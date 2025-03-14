@@ -31,6 +31,7 @@ export default function PaginasPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [deleteType, setDeleteType] = useState<"category" | "page" | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined)
+  const [selectedCategorySection, setSelectedCategorySection] = useState<'reports' | 'management' | null>(null)
 
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -98,6 +99,7 @@ export default function PaginasPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
       toast({
         title: "Sucesso",
         description: "Ordem atualizada com sucesso",
@@ -114,7 +116,7 @@ export default function PaginasPage() {
   })
 
   const createCategoryMutation = useMutation({
-    mutationFn: async (data: { name: string }) => {
+    mutationFn: async (data: { name: string; section: 'reports' | 'management' }) => {
       const maxOrderIndex = Math.max(...categories.map(c => c.order_index), 0)
       const { data: newCategory, error } = await supabase
         .from('categories')
@@ -123,7 +125,7 @@ export default function PaginasPage() {
             name: data.name,
             slug: data.name.toLowerCase().replace(/\s+/g, '-'),
             order_index: maxOrderIndex + 1,
-            section: 'reports'
+            section: data.section
           }
         ])
         .select()
@@ -134,6 +136,7 @@ export default function PaginasPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
       setIsCategoryModalOpen(false)
       toast({
         title: "Sucesso",
@@ -151,16 +154,20 @@ export default function PaginasPage() {
   })
 
   const editCategoryMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string }) => {
+    mutationFn: async (data: { id: string; name: string; section?: 'reports' | 'management' }) => {
       const { error } = await supabase
         .from('categories')
-        .update({ name: data.name })
+        .update({ 
+          name: data.name,
+          ...(data.section && { section: data.section })
+        })
         .eq('id', data.id)
 
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
       setIsCategoryModalOpen(false)
       toast({
         title: "Sucesso",
@@ -179,46 +186,124 @@ export default function PaginasPage() {
 
   const createPageMutation = useMutation({
     mutationFn: async (data: { name: string; categoryId: string }) => {
-      // Primeiro busca a categoria para verificar se é relatório
-      const { data: category, error: categoryError } = await supabase
-        .from('categories')
-        .select('section')
-        .eq('id', data.categoryId)
-        .single()
+      try {
+        console.log('Starting page creation with data:', data);
 
-      if (categoryError) throw categoryError
+        // Primeiro busca a categoria para verificar se é relatório
+        const { data: category, error: categoryError } = await supabase
+          .from('categories')
+          .select('section, name')
+          .eq('id', data.categoryId)
+          .single()
 
-      // Cria a página
-      const { data: page, error: pageError } = await supabase
-        .from('pages')
-        .insert([{
-          name: data.name,
-          slug: data.name.toLowerCase().replace(/\s+/g, '-'),
-          category_id: data.categoryId
-        }])
-        .select()
-        .single()
+        if (categoryError) {
+          console.error('Error fetching category:', categoryError);
+          throw categoryError;
+        }
 
-      if (pageError) throw pageError
+        console.log('Category found:', category);
 
-      // Se for uma categoria de relatórios, cria uma aba inicial
-      if (category.section === 'reports') {
-        const { error: tabError } = await supabase
-          .from('tabs')
+        // Gera o slug base
+        const baseSlug = data.name.toLowerCase().replace(/\s+/g, '-');
+
+        // Busca páginas existentes com slug similar
+        const { data: existingPages, error: searchError } = await supabase
+          .from('pages')
+          .select('slug')
+          .eq('category_id', data.categoryId)
+          .like('slug', `${baseSlug}%`);
+
+        if (searchError) {
+          console.error('Error searching existing pages:', searchError);
+          throw searchError;
+        }
+
+        // Determina o slug único
+        let finalSlug = baseSlug;
+        let counter = 1;
+        
+        while (existingPages?.some(page => page.slug === finalSlug)) {
+          finalSlug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+
+        console.log('Using unique slug:', finalSlug);
+
+        // Cria a página com o slug único
+        const { data: page, error: pageError } = await supabase
+          .from('pages')
           .insert([{
-            page_id: page.id,
-            name: 'Principal',
-            content: getDefaultTabContent(),
-            order_index: 0
+            name: data.name,
+            slug: finalSlug,
+            category_id: data.categoryId
           }])
+          .select('*')
+          .single()
 
-        if (tabError) throw tabError
+        if (pageError) {
+          console.error('Error creating page:', pageError);
+          throw pageError;
+        }
+
+        console.log('Page created:', page);
+
+        // Se for uma categoria de relatórios, cria uma aba inicial
+        if (category.section === 'reports') {
+          console.log('Creating initial tab for reports page');
+          
+          const { data: tab, error: tabError } = await supabase
+            .from('tabs')
+            .insert([{
+              page_id: page.id,
+              name: 'Principal',
+              content: getDefaultTabContent(),
+              order_index: 0
+            }])
+            .select('*')
+
+          if (tabError) {
+            console.error('Error creating tab:', tabError);
+            throw tabError;
+          }
+
+          console.log('Tab created:', tab);
+
+          // Busca a página completa com suas abas após a criação
+          const { data: updatedPage, error: fetchError } = await supabase
+            .from('pages')
+            .select(`
+              *,
+              tabs (*),
+              categories:category_id (
+                id,
+                name,
+                slug,
+                section,
+                order_index
+              )
+            `)
+            .eq('id', page.id)
+            .single()
+
+          if (fetchError) {
+            console.error('Error fetching updated page:', fetchError);
+            throw fetchError;
+          }
+
+          console.log('Final page data:', updatedPage);
+          return updatedPage;
+        }
+
+        return page;
+      } catch (error) {
+        console.error('Error in page creation process:', error);
+        throw error;
       }
-
-      return page
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Mutation succeeded with data:', data);
       queryClient.invalidateQueries({ queryKey: ['pages'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
       setIsPageModalOpen(false)
       toast({
         title: "Sucesso",
@@ -226,7 +311,7 @@ export default function PaginasPage() {
       })
     },
     onError: (error) => {
-      console.error('Erro ao criar página:', error)
+      console.error('Mutation error:', error)
       toast({
         title: "Erro",
         description: "Não foi possível criar a página",
@@ -237,17 +322,91 @@ export default function PaginasPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async ({ type, id }: { type: 'category' | 'page'; id: string }) => {
-      const { error } = await supabase
-        .from(type === 'category' ? 'categories' : 'pages')
-        .delete()
-        .eq('id', id)
+      try {
+        console.log('Starting deletion process:', { type, id });
 
-      if (error) throw error
+        if (type === 'category') {
+          // First, get all pages in this category
+          const { data: categoryPages, error: pagesError } = await supabase
+            .from('pages')
+            .select('id')
+            .eq('category_id', id);
+
+          if (pagesError) {
+            console.error('Error fetching category pages:', pagesError);
+            throw pagesError;
+          }
+
+          // Delete all tabs for all pages in this category
+          if (categoryPages && categoryPages.length > 0) {
+            const pageIds = categoryPages.map(page => page.id);
+            const { error: tabsError } = await supabase
+              .from('tabs')
+              .delete()
+              .in('page_id', pageIds);
+
+            if (tabsError) {
+              console.error('Error deleting tabs:', tabsError);
+              throw tabsError;
+            }
+          }
+
+          // Delete all pages in this category
+          const { error: deletePageError } = await supabase
+            .from('pages')
+            .delete()
+            .eq('category_id', id);
+
+          if (deletePageError) {
+            console.error('Error deleting pages:', deletePageError);
+            throw deletePageError;
+          }
+
+          // Finally delete the category
+          const { error: deleteCategoryError } = await supabase
+            .from('categories')
+            .delete()
+            .eq('id', id);
+
+          if (deleteCategoryError) {
+            console.error('Error deleting category:', deleteCategoryError);
+            throw deleteCategoryError;
+          }
+        } else {
+          // If deleting a single page, first delete its tabs
+          const { error: tabsError } = await supabase
+            .from('tabs')
+            .delete()
+            .eq('page_id', id);
+
+          if (tabsError) {
+            console.error('Error deleting page tabs:', tabsError);
+            throw tabsError;
+          }
+
+          // Then delete the page
+          const { error: pageError } = await supabase
+            .from('pages')
+            .delete()
+            .eq('id', id);
+
+          if (pageError) {
+            console.error('Error deleting page:', pageError);
+            throw pageError;
+          }
+        }
+
+        console.log('Deletion completed successfully');
+      } catch (error) {
+        console.error('Error in deletion process:', error);
+        throw error;
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ 
         queryKey: [variables.type === 'category' ? 'categories' : 'pages'] 
       })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
       setIsDeleteDialogOpen(false)
       setDeleteType(null)
       setSelectedCategory(undefined)
@@ -271,13 +430,17 @@ export default function PaginasPage() {
     mutationFn: async ({ pageId, newName }: { pageId: string; newName: string }) => {
       const { error } = await supabase
         .from('pages')
-        .update({ name: newName })
+        .update({ 
+          name: newName,
+          slug: newName.toLowerCase().replace(/\s+/g, '-')
+        })
         .eq('id', pageId)
 
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pages'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
       toast({
         title: "Sucesso",
         description: "Página renomeada com sucesso",
@@ -288,6 +451,36 @@ export default function PaginasPage() {
       toast({
         title: "Erro",
         description: "Não foi possível renomear a página",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const renameCategoryMutation = useMutation({
+    mutationFn: async ({ categoryId, newName }: { categoryId: string; newName: string }) => {
+      const { error } = await supabase
+        .from('categories')
+        .update({ 
+          name: newName,
+          slug: newName.toLowerCase().replace(/\s+/g, '-')
+        })
+        .eq('id', categoryId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
+      toast({
+        title: "Sucesso",
+        description: "Categoria renomeada com sucesso",
+      })
+    },
+    onError: (error) => {
+      console.error('Erro ao renomear categoria:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível renomear a categoria",
         variant: "destructive",
       })
     }
@@ -304,6 +497,7 @@ export default function PaginasPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pages'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
       toast({
         title: "Sucesso",
         description: "Ícone atualizado com sucesso",
@@ -314,32 +508,6 @@ export default function PaginasPage() {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o ícone",
-        variant: "destructive",
-      })
-    }
-  })
-
-  const renameCategoryMutation = useMutation({
-    mutationFn: async ({ categoryId, newName }: { categoryId: string; newName: string }) => {
-      const { error } = await supabase
-        .from('categories')
-        .update({ name: newName })
-        .eq('id', categoryId)
-
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] })
-      toast({
-        title: "Sucesso",
-        description: "Categoria renomeada com sucesso",
-      })
-    },
-    onError: (error) => {
-      console.error('Erro ao renomear categoria:', error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível renomear a categoria",
         variant: "destructive",
       })
     }
@@ -364,9 +532,9 @@ export default function PaginasPage() {
       if (pagesError) throw pagesError
     },
     onSuccess: () => {
-      // Invalida tanto as categorias quanto as páginas para recarregar os dados
       queryClient.invalidateQueries({ queryKey: ['categories'] })
       queryClient.invalidateQueries({ queryKey: ['pages'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-data'] })
       toast({
         title: "Sucesso",
         description: "Ícone atualizado com sucesso em toda a categoria",
@@ -399,7 +567,19 @@ export default function PaginasPage() {
   }
 
   const handleCreateCategory = async (data: { name: string }) => {
-    await createCategoryMutation.mutateAsync(data)
+    if (!selectedCategorySection) {
+      console.error('No section selected');
+      toast({
+        title: "Erro",
+        description: "Seção não selecionada",
+        variant: "destructive",
+      });
+      return;
+    }
+    await createCategoryMutation.mutateAsync({ 
+      name: data.name, 
+      section: selectedCategorySection 
+    });
   }
 
   const handleEditCategory = async (data: { name: string }) => {
@@ -453,9 +633,10 @@ export default function PaginasPage() {
           setDeleteType("category")
           setIsDeleteDialogOpen(true)
         }}
-        onAddCategory={() => {
+        onAddCategory={(section) => {
           setSelectedCategory(undefined)
           setIsCategoryModalOpen(true)
+          setSelectedCategorySection(section)
         }}
         onUpdateOrder={handleUpdateOrder}
         onRenamePage={handleRenamePage}
@@ -484,14 +665,12 @@ export default function PaginasPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {selectedCategory !== undefined && (
-        <CategoryFormModal
-          open={isCategoryModalOpen}
-          onOpenChange={setIsCategoryModalOpen}
-          onSubmit={selectedCategory ? handleEditCategory : handleCreateCategory}
-          category={selectedCategory}
-        />
-      )}
+      <CategoryFormModal
+        open={isCategoryModalOpen}
+        onOpenChange={setIsCategoryModalOpen}
+        onSubmit={selectedCategory ? handleEditCategory : handleCreateCategory}
+        category={selectedCategory}
+      />
 
       <PageFormModal
         open={isPageModalOpen}
