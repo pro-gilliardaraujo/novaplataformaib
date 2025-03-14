@@ -23,18 +23,6 @@ import { paradasService } from "@/services/paradasService"
 import { CalendarIcon } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-// Lista de cores disponíveis para seleção aleatória inicial
-const availableColors = [
-  'bg-blue-100', 'bg-green-100', 'bg-yellow-100', 'bg-purple-100',
-  'bg-pink-100', 'bg-orange-100', 'bg-teal-100', 'bg-red-100',
-  'bg-indigo-100', 'bg-cyan-100'
-]
-
-function getRandomColor() {
-  const randomIndex = Math.floor(Math.random() * availableColors.length)
-  return availableColors[randomIndex]
-}
-
 function ParadasContent() {
   const { 
     unidades, 
@@ -44,7 +32,14 @@ function ParadasContent() {
     frotasSelecionadas,
     setFrotasSelecionadas,
     data,
-    setData
+    setData,
+    unidadeColors,
+    setUnidadeColors,
+    columnOrder,
+    setColumnOrder,
+    minimizedColumns,
+    setMinimizedColumns,
+    carregarUnidades
   } = useParadas()
 
   const [frotaSelecionada, setFrotaSelecionada] = useState<Frota | null>(null)
@@ -53,16 +48,10 @@ function ParadasContent() {
   const [modalSeletor, setModalSeletor] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedUnidade, setSelectedUnidade] = useState<string>("todas")
-  const [unidadeColors, setUnidadeColors] = useState<Record<string, string>>({})
-  const [minimizedColumns, setMinimizedColumns] = useState<Set<string>>(new Set())
-  const [columnOrder, setColumnOrder] = useState<string[]>([])
 
-  // Load minimized columns state from localStorage
+  // Load initial data
   useEffect(() => {
-    const savedMinimized = localStorage.getItem('minimizedColumns')
-    if (savedMinimized) {
-      setMinimizedColumns(new Set(JSON.parse(savedMinimized)))
-    }
+    carregarUnidades()
   }, [])
 
   // Save minimized columns state
@@ -74,66 +63,41 @@ function ParadasContent() {
       newMinimized.add(unidadeId)
     }
     setMinimizedColumns(newMinimized)
-    localStorage.setItem('minimizedColumns', JSON.stringify(Array.from(newMinimized)))
   }
 
-  // Load saved colors on mount or generate random ones
-  useEffect(() => {
-    const savedColors = localStorage.getItem('unidadeColors')
-    if (savedColors) {
-      setUnidadeColors(JSON.parse(savedColors))
-    } else {
-      // Generate random colors for units that don't have one
-      const newColors = unidades.reduce((acc, unidade) => {
-        if (!acc[unidade.id]) {
-          acc[unidade.id] = getRandomColor()
-        }
-        return acc
-      }, {} as Record<string, string>)
-      setUnidadeColors(newColors)
-      localStorage.setItem('unidadeColors', JSON.stringify(newColors))
-    }
-  }, [unidades])
-
-  // Save colors when they change
-  const updateUnidadeColor = (unidadeId: string, color: string) => {
-    const newColors = { ...unidadeColors, [unidadeId]: color }
-    setUnidadeColors(newColors)
-    localStorage.setItem('unidadeColors', JSON.stringify(newColors))
-  }
-
-  // Load column order from localStorage
-  useEffect(() => {
-    const savedOrder = localStorage.getItem('columnOrder')
-    if (savedOrder) {
-      setColumnOrder(JSON.parse(savedOrder))
-    } else {
-      // Initialize with current unidades order
-      const initialOrder = unidades.map(u => u.id)
-      setColumnOrder(initialOrder)
-      localStorage.setItem('columnOrder', JSON.stringify(initialOrder))
-    }
-  }, [unidades])
-
-  // Save column order
+  // Save column order and handle drag end
   const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return
+    if (!result.destination || result.source.index === result.destination.index) {
+      return
+    }
 
-    const newOrder = Array.from(columnOrder)
-    const [reorderedItem] = newOrder.splice(result.source.index, 1)
-    newOrder.splice(result.destination.index, 0, reorderedItem)
+    const items = Array.from(columnOrder)
+    const [reorderedItem] = items.splice(result.source.index, 1)
+    items.splice(result.destination.index, 0, reorderedItem)
 
-    setColumnOrder(newOrder)
-    localStorage.setItem('columnOrder', JSON.stringify(newOrder))
+    setColumnOrder(items)
   }
 
-  // Sort unidades based on columnOrder
+  // Sort unidades based on columnOrder with fallback
   const sortedUnidades = useMemo(() => {
-    const orderMap = new Map(columnOrder.map((id, index) => [id, index]))
+    const validOrder = columnOrder.filter(id => unidades.some(u => u.id === id))
+    const orderMap = new Map(validOrder.map((id, index) => [id, index]))
+    
     return [...unidades].sort((a, b) => {
-      const orderA = orderMap.get(a.id) ?? Number.MAX_VALUE
-      const orderB = orderMap.get(b.id) ?? Number.MAX_VALUE
-      return orderA - orderB
+      const orderA = orderMap.get(a.id)
+      const orderB = orderMap.get(b.id)
+      
+      // If both have order, compare them
+      if (orderA !== undefined && orderB !== undefined) {
+        return orderA - orderB
+      }
+      
+      // If only one has order, the one with order comes first
+      if (orderA !== undefined) return -1
+      if (orderB !== undefined) return 1
+      
+      // If neither has order, maintain original order
+      return 0
     })
   }, [unidades, columnOrder])
 
@@ -188,6 +152,14 @@ function ParadasContent() {
     acc[unidade.id] = frotasFiltradas
     return acc
   }, {} as Record<string, Frota[]>)
+
+  // Filter out unidades without visible frotas
+  const visibleUnidades = useMemo(() => {
+    return sortedUnidades.filter(unidade => {
+      const frotasUnidade = frotasPorUnidade[unidade.id]
+      return frotasUnidade && frotasUnidade.length > 0
+    })
+  }, [sortedUnidades, frotasPorUnidade])
 
   const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
   const ontem = new Date(new Date().setDate(new Date().getDate() - 1))
@@ -262,17 +234,15 @@ function ParadasContent() {
       <div className="flex-1 px-2 py-2">
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="columns" direction="horizontal">
-            {(provided: DroppableProvided) => (
+            {(provided) => (
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
                 className="grid-responsive"
               >
-                {sortedUnidades.map((unidade, index) => {
+                {visibleUnidades.map((unidade, index) => {
                   const frotasUnidade = frotasPorUnidade[unidade.id]
-                  if (!frotasUnidade?.length) return null
-
-                  const bgColor = unidadeColors[unidade.id] || getRandomColor()
+                  const bgColor = unidadeColors[unidade.id]
                   const isMinimized = minimizedColumns.has(unidade.id)
 
                   return (
@@ -281,19 +251,20 @@ function ParadasContent() {
                       draggableId={unidade.id}
                       index={index}
                     >
-                      {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
+                      {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
+                          style={provided.draggableProps.style}
                           className={`flex flex-col rounded-lg ${bgColor} min-h-0 column-transition ${
                             isMinimized ? 'minimized-column' : ''
-                          } ${snapshot.isDragging ? 'shadow-lg' : ''}`}
+                          } ${snapshot.isDragging ? 'shadow-lg opacity-90' : ''}`}
                         >
-                          <div className="column-header">
+                          <div className="column-header select-none">
                             {isMinimized ? (
                               <div className="h-full flex flex-col justify-between">
                                 <div className="flex justify-between">
-                                  <div {...provided.dragHandleProps}>
+                                  <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -316,8 +287,11 @@ function ParadasContent() {
                               <div className="h-full flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <ColorPicker
-                                    color={unidadeColors[unidade.id] || getRandomColor()}
-                                    onChange={(color) => updateUnidadeColor(unidade.id, color)}
+                                    color={bgColor}
+                                    onChange={(color) => {
+                                      const newColors = { ...unidadeColors, [unidade.id]: color }
+                                      setUnidadeColors(newColors)
+                                    }}
                                   />
                                   <div>
                                     <h3 className="font-semibold inline">
@@ -328,8 +302,8 @@ function ParadasContent() {
                                     </span>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <div {...provided.dragHandleProps}>
+                                <div className="flex items-center">
+                                  <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -352,33 +326,31 @@ function ParadasContent() {
                           </div>
 
                           {/* Content */}
-                          <div className="column-content">
-                            {isMinimized ? (
-                              <div className="column-title">
-                                {unidade.nome}
-                              </div>
-                            ) : (
-                              <ScrollArea className="flex-1">
-                                <div className="p-2 space-y-2">
-                                  {frotasUnidade.map((frota) => {
-                                    const status = statusFrotas.get(frota.id)
-                                    if (!status) return null
+                          {isMinimized ? (
+                            <div className="column-title select-none">
+                              {unidade.nome}
+                            </div>
+                          ) : (
+                            <ScrollArea className="flex-1">
+                              <div className="p-2 space-y-2">
+                                {frotasUnidade.map((frota) => {
+                                  const status = statusFrotas.get(frota.id)
+                                  if (!status) return null
 
-                                    return (
-                                      <FrotaCard
-                                        key={frota.id}
-                                        status={status}
-                                        onParar={() => handleParar(frota)}
-                                        onLiberar={() => handleLiberar(frota)}
-                                        onHistorico={() => handleHistorico(frota)}
-                                      />
-                                    )
-                                  })}
-                                </div>
-                                <ScrollBar />
-                              </ScrollArea>
-                            )}
-                          </div>
+                                  return (
+                                    <FrotaCard
+                                      key={frota.id}
+                                      status={status}
+                                      onParar={() => handleParar(frota)}
+                                      onLiberar={() => handleLiberar(frota)}
+                                      onHistorico={() => handleHistorico(frota)}
+                                    />
+                                  )
+                                })}
+                              </div>
+                              <ScrollBar />
+                            </ScrollArea>
+                          )}
                         </div>
                       )}
                     </Draggable>

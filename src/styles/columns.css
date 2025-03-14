@@ -12,7 +12,7 @@
 /* Column header - consistent height for both states */
 .column-header {
   height: 72px; /* Fixed height for header */
-  padding: 1rem;
+  padding: 0.75rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   background-color: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(4px);
@@ -20,6 +20,7 @@
   border-top-right-radius: 0.5rem;
   display: flex;
   align-items: center;
+  user-select: none;
 }
 
 /* Maximized column header content alignment */
@@ -70,6 +71,7 @@
   overflow-x: auto;
   height: 100%;
   padding-bottom: 0.5rem;
+  user-select: none;
 }
 
 .grid-responsive > div {
@@ -113,6 +115,8 @@
 /* Transition for smooth width changes */
 .column-transition {
   transition: width 0.2s ease-in-out, flex 0.2s ease-in-out, max-width 0.2s ease-in-out;
+  will-change: transform;
+  touch-action: none;
 }
 
 /* Blinking border animation for overdue paradas */
@@ -134,4 +138,40 @@
 .animate-border-blink {
   animation: border-blink 1s ease-in-out infinite;
   border-width: 2px;
+}
+
+.minimized-column {
+  height: auto !important;
+}
+
+.column-title {
+  padding: 0.75rem;
+  font-weight: 600;
+  user-select: none;
+}
+
+/* Estilos específicos para drag and drop */
+[data-rbd-draggable-context-id] {
+  user-select: none;
+}
+
+[data-rbd-drag-handle-draggable-id] {
+  cursor: grab;
+}
+
+[data-rbd-drag-handle-draggable-id]:active {
+  cursor: grabbing;
+}
+
+/* Estilos para o placeholder durante o drag */
+[data-rbd-placeholder-context-id] {
+  opacity: 0.5;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 0.5rem;
+}
+
+/* Estilos para o item sendo arrastado */
+[data-rbd-draggable-id][data-rbd-dragging="true"] {
+  z-index: 999;
+  pointer-events: none;
 } 

@@ -124,9 +124,9 @@ export function SeletorFrotasModal({
           <div className="border-b mt-4" />
         </div>
 
-        <div className="mt-6">
+        <div className="space-y-4">
           {/* Helper buttons */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -155,7 +155,7 @@ export function SeletorFrotasModal({
             </Button>
           </div>
 
-          <ScrollArea className="h-[400px] pr-4">
+          <ScrollArea className="h-[60vh]">
             <div className="border rounded-lg divide-y">
               {unidades.map((unidade) => {
                 const isExpanded = expandedUnidades.has(unidade.id)
