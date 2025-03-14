@@ -1,5 +1,5 @@
 export interface Tratativa {
-  id: number
+  id: string
   numero_tratativa: string
   funcionario: string
   data_infracao: string
@@ -17,6 +17,7 @@ export interface Tratativa {
   data_devolvida: string | null
   funcao: string
   setor: string
+  analista: string
 }
 
 export interface TratativaDetailsProps extends Omit<Tratativa, 'id'> {

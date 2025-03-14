@@ -8,35 +8,10 @@ import { NovaTratativaModal } from "@/components/nova-tratativa-modal"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
+import { Tratativa } from "@/types/tratativas"
 
 // Add the supabase client after the imports
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-
-interface Tratativa {
-  id: string
-  numero_tratativa: string
-  funcionario: string
-  data_infracao: string
-  hora_infracao: string
-  codigo_infracao: string
-  descricao_infracao: string
-  penalidade: string
-  lider: string
-  status: string
-  created_at: string
-  texto_infracao: string
-  texto_limite: string
-  url_documento_enviado: string
-  url_documento_devolvido: string | null
-  data_devolvida: string | null
-  funcao: string
-  setor: string
-  medida: string
-  valor_praticado: string
-  mock: boolean
-  texto_advertencia: string
-  metrica: string
-}
 
 export default function TratativasListaPage() {
   const [modalOpen, setModalOpen] = useState(false)
