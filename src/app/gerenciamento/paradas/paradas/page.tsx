@@ -65,41 +65,73 @@ function ParadasContent() {
     setMinimizedColumns(newMinimized)
   }
 
-  // Save column order and handle drag end
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination || result.source.index === result.destination.index) {
-      return
+  // Agrupar e filtrar frotas por unidade
+  const frotasPorUnidade = unidades.reduce((acc, unidade) => {
+    if (selectedUnidade !== "todas" && unidade.id !== selectedUnidade) {
+      acc[unidade.id] = []
+      return acc
     }
 
-    const items = Array.from(columnOrder)
-    const [reorderedItem] = items.splice(result.source.index, 1)
-    items.splice(result.destination.index, 0, reorderedItem)
+    const frotasFiltradas = (unidade.frotas || [])
+      .filter(frota => frotasSelecionadas.has(frota.id))
+      .filter(frota => 
+        searchTerm === "" || 
+        frota.frota.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        frota.descricao.toLowerCase().includes(searchTerm.toLowerCase())
+      )
 
-    setColumnOrder(items)
-  }
+    acc[unidade.id] = frotasFiltradas
+    return acc
+  }, {} as Record<string, Frota[]>)
+
+  // Filter out unidades without visible frotas
+  const visibleUnidades = useMemo(() => {
+    return unidades.filter(unidade => {
+      const frotasUnidade = frotasPorUnidade[unidade.id]
+      return frotasUnidade && frotasUnidade.length > 0
+    })
+  }, [unidades, frotasPorUnidade])
 
   // Sort unidades based on columnOrder with fallback
   const sortedUnidades = useMemo(() => {
-    const validOrder = columnOrder.filter(id => unidades.some(u => u.id === id))
-    const orderMap = new Map(validOrder.map((id, index) => [id, index]))
+    // Get visible unidade IDs
+    const visibleUnidadeIds = unidades
+      .filter(u => frotasPorUnidade[u.id]?.length > 0)
+      .map(u => u.id)
+
+    // First, include ordered items that are visible
+    const orderedIds = columnOrder.filter(id => visibleUnidadeIds.includes(id))
     
-    return [...unidades].sort((a, b) => {
-      const orderA = orderMap.get(a.id)
-      const orderB = orderMap.get(b.id)
-      
-      // If both have order, compare them
-      if (orderA !== undefined && orderB !== undefined) {
-        return orderA - orderB
-      }
-      
-      // If only one has order, the one with order comes first
-      if (orderA !== undefined) return -1
-      if (orderB !== undefined) return 1
-      
-      // If neither has order, maintain original order
-      return 0
-    })
-  }, [unidades, columnOrder])
+    // Then add any visible items that aren't in the order yet
+    const unorderedIds = visibleUnidadeIds.filter(id => !columnOrder.includes(id))
+    
+    // Combine ordered and unordered IDs
+    const finalOrder = [...orderedIds, ...unorderedIds]
+
+    // Map IDs to unidade objects
+    return finalOrder
+      .map(id => unidades.find(u => u.id === id))
+      .filter((u): u is NonNullable<typeof u> => u !== undefined)
+  }, [unidades, columnOrder, frotasPorUnidade])
+
+  // Save column order and handle drag end
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return
+    if (result.source.index === result.destination.index) return
+
+    // Get all visible columns in their current order
+    const visibleColumns = sortedUnidades.map(u => u.id)
+    
+    // Remove all visible columns from the current order
+    const newOrder = columnOrder.filter(id => !visibleColumns.includes(id))
+    
+    // Reorder the visible columns based on the drag
+    const [movedId] = visibleColumns.splice(result.source.index, 1)
+    visibleColumns.splice(result.destination.index, 0, movedId)
+    
+    // Add all visible columns back in their new order
+    setColumnOrder([...newOrder, ...visibleColumns])
+  }
 
   // Handlers
   const handleParar = (frota: Frota) => {
@@ -134,33 +166,6 @@ function ParadasContent() {
     atualizarCenario()
   }
 
-  // Agrupar e filtrar frotas por unidade
-  const frotasPorUnidade = unidades.reduce((acc, unidade) => {
-    if (selectedUnidade !== "todas" && unidade.id !== selectedUnidade) {
-      acc[unidade.id] = []
-      return acc
-    }
-
-    const frotasFiltradas = (unidade.frotas || [])
-      .filter(frota => frotasSelecionadas.has(frota.id))
-      .filter(frota => 
-        searchTerm === "" || 
-        frota.frota.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        frota.descricao.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-
-    acc[unidade.id] = frotasFiltradas
-    return acc
-  }, {} as Record<string, Frota[]>)
-
-  // Filter out unidades without visible frotas
-  const visibleUnidades = useMemo(() => {
-    return sortedUnidades.filter(unidade => {
-      const frotasUnidade = frotasPorUnidade[unidade.id]
-      return frotasUnidade && frotasUnidade.length > 0
-    })
-  }, [sortedUnidades, frotasPorUnidade])
-
   const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
   const ontem = new Date(new Date().setDate(new Date().getDate() - 1))
     .toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })
@@ -173,11 +178,11 @@ function ParadasContent() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* Header com controles - mesma altura do logo */}
-      <div className="h-[64px] bg-white border-b flex items-center px-2">
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Fixed header */}
+      <div className="h-[64px] bg-white border-b flex items-center px-4 flex-shrink-0">
         <div className="flex items-center gap-6 w-full">
-          {/* Barra de pesquisa - estilo Tratativas */}
+          {/* Search bar */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
             <Input
@@ -188,22 +193,20 @@ function ParadasContent() {
             />
           </div>
 
-          {/* Filtro de data */}
+          {/* Date filter */}
           <div className="relative">
             <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
             <Input
               type="date"
-              value={new Date(data).toISOString().split('T')[0]}
-              onChange={(e) => {
-                const date = new Date(e.target.value)
-                setData(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0])
-              }}
-              max={new Date().toISOString().split('T')[0]}
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              max={hoje}
+              defaultValue={data}
               className="h-10 w-[200px] pl-9"
             />
           </div>
 
-          {/* Filtro de unidade */}
+          {/* Unit filter */}
           <Select value={selectedUnidade} onValueChange={setSelectedUnidade}>
             <SelectTrigger className="h-10 w-[200px]">
               <SelectValue placeholder="Todas as unidades" />
@@ -218,7 +221,7 @@ function ParadasContent() {
             </SelectContent>
           </Select>
 
-          {/* Botão de ação */}
+          {/* Action button */}
           <Button
             variant="outline"
             className="h-10 w-[200px]"
@@ -230,8 +233,8 @@ function ParadasContent() {
         </div>
       </div>
 
-      {/* Área de conteúdo com colunas */}
-      <div className="flex-1 px-2 py-2">
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-hidden">
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="columns" direction="horizontal">
             {(provided) => (
@@ -240,7 +243,7 @@ function ParadasContent() {
                 {...provided.droppableProps}
                 className="grid-responsive"
               >
-                {visibleUnidades.map((unidade, index) => {
+                {sortedUnidades.map((unidade, index) => {
                   const frotasUnidade = frotasPorUnidade[unidade.id]
                   const bgColor = unidadeColors[unidade.id]
                   const isMinimized = minimizedColumns.has(unidade.id)
@@ -256,7 +259,7 @@ function ParadasContent() {
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           style={provided.draggableProps.style}
-                          className={`flex flex-col rounded-lg ${bgColor} min-h-0 column-transition ${
+                          className={`flex flex-col rounded-lg ${bgColor} column-transition ${
                             isMinimized ? 'minimized-column' : ''
                           } ${snapshot.isDragging ? 'shadow-lg opacity-90' : ''}`}
                         >
@@ -325,31 +328,33 @@ function ParadasContent() {
                             )}
                           </div>
 
-                          {/* Content */}
+                          {/* Column content */}
                           {isMinimized ? (
                             <div className="column-title select-none">
                               {unidade.nome}
                             </div>
                           ) : (
-                            <ScrollArea className="flex-1">
-                              <div className="p-2 space-y-2">
-                                {frotasUnidade.map((frota) => {
-                                  const status = statusFrotas.get(frota.id)
-                                  if (!status) return null
+                            <div className="scroll-area-container">
+                              <ScrollArea className="h-full">
+                                <div className="scroll-area-content">
+                                  {frotasUnidade.map((frota) => {
+                                    const status = statusFrotas.get(frota.id)
+                                    if (!status) return null
 
-                                  return (
-                                    <FrotaCard
-                                      key={frota.id}
-                                      status={status}
-                                      onParar={() => handleParar(frota)}
-                                      onLiberar={() => handleLiberar(frota)}
-                                      onHistorico={() => handleHistorico(frota)}
-                                    />
-                                  )
-                                })}
-                              </div>
-                              <ScrollBar />
-                            </ScrollArea>
+                                    return (
+                                      <FrotaCard
+                                        key={frota.id}
+                                        status={status}
+                                        onParar={() => handleParar(frota)}
+                                        onLiberar={() => handleLiberar(frota)}
+                                        onHistorico={() => handleHistorico(frota)}
+                                      />
+                                    )
+                                  })}
+                                </div>
+                                <ScrollBar orientation="vertical" />
+                              </ScrollArea>
+                            </div>
                           )}
                         </div>
                       )}
@@ -363,7 +368,7 @@ function ParadasContent() {
         </DragDropContext>
       </div>
 
-      {/* Modais */}
+      {/* Modals */}
       {frotaSelecionada && (
         <>
           <ParadaModal

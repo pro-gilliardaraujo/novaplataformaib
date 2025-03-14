@@ -67,20 +67,24 @@
 /* Column layout */
 .grid-responsive {
   display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
+  gap: 1rem;
   height: 100%;
-  padding-bottom: 0.5rem;
+  padding: 0.5rem;
   user-select: none;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .grid-responsive > div {
   flex: 1;
-  min-width: 250px;
-  max-width: calc(100% / 4);
+  min-width: 300px;
+  max-width: 400px;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  border-radius: 0.5rem;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .grid-responsive > div.minimized-column {
@@ -90,13 +94,32 @@
 }
 
 /* Column content */
-.column-content {
+.scroll-area-container {
   flex: 1;
-  min-height: 0; /* Important for scroll to work */
-  display: flex;
-  flex-direction: column;
+  min-height: 0;
+  height: calc(100% - 72px); /* Subtract header height */
+  position: relative;
 }
 
+/* ScrollArea styles */
+.scroll-area-container [data-radix-scroll-area-viewport] {
+  height: 100% !important;
+}
+
+/* Content area */
+.scroll-area-content {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Ensure cards have proper spacing */
+.scroll-area-content > * {
+  flex-shrink: 0;
+}
+
+/* Update minimized column styles */
 .minimized-column .column-title {
   writing-mode: vertical-lr;
   transform: rotate(180deg);
@@ -110,13 +133,12 @@
   font-weight: 500;
   letter-spacing: 0.025em;
   padding: 0.5rem 0;
+  overflow: hidden; /* Prevent text overflow */
 }
 
-/* Transition for smooth width changes */
+/* Column transition */
 .column-transition {
-  transition: width 0.2s ease-in-out, flex 0.2s ease-in-out, max-width 0.2s ease-in-out;
-  will-change: transform;
-  touch-action: none;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Blinking border animation for overdue paradas */
@@ -150,7 +172,7 @@
   user-select: none;
 }
 
-/* Estilos específicos para drag and drop */
+/* Drag and drop styles */
 [data-rbd-draggable-context-id] {
   user-select: none;
 }
@@ -163,15 +185,38 @@
   cursor: grabbing;
 }
 
-/* Estilos para o placeholder durante o drag */
-[data-rbd-placeholder-context-id] {
-  opacity: 0.5;
-  background-color: rgba(0, 0, 0, 0.1);
-  border-radius: 0.5rem;
-}
-
-/* Estilos para o item sendo arrastado */
 [data-rbd-draggable-id][data-rbd-dragging="true"] {
   z-index: 999;
   pointer-events: none;
+}
+
+[data-rbd-draggable-id]:not([data-rbd-dragging="true"]) {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Grid layout */
+.grid-responsive {
+  display: flex;
+  gap: 1rem;
+  height: 100%;
+  padding: 0.5rem;
+  user-select: none;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.grid-responsive > div {
+  flex: 1;
+  min-width: 300px;
+  max-width: 400px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.5rem;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.grid-responsive > div[data-rbd-dragging="true"] {
+  transition: none !important;
 } 

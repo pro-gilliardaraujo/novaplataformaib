@@ -10,6 +10,7 @@ import { renderIcon } from "@/utils/icon-utils"
 import { EditParadaModal } from "./EditParadaModal"
 import "@/styles/material-icons.css"
 import { formatDuration } from "@/utils/dateUtils"
+import { useParadas } from "@/contexts/ParadasContext"
 
 interface FrotaCardProps {
   status: FrotaStatus
@@ -75,11 +76,40 @@ function getIconClass(iconPath: string) {
 }
 
 export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCardProps) {
-  const isParada = status.parada_atual !== null;
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [isOverdue, setIsOverdue] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
+  const { data: selectedDate } = useParadas()
+  const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
+  const isCurrentDate = selectedDate === hoje
+  const isParada = status.parada_atual !== null
+
+  // Function to check if a parada crossed midnight
+  const didParadaCrossMidnight = (parada: Parada) => {
+    const paradaDate = new Date(parada.inicio).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
+    return paradaDate < selectedDate
+  }
+
+  // Get the effective state of the parada for past dates
+  const getEffectiveState = (parada: Parada | null): Parada | null => {
+    if (!parada) return null
+    if (isCurrentDate) return parada
+    
+    // For past dates
+    const paradaDate = new Date(parada.inicio).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
+    const isParadaFromSelectedDate = paradaDate === selectedDate
+
+    // If the parada is from the selected date, show its actual state
+    if (isParadaFromSelectedDate) {
+      return parada
+    }
+
+    // If the parada started before the selected date, show it as "Liberada"
+    return { ...parada, fim: new Date(`${selectedDate}T23:59:59`).toISOString() }
+  }
+
+  const effectiveParada = getEffectiveState(status.parada_atual ?? null)
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [isOverdue, setIsOverdue] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
 
   // Reset overdue state when parada changes or is released
   useEffect(() => {
@@ -152,15 +182,17 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
             </div>
 
             <div className="flex items-center gap-2">
-              <Button 
-                variant="destructive" 
-                className="w-[120px]"
-                onClick={onParar}
-              >
-                Parar
-              </Button>
+              {isCurrentDate && (
+                <Button 
+                  variant="destructive" 
+                  className="w-[120px]"
+                  onClick={onParar}
+                >
+                  Parar
+                </Button>
+              )}
               <div className="flex-1" />
-              {status.historico_count > 0 ? (
+              {status.historico_count > 0 && (
                 <Button
                   variant="outline"
                   size="icon"
@@ -168,8 +200,6 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
                 >
                   <History className="h-4 w-4" />
                 </Button>
-              ) : (
-                <div className="w-9" />
               )}
             </div>
           </div>
@@ -178,21 +208,21 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
     );
   }
 
-  const parada = status.parada_atual as Parada;
-  const tagColor = getTagColor(parada);
-  const previsaoColor = getPrevisaoColor(parada);
+  const parada = effectiveParada as Parada
+  const tagColor = getTagColor(parada)
+  const previsaoColor = getPrevisaoColor(parada)
   
-  const inicio = new Date(parada.inicio);
-  const tempoCorrido = parada ? formatDuration(parada.inicio, parada.fim) : "00:00:00"
+  const inicio = new Date(parada.inicio)
+  const tempoCorrido = formatDuration(parada.inicio, parada.fim)
 
-  let tempoPrevisao = "";
+  let tempoPrevisao = ""
   if (parada.previsao_horario) {
-    const previsaoDate = new Date(parada.previsao_horario);
+    const previsaoDate = new Date(parada.previsao_horario)
     tempoPrevisao = previsaoDate.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
       timeZone: 'America/Sao_Paulo'
-    });
+    })
   }
 
   return (
@@ -238,32 +268,29 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
             )}
 
             <div className="flex items-center gap-2">
-              <Button 
-                variant="default" 
-                className="w-[120px] bg-green-600 hover:bg-green-700"
-                onClick={async () => {
-                  try {
-                    await paradasService.liberarParada(parada.id);
-                    onLiberar();
-                  } catch (error) {
-                    console.error('Erro ao liberar parada:', error);
-                  }
-                }}
-              >
-                Liberar
-              </Button>
+              {isCurrentDate && !parada.fim && (
+                <Button 
+                  variant="default" 
+                  className="w-[120px] bg-green-600 hover:bg-green-700"
+                  onClick={onLiberar}
+                >
+                  Liberar
+                </Button>
+              )}
               <div className="flex-1 flex items-center justify-center">
                 <span className="text-red-500 font-medium text-xs">{tempoCorrido}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setEditModalOpen(true)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                {isCurrentDate && !parada.fim && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setEditModalOpen(true)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
                 {status.historico_count > 0 && (
                   <Button
                     variant="outline"

@@ -46,7 +46,9 @@ export function SeletorFrotasModal({
   }
 
   const handleToggleUnidade = (unidadeId: string) => {
-    const frotas = frotasPorUnidade[unidadeId]
+    const frotas = frotasPorUnidade[unidadeId] || []
+    if (frotas.length === 0) return // Don't handle empty unidades
+    
     const newSelection = new Set(selectedFrotas)
     const allSelected = frotas.every(frota => selectedFrotas.has(frota.id))
 
@@ -81,7 +83,9 @@ export function SeletorFrotasModal({
   }
 
   const handleSelectAll = () => {
+    const allFrotas = unidades.flatMap(unidade => unidade.frotas || [])
     const allSelected = allFrotas.every(frota => selectedFrotas.has(frota.id))
+    
     if (allSelected) {
       setSelectedFrotas(new Set())
     } else {
@@ -102,6 +106,11 @@ export function SeletorFrotasModal({
   // Check if all items are expanded/selected
   const allExpanded = unidades.length === expandedUnidades.size
   const allSelected = allFrotas.every(frota => selectedFrotas.has(frota.id))
+
+  // Only show unidades with frotas
+  const unidadesWithFrotas = unidades.filter(unidade => 
+    (unidade.frotas || []).length > 0
+  )
 
   return (
     <Dialog open={open} onOpenChange={handleCancel}>
@@ -157,7 +166,7 @@ export function SeletorFrotasModal({
 
           <ScrollArea className="h-[60vh]">
             <div className="border rounded-lg divide-y">
-              {unidades.map((unidade) => {
+              {unidadesWithFrotas.map((unidade) => {
                 const isExpanded = expandedUnidades.has(unidade.id)
                 const frotas = frotasPorUnidade[unidade.id]
                 const allSelected = frotas.every(frota => selectedFrotas.has(frota.id))
