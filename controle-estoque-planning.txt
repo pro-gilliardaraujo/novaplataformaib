@@ -1,0 +1,125 @@
+PLANEJAMENTO - SISTEMA DE CONTROLE DE ESTOQUE
+
+1. ESTRUTURA BÁSICA
+   - Criar nova categoria "Estoque" no sistema
+   - Baseado no layout do Controle de Paradas
+   - Página única dedicada ao controle de estoque
+
+2. COMPONENTES PRINCIPAIS
+   2.1 Cadastro de Itens
+       - Modal de cadastro com:
+         * Campos básicos (Descrição, Código Fabricante, Quantidade em Estoque)
+         * Upload múltiplo de imagens
+         * Integração com bucket "itensEstoque" no Supabase
+         * Preview das imagens selecionadas
+         * Validações de campos obrigatórios
+
+   2.2 Modal de Detalhes do Item
+       - Layout em duas colunas:
+         * Coluna Esquerda: Informações do item
+           - Descrição
+           - Código Fabricante
+           - Quantidade em Estoque
+           - Outras informações relevantes
+         * Coluna Direita: Galeria de imagens
+           - Visualização em grid
+           - Possibilidade de ampliar imagens
+           - Navegação entre imagens
+
+   2.3 Sistema de Histórico
+       - Registro de verificações de estoque
+         * Data da verificação
+         * Quantidade verificada
+         * Responsável pela verificação
+         * Observações
+       - Interface para consulta de histórico
+       - Relatórios de movimentação
+
+3. BANCO DE DADOS (SUPABASE)
+   3.1 Tabelas Necessárias:
+       - items_estoque
+         * id
+         * descricao
+         * codigo_fabricante
+         * quantidade_atual
+         * created_at
+         * updated_at
+         * outras informações relevantes
+
+       - imagens_item
+         * id
+         * item_id (referência a items_estoque)
+         * url_imagem
+         * created_at
+
+       - historico_estoque
+         * id
+         * item_id (referência a items_estoque)
+         * quantidade_verificada
+         * data_verificacao
+         * responsavel_id
+         * observacoes
+         * created_at
+
+4. FUNCIONALIDADES PRINCIPAIS
+   4.1 Gestão de Itens
+       - CRUD completo de itens
+       - Upload e gerenciamento de imagens
+       - Atualização de quantidades
+
+   4.2 Verificações de Estoque
+       - Interface para registro de verificações
+       - Histórico de movimentações
+       - Atualizações em lote
+
+   4.3 Relatórios
+       - Histórico de verificações por período
+       - Movimentação de itens
+       - Alertas de estoque baixo
+       - Exportação de dados
+
+5. INTERFACE DO USUÁRIO
+   5.1 Tela Principal
+       - Lista de itens com filtros
+       - Botões de ação principais
+       - Indicadores visuais de status
+
+   5.2 Modais
+       - Cadastro/Edição de itens
+       - Visualização detalhada
+       - Registro de verificações
+
+   5.3 Área de Relatórios
+       - Filtros personalizados
+       - Visualização de dados
+       - Opções de exportação
+
+6. INTEGRAÇÕES
+   - Supabase Storage para imagens
+   - Sistema de autenticação existente
+   - Permissões de usuário
+
+7. CONSIDERAÇÕES TÉCNICAS
+   - Otimização de imagens
+   - Cache de dados
+   - Validações de formulário
+   - Feedback visual para ações
+   - Responsividade
+
+8. PRÓXIMOS PASSOS
+   1. Criar estrutura básica da página
+   2. Implementar banco de dados
+   3. Desenvolver modal de cadastro
+   4. Implementar upload de imagens
+   5. Criar visualização detalhada
+   6. Desenvolver sistema de histórico
+   7. Implementar relatórios
+   8. Testes e ajustes
+   9. Documentação
+
+OBSERVAÇÕES:
+- Sistema deve ser intuitivo e fácil de usar
+- Priorizar performance no carregamento de imagens
+- Manter consistência com o design existente
+- Implementar feedback claro para todas as ações
+- Garantir backup e segurança dos dados 

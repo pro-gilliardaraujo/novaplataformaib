@@ -1,5 +1,0 @@
-[33m363d4ad[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/desenvolvimento[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mdesenvolvimento[m[33m)[m fix: corrige duplicação de slug em categorias com página única no gerenciamento
-[33m4c82e5d[m fix: corrige query do Supabase para buscar corretamente as categorias e páginas
-[33m97a471f[m fix: corrige erros de tipagem no Sidebar
-[33mac7a37f[m fix: corrige tipagem dos dados do Supabase
-[33m63c1567[m fix: ajustes no modal de novo usuário - exibição do email gerado e limpeza dos campos
