@@ -15,56 +15,6 @@ interface FilterState {
   [key: string]: Set<string>
 }
 
-function FilterDropdown({
-  title,
-  options,
-  selectedOptions,
-  onOptionToggle,
-  onClear,
-}: {
-  title: string
-  options: string[]
-  selectedOptions: Set<string>
-  onOptionToggle: (option: string) => void
-  onClear: () => void
-}) {
-  return (
-    <DropdownMenu modal={true}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <Filter className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
-        <div className="space-y-4">
-          <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
-          <Input placeholder={`Buscar ${title.toLowerCase()}...`} />
-          <div className="space-y-2 max-h-48 overflow-auto">
-            {options.map((option) => (
-              <div key={option} className="flex items-center space-x-2">
-                <Checkbox
-                  id={option}
-                  checked={selectedOptions.has(option)}
-                  onCheckedChange={() => onOptionToggle(option)}
-                />
-                <label htmlFor={option} className="text-sm">
-                  {option}
-                </label>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between">
-            <Button variant="outline" size="sm" onClick={onClear}>
-              Limpar
-            </Button>
-            <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
-          </div>
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 interface TratativasTableProps {
   tratativas: Tratativa[]
   onTratativaEdited: () => void
@@ -72,10 +22,11 @@ interface TratativasTableProps {
 
 export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTableProps) {
   const [filters, setFilters] = useState<FilterState>({})
+  const [sorting, setSorting] = useState<{ column: string; direction: 'asc' | 'desc' | null } | null>(null)
   const [selectedTratativa, setSelectedTratativa] = useState<TratativaDetailsProps | null>(null)
   const [selectedTratativaForEdit, setSelectedTratativaForEdit] = useState<Tratativa | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const rowsPerPage = 15  // Updated to match retiradas table
+  const rowsPerPage = 15
 
   const formatAnalista = (analista: string) => {
     if (!analista) return "";
@@ -168,10 +119,48 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
     }))
   }
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage)
+  const sortData = (data: Tratativa[]) => {
+    if (!sorting || !sorting.direction) return data
+
+    return [...data].sort((a, b) => {
+      const column = sorting.column as keyof Tratativa
+      let valueA: string | number = a[column] as string
+      let valueB: string | number = b[column] as string
+
+      // Special handling for dates
+      if (column === 'data_infracao') {
+        valueA = new Date(valueA).getTime()
+        valueB = new Date(valueB).getTime()
+      }
+
+      // Special handling for analista (remove email part)
+      if (column === 'analista') {
+        valueA = formatAnalista(String(valueA))
+        valueB = formatAnalista(String(valueB))
+      }
+
+      if (valueA === valueB) return 0
+      if (valueA === null || valueA === undefined) return 1
+      if (valueB === null || valueB === undefined) return -1
+
+      const result = valueA < valueB ? -1 : 1
+      return sorting.direction === 'asc' ? result : -result
+    })
+  }
+
+  const handleSort = (columnKey: string, direction: 'asc' | 'desc' | null) => {
+    setSorting(direction ? { column: columnKey, direction } : null)
+  }
+
+  const filteredAndSortedData = useMemo(() => {
+    const filtered = filteredData
+    return sortData(filtered)
+  }, [filteredData, sorting])
+
+  // Update pagination to use filteredAndSortedData
+  const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage)
   const startIndex = (currentPage - 1) * rowsPerPage
-  const paginatedData = filteredData.slice(startIndex, startIndex + rowsPerPage)
+  const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
 
   return (
     <div className="border border-gray-200 rounded-lg">
@@ -188,6 +177,8 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
                     selectedOptions={filters[column.key] || new Set()}
                     onOptionToggle={(option) => handleFilterToggle(column.key, option)}
                     onClear={() => handleClearFilter(column.key)}
+                    sortDirection={sorting?.column === column.key ? sorting.direction : null}
+                    onSort={(direction) => handleSort(column.key, direction)}
                   />
                 </div>
               </TableHead>
@@ -257,7 +248,7 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
       {/* Pagination controls */}
       <div className="border-t py-2.5 px-4 flex items-center justify-between bg-white">
         <div className="text-sm text-gray-500">
-          Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredData.length)} de {filteredData.length} resultados
+          Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} resultados
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -304,5 +295,139 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
         />
       )}
     </div>
+  )
+}
+
+function FilterDropdown({
+  title,
+  options,
+  selectedOptions,
+  onOptionToggle,
+  onClear,
+  sortDirection,
+  onSort,
+}: {
+  title: string
+  options: string[]
+  selectedOptions: Set<string>
+  onOptionToggle: (option: string) => void
+  onClear: () => void
+  sortDirection: 'asc' | 'desc' | null
+  onSort: (direction: 'asc' | 'desc' | null) => void
+}) {
+  const [searchTerm, setSearchTerm] = useState("")
+
+  // Sort and filter options
+  const sortedAndFilteredOptions = useMemo(() => {
+    let filtered = options.filter(option => 
+      option.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+
+    if (sortDirection) {
+      filtered.sort((a, b) => {
+        const comparison = a.localeCompare(b)
+        return sortDirection === 'asc' ? comparison : -comparison
+      })
+    }
+
+    return filtered
+  }, [options, searchTerm, sortDirection])
+
+  return (
+    <DropdownMenu modal={true}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Filter className="h-4 w-4" />
+          {sortDirection && (
+            <div className="absolute -bottom-1 -right-1 h-2 w-2">
+              {sortDirection === 'asc' ? '↑' : '↓'}
+            </div>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
+        <div className="space-y-4">
+          <div className="text-center">
+            <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
+          </div>
+
+          {/* Sorting Options */}
+          <div className="flex gap-2 border-b pb-4">
+            <Button
+              variant={sortDirection === 'asc' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onSort(sortDirection === 'asc' ? null : 'asc')}
+              className="flex-1 text-xs font-normal"
+            >
+              ↑ Crescente
+            </Button>
+            <Button
+              variant={sortDirection === 'desc' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onSort(sortDirection === 'desc' ? null : 'desc')}
+              className="flex-1 text-xs font-normal"
+            >
+              ↓ Decrescente
+            </Button>
+            {(selectedOptions.size > 0 || sortDirection) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onClear()
+                  onSort(null)
+                  setSearchTerm("")
+                }}
+                className="flex-1 text-xs font-normal"
+              >
+                Limpar tudo
+              </Button>
+            )}
+          </div>
+
+          {/* Search Input */}
+          <Input 
+            placeholder={`Buscar ${title.toLowerCase()}...`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          {/* Options List */}
+          <div className="space-y-2 max-h-48 overflow-auto">
+            {sortedAndFilteredOptions.map((option) => (
+              <div key={option} className="flex items-center space-x-2">
+                <Checkbox
+                  id={option}
+                  checked={selectedOptions.has(option)}
+                  onCheckedChange={() => onOptionToggle(option)}
+                />
+                <label htmlFor={option} className="text-sm">
+                  {option}
+                </label>
+              </div>
+            ))}
+            {sortedAndFilteredOptions.length === 0 && (
+              <div className="text-sm text-gray-500 text-center py-2">
+                Nenhum resultado encontrado
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                onClear()
+                setSearchTerm("")
+              }}
+            >
+              Limpar filtros
+            </Button>
+            <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

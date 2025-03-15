@@ -9,8 +9,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
-import { Filter, X } from "lucide-react"
+import { Filter, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface FilterDropdownProps {
@@ -19,6 +22,9 @@ interface FilterDropdownProps {
   selectedOptions: Set<string>
   onOptionToggle: (option: string) => void
   onClear: () => void
+  sortDirection?: 'asc' | 'desc' | null
+  onSort?: (direction: 'asc' | 'desc' | null) => void
+  canSort?: boolean
 }
 
 export function FilterDropdown({
@@ -27,6 +33,9 @@ export function FilterDropdown({
   selectedOptions,
   onOptionToggle,
   onClear,
+  sortDirection,
+  onSort,
+  canSort = true,
 }: FilterDropdownProps) {
   const hasSelectedOptions = selectedOptions.size > 0
 
@@ -36,7 +45,7 @@ export function FilterDropdown({
         <Button
           variant="ghost"
           size="icon"
-          className={`h-8 w-8 p-0 text-white hover:text-white hover:bg-black/50 ${hasSelectedOptions ? "text-primary" : ""}`}
+          className={`h-8 w-8 p-0 text-white hover:text-white hover:bg-black/50 relative ${hasSelectedOptions ? "text-primary" : ""}`}
         >
           <Filter className="h-4 w-4" />
           {hasSelectedOptions && (
@@ -47,23 +56,63 @@ export function FilterDropdown({
               {selectedOptions.size}
             </Badge>
           )}
+          {sortDirection && (
+            <div className="absolute -bottom-1 -right-1 h-2 w-2">
+              {sortDirection === 'asc' ? (
+                <ArrowUp className="h-2 w-2 text-primary" />
+              ) : (
+                <ArrowDown className="h-2 w-2 text-primary" />
+              )}
+            </div>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Filtrar por {title}</span>
-          {hasSelectedOptions && (
+          <span>Opções para {title}</span>
+          {(hasSelectedOptions || sortDirection) && (
             <Button
               variant="ghost"
               size="icon"
               className="h-4 w-4 p-0"
-              onClick={onClear}
+              onClick={() => {
+                onClear()
+                if (onSort) onSort(null)
+              }}
             >
               <X className="h-3 w-3" />
             </Button>
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {canSort && onSort && (
+          <>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4" />
+                <span>Ordenar</span>
+                {sortDirection && (
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {sortDirection === 'asc' ? '↑ Crescente' : '↓ Decrescente'}
+                  </span>
+                )}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => onSort('asc')}>
+                  <ArrowUp className="h-4 w-4 mr-2" />
+                  Crescente
+                  {sortDirection === 'asc' && <span className="ml-auto">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSort('desc')}>
+                  <ArrowDown className="h-4 w-4 mr-2" />
+                  Decrescente
+                  {sortDirection === 'desc' && <span className="ml-auto">✓</span>}
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuGroup className="max-h-[300px] overflow-y-auto">
           {options.map((option) => (
             <DropdownMenuItem
