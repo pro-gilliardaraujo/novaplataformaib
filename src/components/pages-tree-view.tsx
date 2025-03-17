@@ -358,7 +358,7 @@ export function PagesTreeView({
         icon: <Plus className="h-4 w-4" />,
         label: "Adicionar Página",
         onClick: () => onAddPage(category.id),
-        show: section === 'reports'
+        show: true
       },
       {
         icon: <Pencil className="h-4 w-4" />,
@@ -417,15 +417,13 @@ export function PagesTreeView({
           <h2 className="text-lg font-semibold">
             {section === 'reports' ? 'Visualizações' : 'Gerenciamento'}
           </h2>
-          {section === 'reports' && (
-            <div className="flex gap-2">
-              {renderActionButton({
-                icon: <Plus className="h-4 w-4" />,
-                label: "Nova Categoria",
-                onClick: () => onAddCategory('reports')
-              })}
-            </div>
-          )}
+          <div className="flex gap-2">
+            {renderActionButton({
+              icon: <Plus className="h-4 w-4" />,
+              label: "Nova Categoria",
+              onClick: () => onAddCategory(section)
+            })}
+          </div>
         </div>
 
         <div className="border rounded-lg">
@@ -438,6 +436,7 @@ export function PagesTreeView({
                 <div
                   {...provided.droppableProps}
                   ref={provided.innerRef}
+                  className="py-2"
                 >
                   {sectionCategories.map((category, index) => (
                     <Draggable
@@ -449,47 +448,47 @@ export function PagesTreeView({
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className={`border-b last:border-b-0 ${snapshot.isDragging ? "bg-gray-50" : ""}`}
+                          className={`${snapshot.isDragging ? 'bg-gray-50' : ''}`}
                         >
-                          <div className="flex items-center justify-between p-2">
-                            <div className="flex items-center gap-2">
-                              <div {...provided.dragHandleProps} className="cursor-grab">
-                                <GripVertical className="h-4 w-4 text-gray-400" />
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => toggleCategory(category.id)}
-                              >
-                                {expandedCategories.includes(category.id) ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </Button>
-                              {expandedCategories.includes(category.id) ? (
-                                <FolderOpen className="h-4 w-4 text-gray-500" />
-                              ) : (
-                                <Folder className="h-4 w-4 text-gray-500" />
-                              )}
-                              <span>{category.name}</span>
+                          <div className="flex items-center px-4 py-2 hover:bg-gray-50">
+                            <div {...provided.dragHandleProps} className="mr-2">
+                              <GripVertical className="h-4 w-4 text-gray-400" />
                             </div>
-                            {section === 'reports' && renderCategoryActions(category, section)}
+                            <button
+                              onClick={() => toggleCategory(category.id)}
+                              className="flex items-center flex-1"
+                            >
+                              {expandedCategories.includes(category.id) ? (
+                                <ChevronDown className="h-4 w-4 text-gray-500 mr-1" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-gray-500 mr-1" />
+                              )}
+                              <div className="flex items-center gap-2">
+                                {getIconForCategory(category)}
+                                <span className="text-sm font-medium">
+                                  {category.name}
+                                </span>
+                              </div>
+                            </button>
+                            {renderCategoryActions(category, section)}
                           </div>
-                          
+
                           {expandedCategories.includes(category.id) && (
-                            <div className="pl-8 pr-2 pb-2">
-                              {getCategoryPages(category.id).map(page => (
+                            <div className="ml-12 space-y-1 py-1">
+                              {getCategoryPages(category.id).map((page) => (
                                 <div
                                   key={page.id}
-                                  className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md"
+                                  className="flex items-center px-4 py-1 hover:bg-gray-50"
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <File className="h-4 w-4 text-gray-500" />
-                                    <span>{page.name}</span>
+                                  <div className="flex items-center flex-1">
+                                    <div className="flex items-center gap-2">
+                                      {getIconForPage(page)}
+                                      <span className="text-sm">
+                                        {page.name}
+                                      </span>
+                                    </div>
                                   </div>
-                                  {section === 'reports' && renderPageActions(page, section)}
+                                  {renderPageActions(page, section)}
                                 </div>
                               ))}
                             </div>

@@ -43,6 +43,7 @@ const BonificacoesIcon = DocumentDuplicateIcon
 export default function Sidebar() {
   const { user, signOut } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
@@ -50,43 +51,27 @@ export default function Sidebar() {
   const { data: menuData = { reports: [], management: [] }, isLoading } = useQuery({
     queryKey: ['menu-data'],
     queryFn: async () => {
-      try {
-        // Busca todas as categorias com suas páginas em uma única query
-        const { data: categories, error } = await supabase
-          .from('categories')
-          .select(`
+      const { data: categories, error: categoriesError } = await supabase
+        .from('categories')
+        .select(`
+          *,
+          pages (
             id,
             name,
             slug,
-            section,
-            icon,
-            order_index,
-            pages (
-              id,
-              name,
-              slug,
-              icon,
-              category_id
-            )
-          `)
-          .order('order_index')
+            icon
+          )
+        `)
+        .order('order_index')
 
-        if (error) throw error
+      if (categoriesError) throw categoriesError
 
-        // Organiza os dados por seção
-        const organized = {
-          reports: categories?.filter(cat => cat.section === 'reports') || [],
-          management: categories?.filter(cat => cat.section === 'management') || []
-        }
+      const reports = categories.filter(cat => cat.section === 'reports')
+      const management = categories.filter(cat => cat.section === 'management')
 
-        return organized
-      } catch (error) {
-        console.error('Erro ao buscar dados do menu:', error)
-        return { reports: [], management: [] }
-      }
+      return { reports, management }
     },
-    staleTime: 30000,
-    retry: 1
+    staleTime: 1000 * 60 * 5, // 5 minutos
   })
 
   const toggleCategory = (categoryId: string) => {
@@ -380,11 +365,22 @@ export default function Sidebar() {
                     </div>
                     <div className="mx-2 my-1">
                       <Link
-                        href="/alterar-senha"
-                        className="flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
+                        href="/gerenciamento/paginas"
+                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                          pathname === '/gerenciamento/paginas' ? 'bg-gray-100' : ''
+                        }`}
+                      >
+                        <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
+                        <span className="ml-2">Páginas</span>
+                      </Link>
+                      <Link
+                        href="/gerenciamento/usuarios"
+                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                          pathname === '/gerenciamento/usuarios' ? 'bg-gray-100' : ''
+                        }`}
                       >
                         <KeyIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Trocar Senha</span>
+                        <span className="ml-2">Usuários</span>
                       </Link>
                       <button
                         onClick={handleSignOut}
