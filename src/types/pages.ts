@@ -14,7 +14,18 @@ export interface Tab {
   updated_at: string;
   page_id: string | null;
   name: string;
-  content: string;
+  content: string | {
+    type: string;
+    settings?: {
+      showCategories?: boolean;
+      showLowStock?: boolean;
+      showCharts?: boolean;
+      showFilters?: boolean;
+      showExport?: boolean;
+      columns?: string[];
+      [key: string]: any;
+    };
+  };
   order_index: number;
 }
 

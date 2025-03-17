@@ -7,9 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
-import { X, Edit, Trash2 } from "lucide-react"
+import { X, Edit, Trash2, ArrowUpDown } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import Image from "next/image"
+import { MovimentacaoEstoqueModal } from "./MovimentacaoEstoqueModal"
+import { HistoricoMovimentacoes } from "./HistoricoMovimentacoes"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface DetalhesItemModalProps {
   open: boolean
@@ -46,6 +49,7 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
   const [imagens, setImagens] = useState<ImagemItem[]>([])
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showMovimentacao, setShowMovimentacao] = useState(false)
   const { toast } = useToast()
 
   // Load images when modal opens
@@ -193,6 +197,14 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
+                    onClick={() => setShowMovimentacao(true)}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
                     onClick={() => setIsEditing(true)}
                   >
                     <Edit className="h-4 w-4" />
@@ -221,111 +233,124 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
           <div className="border-b mt-4" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          {/* Left Column - Item Info */}
-          <div className="space-y-4">
-            <form onSubmit={handleSubmit}>
+        <Tabs defaultValue="detalhes" className="mt-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+            <TabsTrigger value="historico">Histórico</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="detalhes">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column - Item Info */}
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="descricao">Descrição</Label>
-                  {isEditing ? (
-                    <Input
-                      id="descricao"
-                      value={descricao}
-                      onChange={(e) => setDescricao(e.target.value)}
-                    />
-                  ) : (
-                    <p className="text-gray-600">{descricao}</p>
-                  )}
-                </div>
+                <form onSubmit={handleSubmit}>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="descricao">Descrição</Label>
+                      {isEditing ? (
+                        <Input
+                          id="descricao"
+                          value={descricao}
+                          onChange={(e) => setDescricao(e.target.value)}
+                        />
+                      ) : (
+                        <p className="text-gray-600">{descricao}</p>
+                      )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="codigo">Código do Fabricante</Label>
-                  {isEditing ? (
-                    <Input
-                      id="codigo"
-                      value={codigoFabricante}
-                      onChange={(e) => setCodigoFabricante(e.target.value)}
-                    />
-                  ) : (
-                    <p className="text-gray-600">{codigoFabricante}</p>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="codigo">Código do Fabricante</Label>
+                      {isEditing ? (
+                        <Input
+                          id="codigo"
+                          value={codigoFabricante}
+                          onChange={(e) => setCodigoFabricante(e.target.value)}
+                        />
+                      ) : (
+                        <p className="text-gray-600">{codigoFabricante}</p>
+                      )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="quantidade">Quantidade</Label>
-                  {isEditing ? (
-                    <Input
-                      id="quantidade"
-                      type="number"
-                      min="0"
-                      value={quantidade}
-                      onChange={(e) => setQuantidade(e.target.value)}
-                    />
-                  ) : (
-                    <p className="text-gray-600">{quantidade}</p>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quantidade">Quantidade</Label>
+                      {isEditing ? (
+                        <Input
+                          id="quantidade"
+                          type="number"
+                          min="0"
+                          value={quantidade}
+                          onChange={(e) => setQuantidade(e.target.value)}
+                        />
+                      ) : (
+                        <p className="text-gray-600">{quantidade}</p>
+                      )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="observacoes">Observações</Label>
-                  {isEditing ? (
-                    <Textarea
-                      id="observacoes"
-                      value={observacoes}
-                      onChange={(e) => setObservacoes(e.target.value)}
-                      className="resize-none h-[120px]"
-                    />
-                  ) : (
-                    <p className="text-gray-600 whitespace-pre-wrap">{observacoes || "Nenhuma observação"}</p>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="observacoes">Observações</Label>
+                      {isEditing ? (
+                        <Textarea
+                          id="observacoes"
+                          value={observacoes}
+                          onChange={(e) => setObservacoes(e.target.value)}
+                          className="resize-none h-[120px]"
+                        />
+                      ) : (
+                        <p className="text-gray-600 whitespace-pre-wrap">{observacoes || "Nenhuma observação"}</p>
+                      )}
+                    </div>
 
-                {isEditing && (
-                  <div className="flex justify-end gap-2 mt-6">
-                    <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
-                      {isLoading ? "Salvando..." : "Salvar"}
-                    </Button>
+                    {isEditing && (
+                      <div className="flex justify-end gap-2 mt-6">
+                        <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
+                          {isLoading ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
+                </form>
+              </div>
+
+              {/* Right Column - Images */}
+              <div className="space-y-4">
+                <Label>Imagens</Label>
+                {imagens.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    {imagens.map((imagem) => {
+                      const imageUrl = supabase.storage
+                        .from('itens-estoque')
+                        .getPublicUrl(imagem.url_imagem).data.publicUrl
+
+                      return (
+                        <div
+                          key={imagem.id}
+                          className="relative aspect-square rounded-lg overflow-hidden cursor-pointer"
+                          onClick={() => setSelectedImage(imageUrl)}
+                        >
+                          <Image
+                            src={imageUrl}
+                            alt={`Imagem ${imagem.id}`}
+                            fill
+                            className="object-cover hover:scale-105 transition-transform"
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">Nenhuma imagem cadastrada</p>
                 )}
               </div>
-            </form>
-          </div>
+            </div>
+          </TabsContent>
 
-          {/* Right Column - Images */}
-          <div className="space-y-4">
-            <Label>Imagens</Label>
-            {imagens.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
-                {imagens.map((imagem) => {
-                  const imageUrl = supabase.storage
-                    .from('itens-estoque')
-                    .getPublicUrl(imagem.url_imagem).data.publicUrl
-
-                  return (
-                    <div
-                      key={imagem.id}
-                      className="relative aspect-square rounded-lg overflow-hidden cursor-pointer"
-                      onClick={() => setSelectedImage(imageUrl)}
-                    >
-                      <Image
-                        src={imageUrl}
-                        alt={`Imagem ${imagem.id}`}
-                        fill
-                        className="object-cover hover:scale-105 transition-transform"
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-8">Nenhuma imagem cadastrada</p>
-            )}
-          </div>
-        </div>
+          <TabsContent value="historico" className="mt-4">
+            <HistoricoMovimentacoes itemId={item.id} />
+          </TabsContent>
+        </Tabs>
 
         {/* Image Preview Modal */}
         {selectedImage && (
@@ -342,6 +367,14 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Movimentação Modal */}
+        <MovimentacaoEstoqueModal
+          open={showMovimentacao}
+          onOpenChange={setShowMovimentacao}
+          item={item}
+          onSuccess={onSuccess}
+        />
       </DialogContent>
     </Dialog>
   )

@@ -2,18 +2,25 @@
 
 import { Tab } from "@/types/pages"
 import { Tabs as TabsRoot, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { DynamicContentRenderer } from "@/components/dynamic-content-renderer"
 
 interface CustomTabsProps {
   tabs: Tab[]
 }
 
-function TabContentRenderer({ content }: { content: string }) {
-  return (
-    <div 
-      className="h-full w-full [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:border-none" 
-      dangerouslySetInnerHTML={{ __html: content }}
-    />
-  )
+function TabContentRenderer({ content }: { content: string | { type: string; settings?: any } }) {
+  // If content is a string, render it as HTML (legacy support)
+  if (typeof content === 'string') {
+    return (
+      <div 
+        className="h-full w-full [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:border-none" 
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    )
+  }
+
+  // If content is an object with type, use DynamicContentRenderer
+  return <DynamicContentRenderer content={content} />
 }
 
 export function CustomTabs({ tabs }: CustomTabsProps) {

@@ -14,27 +14,27 @@ CONTROLE DE ESTOQUE - TRACKING DE PROGRESSO
        - Visualização de imagens [✓]
    
    2.2 Funcionalidades Adicionais [ ]
-       - Categorização de itens [ ]
-       - Código de barras/QR Code [ ]
-       - Localização física do item [ ]
        - Níveis mínimos de estoque [ ]
        - Alertas de estoque baixo [ ]
 
-3. SISTEMA DE HISTÓRICO [ ]
-   3.1 Verificações de Estoque [ ]
-       - Interface de registro [ ]
-       - Visualização de histórico [ ]
-       - Filtros e busca [ ]
+3. SISTEMA DE HISTÓRICO [✓]
+   3.1 Verificações de Estoque [✓]
+       - Interface de registro [✓]
+       - Visualização de histórico [✓]
+       - Filtros e busca [✓]
    
-   3.2 Movimentações [ ]
-       - Entrada de itens [ ]
-       - Saída de itens [ ]
-       - Ajustes de estoque [ ]
-       - Motivos de movimentação [ ]
+   3.2 Movimentações [✓]
+       - Entrada de itens [✓]
+       - Saída de itens [✓]
+       - Ajustes de estoque [✓]
+       - Motivos de movimentação [✓]
 
-4. RELATÓRIOS [ ]
-   4.1 Relatórios Básicos [ ]
-       - Inventário atual [ ]
+4. RELATÓRIOS [Em Progresso]
+   4.1 Relatórios Básicos [Em Desenvolvimento]
+       - Inventário atual [✓]
+         * Visão geral com cards e gráficos [✓]
+         * Lista detalhada com filtros [✓]
+         * Exportação para CSV [✓]
        - Movimentações por período [ ]
        - Itens com estoque baixo [ ]
    
@@ -48,59 +48,33 @@ CONTROLE DE ESTOQUE - TRACKING DE PROGRESSO
        - Exportação para Excel [ ]
        - Importação em lote [ ]
        - Templates de importação [ ]
-   
-   5.2 Integrações [ ]
-       - Leitor de código de barras [ ]
-       - Impressão de etiquetas [ ]
-       - Notificações por email [ ]
 
 6. MELHORIAS DE UX/UI [ ]
    - Filtros avançados [ ]
    - Ordenação personalizada [ ]
    - Visualização em lista/grid [ ]
-   - Temas claro/escuro [ ]
    - Responsividade [ ]
-
-7. SEGURANÇA E PERMISSÕES [ ]
-   - Níveis de acesso [ ]
-   - Log de ações [ ]
-   - Backup automático [ ]
 
 ORDEM DE IMPLEMENTAÇÃO:
 
-1. Categorização de Itens
-   - Adicionar tabela de categorias
-   - Implementar seleção na interface
-   - Filtros por categoria
+1. Sistema de Histórico [✓]
+   - Interface de movimentações [✓]
+   - Visualização de histórico [✓]
+   - Filtros e busca [✓]
 
-2. Sistema de Histórico
-   - Interface de movimentações
-   - Registro de entradas/saídas
-   - Visualização de histórico
+2. Relatórios Básicos [Em Progresso]
+   - Inventário atual [✓]
+   - Movimentações por período [Em Desenvolvimento]
+   - Exportação para Excel [✓]
 
-3. Relatórios Básicos
-   - Inventário atual
-   - Movimentações
-   - Exportação para Excel
-
-4. Alertas e Níveis Mínimos
+3. Alertas e Níveis Mínimos
    - Configuração de níveis
    - Sistema de alertas
    - Notificações
 
-5. Melhorias de UX
+4. Melhorias de UX
    - Filtros avançados
    - Ordenação
    - Visualização alternativa
 
-6. Funcionalidades Avançadas
-   - Código de barras
-   - Localização física
-   - Impressão de etiquetas
-
-7. Integrações e Extras
-   - Notificações por email
-   - Backup automático
-   - Log de ações
-
-STATUS ATUAL: Estrutura básica implementada, iniciando categorização de itens. 
+STATUS ATUAL: Concluída a implementação do relatório de inventário atual, incluindo visão geral e lista detalhada. Iniciando desenvolvimento do relatório de movimentações por período. 
