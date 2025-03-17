@@ -1,37 +1,22 @@
+"use client"
+
 import { Card, CardContent } from "@/components/ui/card"
-import { Calendar, Clock, CheckCircle, XCircle } from "lucide-react"
 
-type StatsCardProps = {
+interface StatsCardProps {
   title: string
-  value: string
-  icon: "total" | "pending" | "completed" | "canceled"
-}
-
-const icons = {
-  total: Calendar,
-  pending: Clock,
-  completed: CheckCircle,
-  canceled: XCircle,
-}
-
-const colors = {
-  total: "text-blue-600",
-  pending: "text-yellow-600",
-  completed: "text-green-600",
-  canceled: "text-red-600",
+  value: number
+  icon: React.ReactNode
 }
 
 export function StatsCard({ title, value, icon }: StatsCardProps) {
-  const Icon = icons[icon]
-
   return (
-    <Card className="p-2">
-      <CardContent className="flex items-center justify-between p-0">
+    <Card>
+      <CardContent className="p-4 flex items-center justify-between">
         <div>
-          <p className="text-xs sm:text-sm font-medium text-muted-foreground">{title}</p>
-          <p className={`text-base sm:text-lg font-bold ${colors[icon]}`}>{value}</p>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <h2 className="text-2xl font-bold">{value.toString()}</h2>
         </div>
-        <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${colors[icon]}`} />
+        <div className="text-muted-foreground">{icon}</div>
       </CardContent>
     </Card>
   )

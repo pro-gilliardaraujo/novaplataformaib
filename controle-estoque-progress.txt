@@ -6,6 +6,7 @@ CONTROLE DE ESTOQUE - TRACKING DE PROGRESSO
    - Modal de detalhes do item [✓]
    - Tabelas no banco de dados [✓]
    - Entrada no menu de gerenciamento [✓]
+   - Sistema de conteúdo dinâmico [✓]
 
 2. GESTÃO DE ITENS
    2.1 Cadastro e Edição [✓]
@@ -13,9 +14,10 @@ CONTROLE DE ESTOQUE - TRACKING DE PROGRESSO
        - Upload de imagens [✓]
        - Visualização de imagens [✓]
    
-   2.2 Funcionalidades Adicionais [ ]
-       - Níveis mínimos de estoque [ ]
-       - Alertas de estoque baixo [ ]
+   2.2 Funcionalidades Adicionais [✓]
+       - Níveis mínimos de estoque [✓]
+       - Alertas de estoque baixo [✓]
+       - Categorização de itens [✓]
 
 3. SISTEMA DE HISTÓRICO [✓]
    3.1 Verificações de Estoque [✓]
@@ -29,52 +31,107 @@ CONTROLE DE ESTOQUE - TRACKING DE PROGRESSO
        - Ajustes de estoque [✓]
        - Motivos de movimentação [✓]
 
-4. RELATÓRIOS [Em Progresso]
-   4.1 Relatórios Básicos [Em Desenvolvimento]
+4. RELATÓRIOS [✓]
+   4.1 Relatórios Básicos [✓]
        - Inventário atual [✓]
          * Visão geral com cards e gráficos [✓]
          * Lista detalhada com filtros [✓]
          * Exportação para CSV [✓]
-       - Movimentações por período [ ]
-       - Itens com estoque baixo [ ]
+       - Movimentações por período [✓]
+         * Estrutura da página [✓]
+         * Interface de filtros [✓]
+         * Visualização de dados [✓]
+         * Exportação para CSV [✓]
+       - Alertas e Níveis Mínimos [✓]
+         * Estrutura da página [✓]
+         * Interface de filtros [✓]
+         * Visualização de dados [✓]
+         * Exportação para CSV [✓]
+       - Itens com estoque baixo [✓]
+         * Estrutura da página [✓]
+         * Interface de filtros [✓]
+         * Visualização de dados [✓]
+         * Exportação para CSV [✓]
    
-   4.2 Relatórios Avançados [ ]
-       - Análise de consumo [ ]
-       - Previsão de demanda [ ]
-       - Gráficos e estatísticas [ ]
+   4.2 Relatórios Avançados [✓]
+       - Análise de consumo [✓]
+         * Estrutura da página [✓]
+         * Interface de filtros [✓]
+         * Visualização de dados [✓]
+         * Gráficos e estatísticas [✓]
+         * Exportação para CSV [✓]
+       - Previsão de demanda [✓]
+         * Estrutura da página [✓]
+         * Interface de filtros [✓]
+         * Visualização de dados [✓]
+         * Gráficos e estatísticas [✓]
+         * Exportação para CSV [✓]
 
-5. FUNCIONALIDADES EXTRAS [ ]
-   5.1 Importação/Exportação [ ]
+4.3 Itens com dados fictícios para teste do sistema [✓]
+   - Usar nomes com prefixo "TESTE_" para identificar os itens como fictícios [✓]
+   - Itens para saída de movimentação [✓]
+   - Itens para entrada de movimentação [✓]
+   - Itens para ajuste de estoque [✓]
+   - Itens para alerta de estoque baixo [✓]
+
+5. MELHORIAS DE LAYOUT E CAMPOS ADICIONAIS [ ]
+   5.1 Novo Layout (estilo Tipos de Parada) [ ]
+       - Atualizar estrutura da tabela [ ]
+       - Implementar navegação por tabs [ ]
+       - Ajustar posicionamento da barra de busca [ ]
+       - Alinhar botões de ação [ ]
+       - Padronizar alturas e bordas das linhas [ ]
+       - Adicionar cabeçalho com título e ações [ ]
+   
+   5.2 Campos Adicionais [ ]
+       - Destino da movimentação [ ]
+         * Adicionar campo na tabela historico_estoque [ ]
+         * Atualizar interfaces de movimentação [ ]
+         * Atualizar relatórios e filtros [ ]
+       - Frota (opcional) [ ]
+         * Adicionar campo na tabela historico_estoque [ ]
+         * Atualizar interfaces de movimentação [ ]
+         * Atualizar relatórios e filtros [ ]
+
+6. FUNCIONALIDADES EXTRAS [ ]
+   6.1 Importação/Exportação [ ]
        - Exportação para Excel [ ]
        - Importação em lote [ ]
        - Templates de importação [ ]
+       - Importação em massa [ ]
+       - Exportação em massa [ ]
+       - Backup automático [ ]
 
-6. MELHORIAS DE UX/UI [ ]
+7. MELHORIAS DE UX/UI [ ]
    - Filtros avançados [ ]
    - Ordenação personalizada [ ]
    - Visualização em lista/grid [ ]
    - Responsividade [ ]
+   - Temas claro/escuro [ ]
+   - Animações e transições [ ]
+   - Atalhos de teclado [ ]
 
 ORDEM DE IMPLEMENTAÇÃO:
 
-1. Sistema de Histórico [✓]
-   - Interface de movimentações [✓]
-   - Visualização de histórico [✓]
-   - Filtros e busca [✓]
+1. Estrutura básica do sistema [✓]
+2. Gerenciamento de itens [✓]
+3. Sistema de histórico [✓]
+4. Relatório de estoque atual [✓]
+5. Relatório de movimentações [✓]
+6. Configuração de níveis mínimos e alertas [✓]
+7. Relatório de alertas [✓]
+8. Relatórios avançados [✓]
+9. Dados de teste para QA [✓]
+10. Novo layout e campos adicionais [ ]
+    - Migrar para novo layout
+    - Adicionar campos de destino e frota
+    - Atualizar interfaces e relatórios
+11. Funcionalidades extras [ ]
+12. Melhorias de UX/UI [ ]
 
-2. Relatórios Básicos [Em Progresso]
-   - Inventário atual [✓]
-   - Movimentações por período [Em Desenvolvimento]
-   - Exportação para Excel [✓]
-
-3. Alertas e Níveis Mínimos
-   - Configuração de níveis
-   - Sistema de alertas
-   - Notificações
-
-4. Melhorias de UX
-   - Filtros avançados
-   - Ordenação
-   - Visualização alternativa
-
-STATUS ATUAL: Concluída a implementação do relatório de inventário atual, incluindo visão geral e lista detalhada. Iniciando desenvolvimento do relatório de movimentações por período. 
+STATUS ATUAL: Iniciando a migração para o novo layout baseado na página de Tipos de Parada. Próximos passos incluem:
+1. Criar migration para adicionar campos destino_movimentacao e frota na tabela historico_estoque
+2. Criar componentes compartilhados baseados no layout de Tipos de Parada
+3. Atualizar as páginas de inventário para usar o novo layout
+4. Atualizar modais e formulários para incluir os novos campos
+5. Atualizar relatórios e filtros para suportar os novos campos 

@@ -4,8 +4,16 @@ import { Tab } from "@/types/pages"
 import { Tabs as TabsRoot, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { DynamicContentRenderer } from "@/components/dynamic-content-renderer"
 
+interface LocalTab {
+  name: string
+  content: {
+    type: string
+    settings?: any
+  }
+}
+
 interface CustomTabsProps {
-  tabs: Tab[]
+  tabs: (Tab | LocalTab)[]
 }
 
 function TabContentRenderer({ content }: { content: string | { type: string; settings?: any } }) {

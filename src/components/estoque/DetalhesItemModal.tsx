@@ -13,6 +13,7 @@ import Image from "next/image"
 import { MovimentacaoEstoqueModal } from "./MovimentacaoEstoqueModal"
 import { HistoricoMovimentacoes } from "./HistoricoMovimentacoes"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface DetalhesItemModalProps {
   open: boolean
@@ -24,6 +25,9 @@ interface DetalhesItemModalProps {
     quantidade_atual: number
     observacoes?: string
     category_id?: string
+    nivel_minimo?: number
+    nivel_critico?: number
+    alertas_ativos?: boolean
   }
   onSuccess: () => void
   categorias: {
@@ -46,6 +50,9 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
   const [quantidade, setQuantidade] = useState(String(item.quantidade_atual))
   const [observacoes, setObservacoes] = useState(item.observacoes || "")
   const [categoryId, setCategoryId] = useState(item.category_id || "")
+  const [nivelMinimo, setNivelMinimo] = useState(item.nivel_minimo ? String(item.nivel_minimo) : "")
+  const [nivelCritico, setNivelCritico] = useState(item.nivel_critico ? String(item.nivel_critico) : "")
+  const [alertasAtivos, setAlertasAtivos] = useState(item.alertas_ativos ?? true)
   const [imagens, setImagens] = useState<ImagemItem[]>([])
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -100,7 +107,11 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
           descricao,
           codigo_fabricante: codigoFabricante,
           quantidade_atual: Number(quantidade),
-          observacoes
+          observacoes,
+          category_id: categoryId || null,
+          nivel_minimo: nivelMinimo ? Number(nivelMinimo) : null,
+          nivel_critico: nivelCritico ? Number(nivelCritico) : null,
+          alertas_ativos: alertasAtivos
         })
         .eq('id', item.id)
 
@@ -298,6 +309,64 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
                       ) : (
                         <p className="text-gray-600 whitespace-pre-wrap">{observacoes || "Nenhuma observação"}</p>
                       )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <Label>Níveis de Estoque</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="nivelMinimo">Nível Mínimo</Label>
+                          {isEditing ? (
+                            <Input
+                              id="nivelMinimo"
+                              type="number"
+                              min="0"
+                              value={nivelMinimo}
+                              onChange={(e) => setNivelMinimo(e.target.value)}
+                              placeholder="Digite o nível mínimo"
+                            />
+                          ) : (
+                            <p className="text-gray-600">
+                              {nivelMinimo ? nivelMinimo : "Não definido"}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="nivelCritico">Nível Crítico</Label>
+                          {isEditing ? (
+                            <Input
+                              id="nivelCritico"
+                              type="number"
+                              min="0"
+                              value={nivelCritico}
+                              onChange={(e) => setNivelCritico(e.target.value)}
+                              placeholder="Digite o nível crítico"
+                            />
+                          ) : (
+                            <p className="text-gray-600">
+                              {nivelCritico ? nivelCritico : "Não definido"}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {isEditing ? (
+                          <>
+                            <Checkbox
+                              id="alertasAtivos"
+                              checked={alertasAtivos}
+                              onCheckedChange={(checked) => setAlertasAtivos(checked as boolean)}
+                            />
+                            <Label htmlFor="alertasAtivos" className="cursor-pointer">
+                              Ativar alertas de estoque baixo
+                            </Label>
+                          </>
+                        ) : (
+                          <p className="text-gray-600">
+                            Alertas: {alertasAtivos ? "Ativos" : "Inativos"}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     {isEditing && (

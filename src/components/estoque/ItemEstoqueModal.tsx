@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
 import { X, Upload, X as XIcon } from "lucide-react"
 import { supabase } from "@/lib/supabase"
@@ -32,6 +33,9 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
   const [observacoes, setObservacoes] = useState("")
   const [categoryId, setCategoryId] = useState<string>("")
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [nivelMinimo, setNivelMinimo] = useState<string>("")
+  const [nivelCritico, setNivelCritico] = useState<string>("")
+  const [alertasAtivos, setAlertasAtivos] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
@@ -67,6 +71,9 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
             quantidade_atual: Number(quantidadeAtual),
             observacoes: observacoes || null,
             category_id: categoryId || null,
+            nivel_minimo: nivelMinimo ? Number(nivelMinimo) : null,
+            nivel_critico: nivelCritico ? Number(nivelCritico) : null,
+            alertas_ativos: alertasAtivos,
           }
         ])
         .select()
@@ -127,6 +134,9 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
       setObservacoes("")
       setCategoryId("")
       setSelectedFiles([])
+      setNivelMinimo("")
+      setNivelCritico("")
+      setAlertasAtivos(true)
     }
     onOpenChange(open)
   }
@@ -207,6 +217,44 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-4">
+                <Label>Níveis de Estoque</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nivelMinimo">Nível Mínimo</Label>
+                    <Input
+                      id="nivelMinimo"
+                      type="number"
+                      min="0"
+                      value={nivelMinimo}
+                      onChange={(e) => setNivelMinimo(e.target.value)}
+                      placeholder="Digite o nível mínimo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nivelCritico">Nível Crítico</Label>
+                    <Input
+                      id="nivelCritico"
+                      type="number"
+                      min="0"
+                      value={nivelCritico}
+                      onChange={(e) => setNivelCritico(e.target.value)}
+                      placeholder="Digite o nível crítico"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="alertasAtivos"
+                    checked={alertasAtivos}
+                    onCheckedChange={(checked) => setAlertasAtivos(checked as boolean)}
+                  />
+                  <Label htmlFor="alertasAtivos" className="cursor-pointer">
+                    Ativar alertas de estoque baixo
+                  </Label>
+                </div>
               </div>
 
               <div className="space-y-2">

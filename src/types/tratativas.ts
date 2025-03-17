@@ -1,8 +1,14 @@
 export interface Tratativa {
-  id: string
+  id: number
   numero_tratativa: string
+  setor: string
+  status: string
+  created_at: string
+  updated_at: string
   funcionario: string
   data_infracao: string
+  descricao: string
+  observacoes?: string
   hora_infracao: string
   codigo_infracao: string
   descricao_infracao: string

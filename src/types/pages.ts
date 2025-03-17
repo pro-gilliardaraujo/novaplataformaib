@@ -22,11 +22,29 @@ export interface Tab {
       showCharts?: boolean;
       showFilters?: boolean;
       showExport?: boolean;
+      showDateRange?: boolean;
       columns?: string[];
       [key: string]: any;
     };
   };
   order_index: number;
+}
+
+export interface LocalTab {
+  name: string;
+  content: {
+    type: string;
+    settings?: {
+      showCategories?: boolean;
+      showLowStock?: boolean;
+      showCharts?: boolean;
+      showFilters?: boolean;
+      showExport?: boolean;
+      showDateRange?: boolean;
+      columns?: string[];
+      [key: string]: any;
+    };
+  };
 }
 
 export interface Page {

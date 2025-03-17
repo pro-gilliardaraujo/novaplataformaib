@@ -46,27 +46,61 @@ export default function EstoquePage() {
   const carregarItens = async () => {
     try {
       setIsLoading(true)
-      const { data, error } = await supabase
+      console.log('Iniciando carregamento de itens...')
+
+      // First, let's try a simple query to check if we can access the items_estoque table
+      const { data: itemsData, error: itemsError } = await supabase
         .from('items_estoque')
-        .select(`
-          *,
-          categoria:category_id (
-            id,
-            nome,
-            descricao,
-            cor
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      console.log('Resposta da query items_estoque:', { itemsData, itemsError })
 
-      setItems(data || [])
-    } catch (error) {
+      if (itemsError) {
+        console.error('Erro ao carregar itens:', itemsError)
+        throw itemsError
+      }
+
+      if (!itemsData || itemsData.length === 0) {
+        console.log('Nenhum item encontrado na tabela items_estoque')
+        setItems([])
+        return
+      }
+
+      // If successful, let's try to get the categories for each item
+      console.log('Carregando categorias para cada item...')
+      const itemsWithCategories = await Promise.all(
+        itemsData.map(async (item) => {
+          if (item.category_id) {
+            console.log(`Buscando categoria para o item ${item.id} (category_id: ${item.category_id})`)
+            const { data: categoryData, error: categoryError } = await supabase
+              .from('categorias_item')
+              .select('*')
+              .eq('id', item.category_id)
+              .single()
+
+            if (categoryError) {
+              console.error(`Erro ao carregar categoria para o item ${item.id}:`, categoryError)
+              return item
+            }
+
+            console.log(`Categoria encontrada para o item ${item.id}:`, categoryData)
+            return {
+              ...item,
+              categoria: categoryData
+            }
+          }
+          return item
+        })
+      )
+
+      console.log('Itens processados com categorias:', itemsWithCategories)
+      setItems(itemsWithCategories)
+    } catch (error: any) {
       console.error('Erro ao carregar itens:', error)
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os itens do estoque",
+        description: `Não foi possível carregar os itens do estoque: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -77,19 +111,31 @@ export default function EstoquePage() {
   // Carregar categorias
   const carregarCategorias = async () => {
     try {
+      console.log('Iniciando carregamento de categorias...')
       const { data, error } = await supabase
         .from('categorias_item')
         .select('*')
         .order('nome')
 
-      if (error) throw error
+      console.log('Resposta da query categorias_item:', { data, error })
+
+      if (error) {
+        console.error('Erro detalhado:', error)
+        throw error
+      }
+
+      if (!data || data.length === 0) {
+        console.log('Nenhuma categoria encontrada')
+      } else {
+        console.log('Categorias encontradas:', data)
+      }
 
       setCategorias(data || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar categorias:', error)
       toast({
         title: "Erro",
-        description: "Não foi possível carregar as categorias",
+        description: `Não foi possível carregar as categorias: ${error.message}`,
         variant: "destructive",
       })
     }

@@ -39,7 +39,7 @@ export function InventoryOverview({ settings }: InventoryOverviewProps) {
 
         // Get total items and quantity
         const { data: itemsData, error: itemsError } = await supabase
-          .from('items_estoque')
+          .from('itens_estoque')
           .select('id, quantidade_atual, category_id')
 
         if (itemsError) throw itemsError

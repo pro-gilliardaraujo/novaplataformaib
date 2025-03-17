@@ -1,12 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
 import { Tratativa } from "@/types/tratativas"
-import TratativaDetailsModal from "@/components/tratativa-details-modal"
+import { formatDistanceToNow } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { Button } from "@/components/ui/button"
 
 interface RecentActivityProps {
   recentTratativas: Tratativa[]
@@ -14,47 +11,36 @@ interface RecentActivityProps {
 }
 
 export function RecentActivity({ recentTratativas, hideTitle = false }: RecentActivityProps) {
-  const [selectedTratativa, setSelectedTratativa] = useState<Tratativa | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-
   return (
-    <Card className="h-full flex flex-col">
+    <div>
       {!hideTitle && (
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-center">Atividade Recente</CardTitle>
-        </CardHeader>
+        <h3 className="text-lg font-semibold">Atividade Recente</h3>
       )}
-      <CardContent className="flex-grow">
-        <ScrollArea className="h-[250px]">
-          <div className="space-y-4 pr-4">
-            {recentTratativas.map((item) => (
-              <div
-                key={item.id}
-                className="cursor-pointer hover:bg-gray-100 rounded p-2"
-                onClick={() => {
-                  setSelectedTratativa(item)
-                  setIsModalOpen(true)
-                }}
-              >
-                <span className="text-sm font-medium">
-                  Tratativa {item.numero_tratativa} - {item.funcionario}{" "}
-                  {format(new Date(item.data_infracao), "dd/MM/yyyy", { locale: ptBR })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
-      {selectedTratativa && (
-        <TratativaDetailsModal
-          open={isModalOpen}
-          onOpenChange={setIsModalOpen}
-          tratativa={{
-            ...selectedTratativa,
-            id: selectedTratativa.id.toString(),
-          }}
-        />
-      )}
-    </Card>
+      <div className="flex flex-col">
+        {recentTratativas.map((tratativa) => (
+          <Button
+            key={tratativa.id}
+            variant="ghost"
+            className="flex items-start space-x-4 p-2 rounded-lg bg-muted/50 h-auto justify-start hover:bg-muted"
+            onClick={() => {}}
+          >
+            <div className="flex-1 space-y-1 text-left">
+              <p className="text-sm font-medium leading-none">
+                Tratativa #{tratativa.numero_tratativa}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {tratativa.setor} - {tratativa.status}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(tratativa.created_at), {
+                  addSuffix: true,
+                  locale: ptBR,
+                })}
+              </p>
+            </div>
+          </Button>
+        ))}
+      </div>
+    </div>
   )
 } 

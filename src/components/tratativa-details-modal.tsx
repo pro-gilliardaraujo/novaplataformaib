@@ -5,15 +5,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { X, FileText } from "lucide-react"
+import { X, FileText, Pencil } from "lucide-react"
 import { TratativaDetailsProps } from "@/types/tratativas"
 import { DocumentViewerModal } from "./document-viewer-modal"
+import { EditarTratativaModal } from "./editar-tratativa-modal"
 import { useState } from "react"
 
 interface TratativaDetailsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   tratativa: TratativaDetailsProps
+  onTratativaEdited?: () => void
 }
 
 function DetailItem({ label, value }: { label: string; value: React.ReactNode }) {
@@ -45,8 +47,9 @@ function calcularDiasParaDevolver(dataInfracao: string, dataDevolvida: string | 
   return `${diffDays} dia${diffDays !== 1 ? 's' : ''}`
 }
 
-export default function TratativaDetailsModal({ open, onOpenChange, tratativa }: TratativaDetailsModalProps) {
+export default function TratativaDetailsModal({ open, onOpenChange, tratativa, onTratativaEdited }: TratativaDetailsModalProps) {
   const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -55,14 +58,24 @@ export default function TratativaDetailsModal({ open, onOpenChange, tratativa }:
           <div className="flex-1 text-center">
             <span className="text-lg font-medium">Detalhes da Tratativa #{tratativa.numero_tratativa}</span>
           </div>
-          <DialogClose asChild>
+          <div className="absolute right-4 top-3 flex items-center gap-2">
             <Button 
               variant="outline"
-              className="h-8 w-8 p-0 absolute right-4 top-3"
+              className="h-8 w-8 p-0"
+              onClick={() => setIsEditModalOpen(true)}
+              title="Editar"
             >
-              <X className="h-4 w-4" />
+              <Pencil className="h-4 w-4" />
             </Button>
-          </DialogClose>
+            <DialogClose asChild>
+              <Button 
+                variant="outline"
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
         </div>
 
         <div className="px-8 py-6 space-y-8 flex-grow overflow-auto">
@@ -168,6 +181,18 @@ export default function TratativaDetailsModal({ open, onOpenChange, tratativa }:
         documentoDevolvido={tratativa.url_documento_devolvido}
         numeroTratativa={tratativa.numero_tratativa}
       />
+
+      {isEditModalOpen && (
+        <EditarTratativaModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          onTratativaEdited={() => {
+            setIsEditModalOpen(false)
+            onTratativaEdited?.()
+          }}
+          tratativaData={tratativa}
+        />
+      )}
     </Dialog>
   )
 }

@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Eye, Filter, Pencil, ChevronLeft, ChevronRight } from "lucide-react"
+import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download } from "lucide-react"
 import TratativaDetailsModal from "./tratativa-details-modal"
-import { EditarTratativaModal } from "./editar-tratativa-modal"
 import { Tratativa, TratativaDetailsProps } from "@/types/tratativas"
 
 interface FilterState {
@@ -21,16 +20,15 @@ interface TratativasTableProps {
 }
 
 export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTableProps) {
+  const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState<FilterState>({})
   const [sorting, setSorting] = useState<{ column: string; direction: 'asc' | 'desc' | null } | null>(null)
   const [selectedTratativa, setSelectedTratativa] = useState<TratativaDetailsProps | null>(null)
-  const [selectedTratativaForEdit, setSelectedTratativaForEdit] = useState<Tratativa | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const rowsPerPage = 15
 
   const formatAnalista = (analista: string) => {
     if (!analista) return "";
-    // Retorna apenas o nome antes do parênteses
     return analista.split(" (")[0];
   }
 
@@ -92,10 +90,6 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
     return `${day}/${month}/${year}`
   }
 
-  const handleEditClick = (tratativa: Tratativa) => {
-    setSelectedTratativaForEdit(tratativa)
-  }
-
   const handleFilterToggle = (columnKey: string, option: string) => {
     setFilters((prevFilters) => {
       const newFilters = { ...prevFilters }
@@ -119,159 +113,199 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
     }))
   }
 
-  const sortData = (data: Tratativa[]) => {
-    if (!sorting || !sorting.direction) return data
-
-    return [...data].sort((a, b) => {
-      const column = sorting.column as keyof Tratativa
-      let valueA: string | number = a[column] as string
-      let valueB: string | number = b[column] as string
-
-      // Special handling for dates
-      if (column === 'data_infracao') {
-        valueA = new Date(valueA).getTime()
-        valueB = new Date(valueB).getTime()
-      }
-
-      // Special handling for analista (remove email part)
-      if (column === 'analista') {
-        valueA = formatAnalista(String(valueA))
-        valueB = formatAnalista(String(valueB))
-      }
-
-      if (valueA === valueB) return 0
-      if (valueA === null || valueA === undefined) return 1
-      if (valueB === null || valueB === undefined) return -1
-
-      const result = valueA < valueB ? -1 : 1
-      return sorting.direction === 'asc' ? result : -result
-    })
-  }
-
-  const handleSort = (columnKey: string, direction: 'asc' | 'desc' | null) => {
-    setSorting(direction ? { column: columnKey, direction } : null)
+  const handleSort = (columnKey: string) => {
+    setSorting(current => ({
+      column: columnKey,
+      direction: current?.column === columnKey && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
   }
 
   const filteredAndSortedData = useMemo(() => {
-    const filtered = filteredData
-    return sortData(filtered)
-  }, [filteredData, sorting])
+    return filteredData
+      .filter(item => {
+        if (searchTerm) {
+          const searchLower = searchTerm.toLowerCase()
+          return (
+            item.numero_tratativa.toLowerCase().includes(searchLower) ||
+            item.funcionario.toLowerCase().includes(searchLower) ||
+            item.setor.toLowerCase().includes(searchLower)
+          )
+        }
+        return true
+      })
+      .sort((a, b) => {
+        if (!sorting || !sorting.direction) return 0
+        const column = sorting.column as keyof Tratativa
+        let valueA: string | number = a[column] as string
+        let valueB: string | number = b[column] as string
 
-  // Update pagination to use filteredAndSortedData
+        if (column === 'data_infracao') {
+          valueA = new Date(valueA).getTime()
+          valueB = new Date(valueB).getTime()
+        }
+
+        if (column === 'analista') {
+          valueA = formatAnalista(String(valueA))
+          valueB = formatAnalista(String(valueB))
+        }
+
+        if (valueA === valueB) return 0
+        if (valueA === null || valueA === undefined) return 1
+        if (valueB === null || valueB === undefined) return -1
+
+        const result = valueA < valueB ? -1 : 1
+        return sorting.direction === 'asc' ? result : -result
+      })
+  }, [filteredData, searchTerm, sorting])
+
   const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage)
   const startIndex = (currentPage - 1) * rowsPerPage
   const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
 
   return (
-    <div className="border border-gray-200 rounded-lg">
-      <Table>
-        <TableHeader className="bg-black">
-          <TableRow>
-            {columns.map((column) => (
-              <TableHead key={column.key} className="text-white font-medium h-12">
-                <div className="flex items-center justify-between">
-                  <span>{column.title}</span>
-                  <FilterDropdown
-                    title={column.title}
-                    options={filterOptions[column.key] || []}
-                    selectedOptions={filters[column.key] || new Set()}
-                    onOptionToggle={(option) => handleFilterToggle(column.key, option)}
-                    onClear={() => handleClearFilter(column.key)}
-                    sortDirection={sorting?.column === column.key ? sorting.direction : null}
-                    onSort={(direction) => handleSort(column.key, direction)}
-                  />
-                </div>
-              </TableHead>
-            ))}
-            <TableHead className="text-white font-medium h-12">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {paginatedData.map((tratativa) => (
-            <TableRow key={tratativa.id} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
-              <TableCell className="py-0">{tratativa.numero_tratativa}</TableCell>
-              <TableCell className="py-0">{formatDate(tratativa.data_infracao)}</TableCell>
-              <TableCell className="py-0">{tratativa.funcionario}</TableCell>
-              <TableCell className="py-0">{tratativa.setor}</TableCell>
-              <TableCell className="py-0">{tratativa.lider}</TableCell>
-              <TableCell className="py-0">{tratativa.penalidade}</TableCell>
-              <TableCell className="py-0">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  tratativa.status === 'DEVOLVIDA' ? 'bg-green-100 text-green-800' :
-                  tratativa.status === 'CANCELADA' ? 'bg-red-100 text-red-800' :
-                  tratativa.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' :
-                  tratativa.status === 'ENVIADA' ? 'bg-amber-100 text-amber-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {tratativa.status}
-                </span>
-              </TableCell>
-              <TableCell className="py-0">{formatAnalista(tratativa.analista)}</TableCell>
-              <TableCell className="py-0">
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      const { id, ...rest } = tratativa
-                      setSelectedTratativa({ ...rest, id: id.toString() })
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setSelectedTratativaForEdit(tratativa)
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-          {/* Fill empty rows to maintain fixed height */}
-          {paginatedData.length < rowsPerPage && (
-            Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-              <TableRow key={`empty-${index}`} className="h-[49px] border-b border-gray-200">
-                {Array(columns.length + 1).fill(0).map((_, colIndex) => (
-                  <TableCell key={`empty-cell-${colIndex}`} className="py-0">&nbsp;</TableCell>
-                ))}
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-
-      {/* Pagination controls */}
-      <div className="border-t py-2.5 px-4 flex items-center justify-between bg-white">
-        <div className="text-sm text-gray-500">
-          Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} resultados
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="w-[400px]">
+          <Input
+            placeholder="Buscar por número, funcionário ou setor..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-9"
+          />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
+            className="bg-black hover:bg-black/90 text-white h-9"
+            onClick={() => {}}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" /> Nova Tratativa
           </Button>
-          <span className="text-sm text-gray-600">
-            Página {currentPage} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="outline" className="h-9">
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
           </Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="flex-1 border rounded-lg flex flex-col min-h-0 overflow-hidden">
+        <div className="overflow-auto flex-1">
+          <Table>
+            <TableHeader className="bg-black sticky top-0">
+              <TableRow className="h-[47px]">
+                {columns.map((column) => (
+                  <TableHead key={column.key} className="text-white font-medium px-3">
+                    <div className="flex items-center gap-1">
+                      <div 
+                        className="flex items-center gap-1 cursor-pointer"
+                        onClick={() => handleSort(column.key)}
+                      >
+                        <span>{column.title}</span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className={`h-7 w-7 p-0 hover:bg-transparent ${
+                            sorting?.column === column.key ? 'text-white' : 'text-gray-400'
+                          }`}
+                        >
+                          <ArrowUpDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <FilterDropdown
+                        title={column.title}
+                        options={filterOptions[column.key] ?? []}
+                        selectedOptions={filters[column.key] ?? new Set()}
+                        onOptionToggle={(option) => handleFilterToggle(column.key, option)}
+                        onClear={() => handleClearFilter(column.key)}
+                      />
+                    </div>
+                  </TableHead>
+                ))}
+                <TableHead className="text-white font-medium w-[100px] px-3">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedData.map((tratativa) => (
+                <TableRow key={tratativa.id} className="h-[47px] hover:bg-gray-50 border-b border-gray-200">
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{tratativa.numero_tratativa}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{formatDate(tratativa.data_infracao)}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{tratativa.funcionario}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{tratativa.setor}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{tratativa.lider}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{tratativa.penalidade}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      tratativa.status === 'DEVOLVIDA' ? 'bg-green-100 text-green-800' :
+                      tratativa.status === 'CANCELADA' ? 'bg-red-100 text-red-800' :
+                      tratativa.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' :
+                      tratativa.status === 'ENVIADA' ? 'bg-amber-100 text-amber-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {tratativa.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{formatAnalista(tratativa.analista)}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">
+                    <div className="flex items-center justify-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => {
+                          const { id, ...rest } = tratativa
+                          setSelectedTratativa({ ...rest, id: id.toString() })
+                        }}
+                        title="Detalhes"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {/* Fill empty rows */}
+              {paginatedData.length < rowsPerPage && (
+                Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
+                  <TableRow key={`empty-${index}`} className="h-[47px] border-b border-gray-200">
+                    {Array(columns.length + 1).fill(0).map((_, colIndex) => (
+                      <TableCell key={`empty-cell-${colIndex}`} className="px-3 py-0 border-x border-gray-100">&nbsp;</TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        <div className="border-t py-2 px-3 flex items-center justify-between bg-white">
+          <div className="text-sm text-gray-500">
+            Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} resultados
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -280,18 +314,7 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
           open={!!selectedTratativa}
           onOpenChange={(open) => !open && setSelectedTratativa(null)}
           tratativa={selectedTratativa}
-        />
-      )}
-
-      {selectedTratativaForEdit && (
-        <EditarTratativaModal
-          open={!!selectedTratativaForEdit}
-          onOpenChange={(open) => !open && setSelectedTratativaForEdit(null)}
-          onTratativaEdited={() => {
-            setSelectedTratativaForEdit(null)
-            onTratativaEdited()
-          }}
-          tratativaData={selectedTratativaForEdit}
+          onTratativaEdited={onTratativaEdited}
         />
       )}
     </div>
@@ -304,97 +327,35 @@ function FilterDropdown({
   selectedOptions,
   onOptionToggle,
   onClear,
-  sortDirection,
-  onSort,
 }: {
   title: string
   options: string[]
   selectedOptions: Set<string>
   onOptionToggle: (option: string) => void
   onClear: () => void
-  sortDirection: 'asc' | 'desc' | null
-  onSort: (direction: 'asc' | 'desc' | null) => void
 }) {
   const [searchTerm, setSearchTerm] = useState("")
-
-  // Sort and filter options
-  const sortedAndFilteredOptions = useMemo(() => {
-    let filtered = options.filter(option => 
-      option.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-
-    if (sortDirection) {
-      filtered.sort((a, b) => {
-        const comparison = a.localeCompare(b)
-        return sortDirection === 'asc' ? comparison : -comparison
-      })
-    }
-
-    return filtered
-  }, [options, searchTerm, sortDirection])
+  const filteredOptions = options.filter(option => 
+    option.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
     <DropdownMenu modal={true}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <Filter className="h-4 w-4" />
-          {sortDirection && (
-            <div className="absolute -bottom-1 -right-1 h-2 w-2">
-              {sortDirection === 'asc' ? '↑' : '↓'}
-            </div>
-          )}
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+          <Filter className="h-3.5 w-3.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
         <div className="space-y-4">
-          <div className="text-center">
-            <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
-          </div>
-
-          {/* Sorting Options */}
-          <div className="flex gap-2 border-b pb-4">
-            <Button
-              variant={sortDirection === 'asc' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onSort(sortDirection === 'asc' ? null : 'asc')}
-              className="flex-1 text-xs font-normal"
-            >
-              ↑ Crescente
-            </Button>
-            <Button
-              variant={sortDirection === 'desc' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onSort(sortDirection === 'desc' ? null : 'desc')}
-              className="flex-1 text-xs font-normal"
-            >
-              ↓ Decrescente
-            </Button>
-            {(selectedOptions.size > 0 || sortDirection) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onClear()
-                  onSort(null)
-                  setSearchTerm("")
-                }}
-                className="flex-1 text-xs font-normal"
-              >
-                Limpar tudo
-              </Button>
-            )}
-          </div>
-
-          {/* Search Input */}
+          <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
           <Input 
             placeholder={`Buscar ${title.toLowerCase()}...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-
-          {/* Options List */}
           <div className="space-y-2 max-h-48 overflow-auto">
-            {sortedAndFilteredOptions.map((option) => (
+            {filteredOptions.map((option) => (
               <div key={option} className="flex items-center space-x-2">
                 <Checkbox
                   id={option}
@@ -406,23 +367,10 @@ function FilterDropdown({
                 </label>
               </div>
             ))}
-            {sortedAndFilteredOptions.length === 0 && (
-              <div className="text-sm text-gray-500 text-center py-2">
-                Nenhum resultado encontrado
-              </div>
-            )}
           </div>
-
           <div className="flex items-center justify-between">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                onClear()
-                setSearchTerm("")
-              }}
-            >
-              Limpar filtros
+            <Button variant="outline" size="sm" onClick={onClear}>
+              Limpar
             </Button>
             <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
           </div>

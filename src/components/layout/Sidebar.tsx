@@ -316,6 +316,7 @@ export default function Sidebar() {
             width={36}
             height={36}
             className="rounded"
+            style={{ width: 'auto', height: 'auto' }}
           />
           <span className="ml-3 text-base font-medium text-gray-900">
             IB Logística
