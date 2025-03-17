@@ -1,0 +1,75 @@
+# Nova Plataforma IB - TODO List
+
+## Completed Changes
+- [x] Implemented new page structure with Tabs (Overview + Detailed List)
+- [x] Created base template from Tratativas page
+- [x] Updated Retiradas page to new pattern
+- [x] Fixed DataTable component issues
+- [x] Implemented consistent UI patterns for modals
+- [x] Standardized button styles in modals (rounded-md shadow-sm)
+- [x] Moved action buttons to details modals
+- [x] Standardized "Ações" column to "Detalhes" with centered Eye icon
+
+## Pages to Update
+Following the new pattern (Overview + Detailed List tabs):
+
+### Gerenciamento
+
+#### Estoque
+- [ ] Inventário Atual
+- [ ] Movimentações
+- [ ] Categorias de Item
+
+#### Paradas
+- [x] Tratativas (reference implementation)
+- [ ] Controle de Paradas
+
+#### Equipamentos
+- [ ] Cadastro de Equipamentos
+
+#### Usuários
+- [ ] Cadastro de Usuários
+- [ ] Permissões
+
+## Implementation Steps for Each Page
+1. Delete existing page content
+2. Copy base structure from Tratativas page
+3. Update types and interfaces
+4. Implement page-specific components:
+   - Dashboard component
+   - Table component
+   - Details Modal
+   - Edit Modal (if needed)
+5. Update API calls and data handling
+6. Test functionality
+7. Verify UI consistency
+
+## UI Standards to Follow
+- Use Tabs component with "Visão Geral" and "Lista Detalhada"
+- Consistent header styling
+- Standard table implementation
+- Table standards:
+  - Rename "Ações" column to "Detalhes"
+  - Single Eye icon centered in details column
+  - All action buttons (edit, delete, etc.) must be in details modal, specific pages can have individual action buttons
+- Modal patterns:
+  - Rounded buttons (h-8 w-8 rounded-md shadow-sm)
+  - Consistent header layout
+  - Standard section divisions
+  - All action buttons for item manipulation
+  - Edit/Delete/Other actions in modal header
+
+## Notes
+- Each dropdown item from sidebar will become a tab content
+- Single entry point for each main section
+- Reuse components where possible
+- Maintain consistent styling across all pages
+- Action buttons should always be in details modal, not in table
+
+###### BUGS
+// Add bugs here as they are discovered
+// Format:
+// [BUG-001] Description
+// Status: Open/In Progress/Fixed
+// Priority: High/Medium/Low
+// Details: Detailed description of the issue 

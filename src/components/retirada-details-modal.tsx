@@ -1,15 +1,18 @@
-import type React from "react"
+"use client"
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { X } from "lucide-react"
+import { X, Pencil } from "lucide-react"
 import { Retirada } from "@/types/retirada"
+import { formatDate } from "@/lib/utils"
 
 interface RetiradaDetailsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   retirada: Retirada
+  onRetiradaEdited: () => void
 }
 
 function DetailItem({ label, value }: { label: string; value: React.ReactNode }) {
@@ -31,13 +34,7 @@ function SectionTitle({ title }: { title: string }) {
   )
 }
 
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return "-"
-  const [year, month, day] = dateString.split("-")
-  return `${day}/${month}/${year}`
-}
-
-export default function RetiradaDetailsModal({ open, onOpenChange, retirada }: RetiradaDetailsModalProps) {
+export default function RetiradaDetailsModal({ open, onOpenChange, retirada, onRetiradaEdited }: RetiradaDetailsModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
@@ -46,14 +43,25 @@ export default function RetiradaDetailsModal({ open, onOpenChange, retirada }: R
             <span className="text-base font-medium">Detalhes da Retirada</span>
             <span className="text-base font-medium"> #{retirada.codigo_patrimonio}</span>
           </div>
-          <DialogClose asChild>
-            <Button 
+          <div className="absolute right-2 top-2 flex gap-2">
+            <Button
               variant="outline"
-              className="h-8 w-8 p-0 absolute right-2 top-2"
+              size="icon"
+              className="h-8 w-8 rounded-md shadow-sm"
+              onClick={onRetiradaEdited}
             >
-              <X className="h-4 w-4" />
+              <Pencil className="h-4 w-4" />
             </Button>
-          </DialogClose>
+            <DialogClose asChild>
+              <Button 
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-md shadow-sm"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
         </div>
 
         <ScrollArea className="flex-grow px-6 py-4">
