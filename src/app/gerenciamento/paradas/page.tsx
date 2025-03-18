@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ParadasProvider } from "@/contexts/ParadasContext"
 import { ParadasContent } from "@/components/paradas/paradas-content"
@@ -8,11 +9,18 @@ import { FrotasContent } from "@/components/paradas/cadastros/frotas-content"
 import { UnidadesContent } from "@/components/paradas/cadastros/unidades-content"
 
 export default function ParadasPage() {
+  const [activeTab, setActiveTab] = useState("paradas")
+
   return (
     <ParadasProvider>
       <div className="h-screen flex flex-col bg-gray-50">
         <div className="flex-1 flex flex-col">
-          <Tabs defaultValue="paradas" className="flex-1">
+          <Tabs 
+            defaultValue="paradas" 
+            className="flex-1"
+            value={activeTab}
+            onValueChange={setActiveTab}
+          >
             <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-2">
               <TabsTrigger 
                 value="paradas" 

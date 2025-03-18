@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus, Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react"
@@ -33,6 +33,11 @@ export function UnidadesContent() {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'nome', direction: 'asc' })
   const rowsPerPage = 15
   const { toast } = useToast()
+
+  // Load unidades when component mounts
+  useEffect(() => {
+    carregarUnidades()
+  }, [carregarUnidades])
 
   const columns = [
     { key: "nome", title: "Nome", sortable: true },

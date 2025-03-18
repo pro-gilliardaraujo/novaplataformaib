@@ -1,180 +1,42 @@
 "use client"
 
-import { useMemo, useState, useEffect, useRef, useCallback } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Clock, History, AlertTriangle, PlayCircle, ClipboardList, Pencil } from "lucide-react"
-import { FrotaStatus, Parada } from "@/types/paradas"
-import { paradasService } from "@/services/paradasService"
+import { Clock, History, PlayCircle } from "lucide-react"
+import { Frota } from "@/types/paradas"
+import { useParadas } from "@/contexts/ParadasContext"
+import { formatDuration } from "@/utils/dateUtils"
 import { renderIcon } from "@/utils/icon-utils"
 import { EditParadaModal } from "./EditParadaModal"
-import "@/styles/material-icons.css"
-import { formatDuration } from "@/utils/dateUtils"
-import { useParadas } from "@/contexts/ParadasContext"
-import { Frota } from "@/types/frotas"
+import { FrotaStatus } from "@/contexts/ParadasContext"
 
 interface FrotaCardProps {
-  frota: Frota
-  onRegistrarParada: () => void
-  onFrotaUpdated: () => void
-  onHistorico: () => void
+  frota: Frota;
+  status: FrotaStatus;
+  onParar: () => void;
+  onLiberar: () => Promise<void>;
+  onHistorico: () => void;
 }
 
-// Helper function to convert icon name to proper format
-function formatIconName(iconPath: string) {
-  if (!iconPath) return ''
-  
-  const [library, style, name] = iconPath.split('/')
-  
-  switch (library) {
-    case 'material':
-      // Convert from MdOutlineCleaningServices to cleaning_services
-      return name
-        .replace(/^Md/, '') // Remove Md prefix
-        .replace(/^Outline/, '') // Remove Outline prefix
-        .replace(/([A-Z])/g, (match, letter, offset) => 
-          offset === 0 ? letter.toLowerCase() : '_' + letter.toLowerCase()
-        )
-    
-    case 'heroicons':
-    case 'phosphor':
-    case 'remixicon':
-    case 'boxicons':
-    case 'fontawesome':
-    case 'ionicons':
-      // For other libraries, just return the name as is
-      return name
-    
-    default:
-      return name
-  }
-}
-
-// Helper function to get icon class based on library
-function getIconClass(iconPath: string) {
-  if (!iconPath) return ''
-  
-  const [library, style] = iconPath.split('/')
-  
-  switch (library) {
-    case 'material':
-      return 'material-icons-outlined text-[16px] leading-[16px]'
-    case 'heroicons':
-      return 'h-4 w-4'
-    case 'phosphor':
-      return 'h-4 w-4'
-    case 'remixicon':
-      return 'text-[16px] leading-[16px]'
-    case 'boxicons':
-      return 'text-[16px] leading-[16px]'
-    case 'fontawesome':
-      return 'text-[16px] leading-[16px]'
-    case 'ionicons':
-      return 'text-[16px] leading-[16px]'
-    default:
-      return 'h-4 w-4'
-  }
-}
-
-export function FrotaCard({ 
-  frota,
-  onRegistrarParada,
-  onFrotaUpdated,
-  onHistorico
-}: FrotaCardProps) {
-  const { data: selectedDate, statusFrotas } = useParadas()
-  const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
-  const isCurrentDate = selectedDate === hoje
-  
-  const status = statusFrotas.get(frota.id)
-  const isParada = status?.parada_atual !== null
-
-  // Function to check if a parada crossed midnight
-  const didParadaCrossMidnight = (parada: Parada) => {
-    const paradaDate = new Date(parada.inicio).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
-    return paradaDate < selectedDate
-  }
-
-  // Get the effective state of the parada for past dates
-  const getEffectiveState = (parada: Parada | null): Parada | null => {
-    if (!parada) return null
-    if (isCurrentDate) return parada
-    
-    // For past dates
-    const paradaDate = new Date(parada.inicio).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
-    const isParadaFromSelectedDate = paradaDate === selectedDate
-
-    // If the parada is from the selected date, show its actual state
-    if (isParadaFromSelectedDate) {
-      return parada
-    }
-
-    // If the parada started before the selected date, show it as "Liberada"
-    return { ...parada, fim: new Date(`${selectedDate}T23:59:59`).toISOString() }
-  }
-
-  const effectiveParada = getEffectiveState(status?.parada_atual ?? null)
-  const [currentTime, setCurrentTime] = useState(new Date())
-  const [isOverdue, setIsOverdue] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+export function FrotaCard({ frota, status, onParar, onLiberar, onHistorico }: FrotaCardProps) {
+  const { data: selectedDate, statusFrotas, reloadUnidades } = useParadas()
   const [editModalOpen, setEditModalOpen] = useState(false)
 
-  // Reset overdue state when parada changes or is released
-  useEffect(() => {
-    setIsOverdue(false)
-  }, [status?.parada_atual])
+  // Get today's date in America/Sao_Paulo timezone
+  const hoje = new Date()
+  hoje.setHours(hoje.getHours() - 3)
+  const hojeISO = hoje.toISOString().split('T')[0]
+  const isCurrentDate = selectedDate === hojeISO
+  
+  const parada = status?.parada_atual
 
-  // Update current time every second and check if parada is overdue
-  useEffect(() => {
-    if (!isParada || !status?.parada_atual) return
-
-    const interval = setInterval(() => {
-      const now = new Date()
-      setCurrentTime(now)
-
-      // Check if parada is overdue
-      const parada = status.parada_atual
-      if (parada?.previsao_horario) {
-        const previsaoDate = new Date(parada.previsao_horario)
-        const wasOverdue = isOverdue
-        const isNowOverdue = now.getTime() > previsaoDate.getTime()
-        
-        // If we just became overdue, play the sound
-        if (!wasOverdue && isNowOverdue) {
-          audioRef.current?.play()
-        }
-        
-        setIsOverdue(isNowOverdue)
-      }
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [isParada, isOverdue, status?.parada_atual])
-
-  // Get tag color based on status
-  const getTagColor = (parada: Parada | null) => {
-    if (!parada) return 'bg-green-500' // Not stopped
-    if (!parada.fim) return 'bg-red-500' // Currently stopped
-    if (!parada.previsao_horario) return 'bg-gray-600' // No prediction
-    
-    const previsaoDate = new Date(parada.previsao_horario).getTime()
-    const fimDate = new Date(parada.fim).getTime()
-    
-    return fimDate <= previsaoDate ? 'bg-green-500' : 'bg-red-500'
+  const handleLiberar = () => {
+    reloadUnidades()
+    onLiberar()
   }
 
-  // Get previsão text color
-  const getPrevisaoColor = (parada: Parada | null) => {
-    if (!parada?.previsao_horario) return 'text-gray-600'
-    if (!parada.fim) return 'text-gray-600' // Currently active
-    
-    const previsaoDate = new Date(parada.previsao_horario).getTime()
-    const fimDate = new Date(parada.fim).getTime()
-    
-    return fimDate <= previsaoDate ? 'text-green-600' : 'text-red-600'
-  }
-
-  if (!isParada) {
+  // If no parada, show the "Em operação" state
+  if (!parada) {
     return (
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="flex">
@@ -194,17 +56,17 @@ export function FrotaCard({
                 <Button 
                   variant="destructive" 
                   className="w-[120px]"
-                  onClick={onRegistrarParada}
+                  onClick={onParar}
                 >
                   Parar
                 </Button>
               )}
               <div className="flex-1" />
-              {status?.historico_count && status.historico_count > 0 && (
+              {(status?.historico_count ?? 0) > 0 && (
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={onFrotaUpdated}
+                  onClick={onHistorico}
                 >
                   <History className="h-4 w-4" />
                 </Button>
@@ -216,35 +78,16 @@ export function FrotaCard({
     )
   }
 
-  if (!effectiveParada) return null
-
-  const parada = effectiveParada
-  const tagColor = getTagColor(parada)
-  const previsaoColor = getPrevisaoColor(parada)
-  
+  // Show the parada state
   const inicio = new Date(parada.inicio)
   const tempoCorrido = formatDuration(parada.inicio, parada.fim)
-
-  let tempoPrevisao = ""
-  if (parada.previsao_horario) {
-    const previsaoDate = new Date(parada.previsao_horario)
-    tempoPrevisao = previsaoDate.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'America/Sao_Paulo'
-    })
-  }
+  const isActive = !parada.fim
 
   return (
     <>
-      <audio 
-        ref={audioRef}
-        src="https://kjlwqezxzqjfhacmjhbh.supabase.co/storage/v1/object/public/sourcefiles//iPhoneNotification.mp3"
-        preload="auto"
-      />
-      <div className={`bg-white rounded-lg shadow-sm border overflow-hidden group ${isOverdue ? 'animate-border-blink' : ''}`}>
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="flex">
-          <div className={`w-1 ${tagColor}`} />
+          <div className={`w-1 ${isActive ? 'bg-red-500' : 'bg-green-500'}`} />
           <div className="flex-1 p-3 space-y-2">
             <div className="font-medium">
               {frota.frota} - {frota.descricao}
@@ -255,34 +98,23 @@ export function FrotaCard({
               <span>{parada.tipo?.nome || "Tipo não especificado"}</span>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-1 text-gray-600">
-                <Clock className="h-4 w-4" />
-                <span>Início: {inicio.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-              {parada.previsao_horario && (
-                <div className="flex items-center gap-1">
-                  <Clock className={`h-4 w-4 ${previsaoColor}`} />
-                  <span className={previsaoColor}>
-                    Previsão: {tempoPrevisao}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Clock className="h-4 w-4" />
+              <span>Início: {inicio.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
 
             {parada.motivo && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <ClipboardList className="h-4 w-4" />
-                <span>{parada.motivo}</span>
+              <div className="text-sm text-gray-600">
+                {parada.motivo}
               </div>
             )}
 
             <div className="flex items-center gap-2">
-              {isCurrentDate && !parada.fim && (
+              {isCurrentDate && isActive && (
                 <Button 
                   variant="default" 
                   className="w-[120px] bg-green-600 hover:bg-green-700"
-                  onClick={onFrotaUpdated}
+                  onClick={handleLiberar}
                 >
                   Liberar
                 </Button>
@@ -291,21 +123,20 @@ export function FrotaCard({
                 <span className="text-red-500 font-medium text-xs">{tempoCorrido}</span>
               </div>
               <div className="flex items-center gap-2">
-                {isCurrentDate && !parada.fim && (
+                {isCurrentDate && isActive && (
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() => setEditModalOpen(true)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Clock className="h-4 w-4" />
                   </Button>
                 )}
-                {status?.historico_count && status.historico_count > 0 && (
+                {(status?.historico_count ?? 0) > 0 && (
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={onFrotaUpdated}
+                    onClick={onHistorico}
                   >
                     <History className="h-4 w-4" />
                   </Button>
@@ -320,7 +151,7 @@ export function FrotaCard({
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         parada={parada}
-        onParadaUpdated={onFrotaUpdated}
+        onParadaUpdated={handleLiberar}
         isFromHistory={false}
       />
     </>

@@ -2,6 +2,10 @@ export function formatDuration(startDate: Date | string, endDate: Date | string 
   const start = new Date(startDate)
   const end = endDate ? new Date(endDate) : new Date()
   
+  // Adjust for America/Sao_Paulo timezone
+  start.setHours(start.getHours() - 3)
+  end.setHours(end.getHours() - 3)
+  
   // Calculate total seconds
   const diffInSeconds = Math.floor((end.getTime() - start.getTime()) / 1000)
   

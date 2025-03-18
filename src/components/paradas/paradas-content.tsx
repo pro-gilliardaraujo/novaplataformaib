@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { useParadas } from "@/contexts/ParadasContext"
+import { useParadas, FrotaStatus } from "@/contexts/ParadasContext"
 import { Button } from "@/components/ui/button"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { RefreshCw, Settings, Search, Minimize2, Maximize2, GripVertical } from "lucide-react"
@@ -24,6 +24,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 type UnidadeColors = Record<string, string>;
 
+interface FrotaCardProps {
+  frota: Frota;
+  status: FrotaStatus;
+  onParar: () => void;
+  onLiberar: () => void;
+  onHistorico: () => void;
+}
+
 export function ParadasContent() {
   const { 
     unidades, 
@@ -42,7 +50,8 @@ export function ParadasContent() {
     setMinimizedColumns,
     carregarUnidades,
     selectedUnidade,
-    setSelectedUnidade
+    setSelectedUnidade,
+    saveScenarioConfig
   } = useParadas()
 
   const [frotaSelecionada, setFrotaSelecionada] = useState<Frota | null>(null)
@@ -50,11 +59,6 @@ export function ParadasContent() {
   const [modalHistorico, setModalHistorico] = useState(false)
   const [modalSeletor, setModalSeletor] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-
-  // Load initial data
-  useEffect(() => {
-    carregarUnidades()
-  }, [carregarUnidades])
 
   // Save minimized columns state
   const toggleMinimized = (unidadeId: string) => {
@@ -69,31 +73,51 @@ export function ParadasContent() {
 
   // Agrupar e filtrar frotas por unidade
   const frotasPorUnidade = useMemo(() => {
+    console.log('Debug - frotasSelecionadas:', Array.from(frotasSelecionadas))
+    console.log('Debug - unidades:', unidades)
+    console.log('Debug - selectedUnidade:', selectedUnidade)
+    console.log('Debug - statusFrotas size:', statusFrotas.size)
+    console.log('Debug - statusFrotas keys:', Array.from(statusFrotas.keys()))
+    
     return unidades.reduce((acc, unidade) => {
+      console.log(`Debug - Processing unidade: ${unidade.nome}`)
       if (selectedUnidade !== "todas" && unidade.id !== selectedUnidade) {
         acc[unidade.id] = []
         return acc
       }
 
       const frotasFiltradas = (unidade.frotas || [])
-        .filter(frota => frotasSelecionadas.has(frota.id))
+      console.log(`Debug - Frotas for ${unidade.nome}:`, unidade.frotas)
+      
+      const filtered = frotasFiltradas
+        .filter(frota => {
+          const isSelected = frotasSelecionadas.has(frota.id)
+          const hasStatus = statusFrotas.has(frota.id)
+          console.log(`Debug - Frota ${frota.frota} (${frota.id}): selected=${isSelected}, hasStatus=${hasStatus}`)
+          return isSelected
+        })
         .filter(frota => 
           searchTerm === "" || 
           frota.frota.toLowerCase().includes(searchTerm.toLowerCase()) ||
           frota.descricao.toLowerCase().includes(searchTerm.toLowerCase())
         )
 
-      acc[unidade.id] = frotasFiltradas
+      console.log(`Debug - Filtered frotas for ${unidade.nome}:`, filtered)
+      acc[unidade.id] = filtered
       return acc
     }, {} as Record<string, Frota[]>)
-  }, [unidades, selectedUnidade, frotasSelecionadas, searchTerm])
+  }, [unidades, selectedUnidade, frotasSelecionadas, searchTerm, statusFrotas])
 
   // Filter out unidades without visible frotas
   const visibleUnidades = useMemo(() => {
-    return unidades.filter(unidade => {
+    const filtered = unidades.filter(unidade => {
       const frotasUnidade = frotasPorUnidade[unidade.id]
-      return frotasUnidade && frotasUnidade.length > 0
+      const hasVisibleFrotas = frotasUnidade && frotasUnidade.length > 0
+      console.log(`Debug - Unidade ${unidade.nome} has visible frotas:`, hasVisibleFrotas)
+      return hasVisibleFrotas
     })
+    console.log('Debug - Visible unidades:', filtered.map(u => u.nome))
+    return filtered
   }, [unidades, frotasPorUnidade])
 
   // Sort unidades based on columnOrder with fallback
@@ -153,17 +177,28 @@ export function ParadasContent() {
   }
 
   const handleLiberar = async (frota: Frota) => {
+    console.log('handleLiberar: Starting...', { frotaId: frota.id })
     const status = statusFrotas.get(frota.id);
-    if (!status?.parada_atual) return;
+    if (!status?.parada_atual) {
+      console.log('handleLiberar: No active parada found')
+      return
+    }
 
     try {
+      console.log('handleLiberar: Calling liberarParada...', { paradaId: status.parada_atual.id })
       await paradasService.liberarParada(status.parada_atual.id);
+      console.log('handleLiberar: Calling atualizarCenario...')
       await atualizarCenario();
-    } catch (error) {
+      console.log('handleLiberar: Complete')
+      toast({
+        title: "Sucesso",
+        description: "Parada liberada com sucesso",
+      });
+    } catch (error: any) {
       console.error('Erro ao liberar parada:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível liberar a parada",
+        description: error?.message || "Não foi possível liberar a parada. Tente novamente em alguns instantes.",
         variant: "destructive",
       });
     }
@@ -174,19 +209,26 @@ export function ParadasContent() {
     setModalHistorico(true)
   }
 
-  const handleParadaRegistrada = () => {
+  const handleParadaRegistrada = async () => {
+    console.log('handleParadaRegistrada: Starting...')
     setModalParada(false)
-    atualizarCenario()
+    console.log('handleParadaRegistrada: Calling atualizarCenario...')
+    await atualizarCenario()
+    console.log('handleParadaRegistrada: Complete')
   }
 
-  const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
-  const ontem = new Date(new Date().setDate(new Date().getDate() - 1))
-    .toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })
-    .split(',')[0]
+  const hoje = new Date()
+  hoje.setHours(hoje.getHours() - 3) // Adjust for America/Sao_Paulo timezone
+  const hojeISO = hoje.toISOString().split('T')[0]
+
+  const ontem = new Date(hoje)
+  ontem.setDate(ontem.getDate() - 1)
+  const ontemISO = ontem.toISOString().split('T')[0]
 
   const formatDisplayDate = (date: Date) => {
-    if (date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0] === hoje) return "Hoje"
-    if (date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0] === ontem) return "Ontem"
+    const dateISO = date.toISOString().split('T')[0]
+    if (dateISO === hojeISO) return "Hoje"
+    if (dateISO === ontemISO) return "Ontem"
     return format(date, "dd/MM/yyyy")
   }
 
@@ -240,123 +282,131 @@ export function ParadasContent() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar Cenário
           </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10"
+            onClick={saveScenarioConfig}
+            title="Salvar Configuração"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {/* Scrollable content area */}
-      <div className="flex-1 overflow-hidden">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="columns" direction="horizontal">
-            {(provided) => (
-              <div
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className="grid-responsive"
-              >
-                {sortedUnidades.map((unidade, index) => {
-                  const bgColor = unidadeColors[unidade.id];
-                  const isMinimized = minimizedColumns.has(unidade.id);
-                  
-                  return (
-                    <Draggable
-                      key={unidade.id}
-                      draggableId={unidade.id}
-                      index={index}
-                    >
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          style={{
-                            ...provided.draggableProps.style,
-                            background: bgColor || '#ffffff',
-                            height: isMinimized ? 'auto' : '100%',
-                          }}
-                          className={`${
-                            isMinimized ? 'minimized-column' : ''
-                          } ${snapshot.isDragging ? 'shadow-lg' : ''}`}
-                        >
-                          <div className="column-header">
-                            {isMinimized ? (
-                              <>
-                                <div className="writing-mode-vertical">
-                                  {unidade.nome}
-                                </div>
-                                <div className="controls">
-                                  <div className="flex items-center gap-2">
-                                    <div {...provided.dragHandleProps}>
-                                      <GripVertical className="w-4 h-4 text-gray-500" />
+      <ScrollArea className="flex-1">
+        <div className="h-full">
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="columns" direction="horizontal">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="grid-responsive"
+                >
+                  {sortedUnidades.map((unidade, index) => {
+                    const bgColor = unidadeColors[unidade.id];
+                    const isMinimized = minimizedColumns.has(unidade.id);
+                    const frotasUnidade = frotasPorUnidade[unidade.id] || [];
+                    
+                    return (
+                      <Draggable
+                        key={unidade.id}
+                        draggableId={unidade.id}
+                        index={index}
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            style={{
+                              ...provided.draggableProps.style,
+                              background: bgColor || '#ffffff',
+                              height: isMinimized ? 'auto' : '100%',
+                            }}
+                            className={`${
+                              isMinimized ? 'minimized-column' : ''
+                            } ${snapshot.isDragging ? 'shadow-lg' : ''}`}
+                          >
+                            <div className="column-header">
+                              {isMinimized ? (
+                                <>
+                                  <div className="writing-mode-vertical">
+                                    {unidade.nome}
+                                  </div>
+                                  <div className="controls">
+                                    <div className="flex items-center gap-2">
+                                      <div {...provided.dragHandleProps}>
+                                        <GripVertical className="w-4 h-4 text-gray-500" />
+                                      </div>
+                                      <button
+                                        onClick={() => toggleMinimized(unidade.id)}
+                                        className="p-1 hover:bg-gray-100 rounded"
+                                      >
+                                        <Maximize2 className="w-4 h-4 text-gray-500" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex items-center justify-between p-2">
+                                    <div className="flex items-center gap-2">
+                                      <div {...provided.dragHandleProps}>
+                                        <GripVertical className="w-4 h-4 text-gray-500" />
+                                      </div>
+                                      <span className="font-medium">{unidade.nome}</span>
                                     </div>
                                     <button
                                       onClick={() => toggleMinimized(unidade.id)}
                                       className="p-1 hover:bg-gray-100 rounded"
                                     >
-                                      <Maximize2 className="w-4 h-4 text-gray-500" />
+                                      <Minimize2 className="w-4 h-4 text-gray-500" />
                                     </button>
                                   </div>
-                                </div>
-                              </>
-                            ) : (
-                              <div {...provided.dragHandleProps} className="w-full grid grid-cols-[auto_1fr_auto] items-center gap-2">
-                                <ColorPicker
-                                  color={bgColor}
-                                  onChange={(color: string | null) => {
-                                    if (color) {
-                                      if (!columnOrder.includes(unidade.id)) {
-                                        setColumnOrder([...columnOrder, unidade.id]);
-                                      }
-                                      setUnidadeColors({
-                                        ...unidadeColors,
-                                        [unidade.id]: color,
-                                      });
-                                    } else {
-                                      const newColors = { ...unidadeColors };
-                                      delete newColors[unidade.id];
-                                      setUnidadeColors(newColors);
-                                    }
-                                  }}
-                                />
-                                <h3 className="font-semibold text-center">
-                                  {unidade.nome}
-                                </h3>
-                                <button
-                                  onClick={() => toggleMinimized(unidade.id)}
-                                  className="p-1 hover:bg-gray-100 rounded"
-                                >
-                                  <Minimize2 className="w-4 h-4 text-gray-500" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          {!isMinimized && (
-                            <div className="scroll-area-container">
-                              <ScrollArea className="h-full">
-                                <div className="scroll-area-content">
-                                  {frotasPorUnidade[unidade.id].map((frota) => (
-                                    <FrotaCard
-                                      key={frota.id}
-                                      frota={frota}
-                                      onRegistrarParada={() => handleParar(frota)}
-                                      onFrotaUpdated={() => handleLiberar(frota)}
-                                      onHistorico={() => handleHistorico(frota)}
-                                    />
-                                  ))}
-                                </div>
-                                <ScrollBar orientation="vertical" />
-                              </ScrollArea>
+                                  {!isMinimized && (
+                                    <div className="flex-1 overflow-y-auto">
+                                      {frotasUnidade.map((frota: Frota) => {
+                                        const status = statusFrotas.get(frota.id);
+                                        console.log(`Debug - Rendering frota ${frota.frota} (${frota.id}), status:`, status)
+                                        
+                                        // Create a default status if none exists
+                                        const defaultStatus: FrotaStatus = {
+                                          frota,
+                                          parada_atual: null,
+                                          historico_count: 0
+                                        }
+                                        
+                                        return (
+                                          <FrotaCard
+                                            key={frota.id}
+                                            frota={frota}
+                                            status={status || defaultStatus}
+                                            onParar={() => handleParar(frota)}
+                                            onLiberar={() => handleLiberar(frota)}
+                                            onHistorico={() => handleHistorico(frota)}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </Draggable>
-                  )
-                })}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
-      </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        </div>
+        <ScrollBar orientation="vertical" />
+      </ScrollArea>
 
       {/* Modals */}
       {frotaSelecionada && (

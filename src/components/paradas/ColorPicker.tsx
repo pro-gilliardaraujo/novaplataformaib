@@ -55,7 +55,8 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const handleColorChange = (colorResult: any) => {
     const newColor = colorResult.rgb
     setTempColor(newColor)
-    onChange(`rgba(${newColor.r}, ${newColor.g}, ${newColor.b}, ${newColor.a})`)
+    const rgbaColor = `rgba(${newColor.r}, ${newColor.g}, ${newColor.b}, ${newColor.a})`
+    onChange(rgbaColor)
   }
 
   return (

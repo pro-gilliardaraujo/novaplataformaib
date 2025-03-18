@@ -68,7 +68,7 @@ function FilterDropdown({
 }
 
 export function FrotasContent() {
-  const { unidades, isLoading: isLoadingUnidades } = useParadas()
+  const { unidades, isLoading: isLoadingUnidades, carregarUnidades } = useParadas()
   const [frotas, setFrotas] = useState<Frota[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -106,10 +106,11 @@ export function FrotasContent() {
     }
   }
 
-  // Load frotas only once when component mounts
+  // Load unidades and frotas when component mounts
   useEffect(() => {
+    carregarUnidades()
     carregarFrotas()
-  }, []) // Empty dependency array
+  }, [carregarUnidades])
 
   const handleFrotaUpdated = () => {
     carregarFrotas()

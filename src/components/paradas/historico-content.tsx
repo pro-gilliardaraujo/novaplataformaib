@@ -93,7 +93,9 @@ export function HistoricoParadasContent() {
     return filtered
   }, [paradas, selectedUnidade, searchTerm, filterStatus, sortOrder])
 
-  const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
+  const hoje = new Date()
+  hoje.setHours(hoje.getHours() - 3) // Adjust for America/Sao_Paulo timezone
+  const hojeISO = hoje.toISOString().split('T')[0]
 
   return (
     <div className="h-full flex flex-col space-y-4 p-4">
@@ -135,7 +137,8 @@ export function HistoricoParadasContent() {
           {paradasFiltradas.map((parada) => {
             const tempoCorrido = formatDuration(parada.inicio, parada.fim)
             const dataParada = new Date(parada.inicio)
-            const isToday = dataParada.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0] === hoje
+            dataParada.setHours(dataParada.getHours() - 3) // Adjust for America/Sao_Paulo timezone
+            const isToday = dataParada.toISOString().split('T')[0] === hojeISO
 
             // Define colors based on status
             let tagColor = "bg-gray-500"

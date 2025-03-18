@@ -1,14 +1,30 @@
 import { supabase } from "@/lib/supabase"
 import { Parada, TipoParada } from "@/types/paradas"
 
+interface RegistrarParadaParams {
+  frota_id: string
+  tipo_parada_id: string
+  motivo: string
+  previsao_horario?: string
+}
+
 export const paradasService = {
   async buscarParadasDia(data: string): Promise<Parada[]> {
     const { data: paradas, error } = await supabase
       .from("paradas")
       .select(`
         *,
-        frota:frotas(*),
-        tipo:tipos_parada(*)
+        frota:frota_id(
+          id,
+          frota,
+          descricao,
+          unidade_id
+        ),
+        tipo:tipo_parada_id(
+          id,
+          nome,
+          icone
+        )
       `)
       .gte("inicio", `${data}T00:00:00`)
       .lte("inicio", `${data}T23:59:59`)
@@ -22,25 +38,33 @@ export const paradasService = {
     return paradas
   },
 
-  async registrarParada(
-    frotaId: string,
-    tipoParadaId: string,
-    motivo: string,
-    previsaoHorario?: string
-  ): Promise<Parada> {
+  async registrarParada(params: RegistrarParadaParams): Promise<Parada> {
+    // Get current time in America/Sao_Paulo timezone
+    const now = new Date()
+    now.setHours(now.getHours() - 3) // Adjust for America/Sao_Paulo timezone
+
     const { data, error } = await supabase
       .from("paradas")
       .insert([{
-        frota_id: frotaId,
-        tipo_id: tipoParadaId,
-        motivo,
-        inicio: new Date().toISOString(),
-        previsao_horario: previsaoHorario
+        frota_id: params.frota_id,
+        tipo_parada_id: params.tipo_parada_id,
+        motivo: params.motivo,
+        inicio: now.toISOString(),
+        previsao_horario: params.previsao_horario
       }])
       .select(`
         *,
-        frota:frotas(*),
-        tipo:tipos_parada(*)
+        frota:frota_id(
+          id,
+          frota,
+          descricao,
+          unidade_id
+        ),
+        tipo:tipo_parada_id(
+          id,
+          nome,
+          icone
+        )
       `)
       .single()
 
@@ -53,14 +77,27 @@ export const paradasService = {
   },
 
   async liberarParada(paradaId: string): Promise<Parada> {
+    // Get current time in America/Sao_Paulo timezone
+    const now = new Date()
+    now.setHours(now.getHours() - 3) // Adjust for America/Sao_Paulo timezone
+
     const { data, error } = await supabase
       .from("paradas")
-      .update({ fim: new Date().toISOString() })
+      .update({ fim: now.toISOString() })
       .eq("id", paradaId)
       .select(`
         *,
-        frota:frotas(*),
-        tipo:tipos_parada(*)
+        frota:frota_id(
+          id,
+          frota,
+          descricao,
+          unidade_id
+        ),
+        tipo:tipo_parada_id(
+          id,
+          nome,
+          icone
+        )
       `)
       .single()
 
@@ -160,7 +197,13 @@ export const paradasService = {
       .eq('id', paradaId)
       .select(`
         *,
-        tipo:tipo_parada_id (
+        frota:frota_id(
+          id,
+          frota,
+          descricao,
+          unidade_id
+        ),
+        tipo:tipo_parada_id(
           id,
           nome,
           icone
