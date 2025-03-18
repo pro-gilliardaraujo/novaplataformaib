@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useParadas } from "@/contexts/ParadasContext"
 import { Button } from "@/components/ui/button"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
@@ -21,6 +21,8 @@ import { toast } from "@/components/ui/use-toast"
 import { paradasService } from "@/services/paradasService"
 import { CalendarIcon } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
+type UnidadeColors = Record<string, string>;
 
 export function ParadasContent() {
   const { 
@@ -101,19 +103,28 @@ export function ParadasContent() {
       .filter(u => frotasPorUnidade[u.id]?.length > 0)
       .map(u => u.id)
 
-    // First, include ordered items that are visible
-    const orderedIds = columnOrder.filter(id => visibleUnidadeIds.includes(id))
-    
-    // Then add any visible items that aren't in the order yet
-    const unorderedIds = visibleUnidadeIds.filter(id => !columnOrder.includes(id))
-    
-    // Combine ordered and unordered IDs
-    const finalOrder = [...orderedIds, ...unorderedIds]
-
-    // Map IDs to unidade objects
-    return finalOrder
+    // Create a new array with ordered items first
+    const orderedUnidades = columnOrder
+      .filter(id => visibleUnidadeIds.includes(id))
       .map(id => unidades.find(u => u.id === id))
       .filter((u): u is NonNullable<typeof u> => u !== undefined)
+
+    // Add any remaining visible unidades that aren't in the order
+    const remainingUnidades = unidades.filter(u => 
+      visibleUnidadeIds.includes(u.id) && 
+      !columnOrder.includes(u.id)
+    )
+
+    // Update columnOrder to include any new visible columns
+    const newColumnOrder = [
+      ...columnOrder,
+      ...remainingUnidades.map(u => u.id).filter(id => !columnOrder.includes(id))
+    ]
+    if (newColumnOrder.length !== columnOrder.length) {
+      setColumnOrder(newColumnOrder)
+    }
+
+    return [...orderedUnidades, ...remainingUnidades]
   }, [unidades, columnOrder, frotasPorUnidade])
 
   // Save column order and handle drag end
@@ -243,10 +254,9 @@ export function ParadasContent() {
                 className="grid-responsive"
               >
                 {sortedUnidades.map((unidade, index) => {
-                  const frotasUnidade = frotasPorUnidade[unidade.id]
-                  const bgColor = unidadeColors[unidade.id]
-                  const isMinimized = minimizedColumns.has(unidade.id)
-
+                  const bgColor = unidadeColors[unidade.id];
+                  const isMinimized = minimizedColumns.has(unidade.id);
+                  
                   return (
                     <Draggable
                       key={unidade.id}
@@ -257,86 +267,72 @@ export function ParadasContent() {
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          style={provided.draggableProps.style}
-                          className={`flex flex-col rounded-lg ${bgColor} column-transition ${
+                          style={{
+                            ...provided.draggableProps.style,
+                            background: bgColor || '#ffffff',
+                            height: isMinimized ? 'auto' : '100%',
+                          }}
+                          className={`${
                             isMinimized ? 'minimized-column' : ''
-                          } ${snapshot.isDragging ? 'shadow-lg opacity-90' : ''}`}
+                          } ${snapshot.isDragging ? 'shadow-lg' : ''}`}
                         >
-                          <div className="column-header select-none">
+                          <div className="column-header">
                             {isMinimized ? (
-                              <div className="h-full flex flex-col justify-between">
-                                <div className="flex justify-between">
-                                  <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
-                                    >
-                                      <GripVertical className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => toggleMinimized(unidade.id)}
-                                  >
-                                    <Maximize2 className="h-4 w-4" />
-                                  </Button>
+                              <>
+                                <div className="writing-mode-vertical">
+                                  {unidade.nome}
                                 </div>
-                              </div>
+                                <div className="controls">
+                                  <div className="flex items-center gap-2">
+                                    <div {...provided.dragHandleProps}>
+                                      <GripVertical className="w-4 h-4 text-gray-500" />
+                                    </div>
+                                    <button
+                                      onClick={() => toggleMinimized(unidade.id)}
+                                      className="p-1 hover:bg-gray-100 rounded"
+                                    >
+                                      <Maximize2 className="w-4 h-4 text-gray-500" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
                             ) : (
-                              <div className="h-full flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <ColorPicker
-                                    color={bgColor}
-                                    onChange={(color) => {
-                                      const newColors = { ...unidadeColors, [unidade.id]: color }
-                                      setUnidadeColors(newColors)
-                                    }}
-                                  />
-                                  <div>
-                                    <h3 className="font-semibold inline">
-                                      {unidade.nome}
-                                    </h3>
-                                    <span className="text-sm text-gray-500 ml-1">
-                                      ({frotasUnidade.length} {frotasUnidade.length === 1 ? 'frota' : 'frotas'})
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
-                                    >
-                                      <GripVertical className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => toggleMinimized(unidade.id)}
-                                  >
-                                    <Minimize2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
+                              <div {...provided.dragHandleProps} className="w-full grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                                <ColorPicker
+                                  color={bgColor}
+                                  onChange={(color: string | null) => {
+                                    if (color) {
+                                      if (!columnOrder.includes(unidade.id)) {
+                                        setColumnOrder([...columnOrder, unidade.id]);
+                                      }
+                                      setUnidadeColors({
+                                        ...unidadeColors,
+                                        [unidade.id]: color,
+                                      });
+                                    } else {
+                                      const newColors = { ...unidadeColors };
+                                      delete newColors[unidade.id];
+                                      setUnidadeColors(newColors);
+                                    }
+                                  }}
+                                />
+                                <h3 className="font-semibold text-center">
+                                  {unidade.nome}
+                                </h3>
+                                <button
+                                  onClick={() => toggleMinimized(unidade.id)}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                >
+                                  <Minimize2 className="w-4 h-4 text-gray-500" />
+                                </button>
                               </div>
                             )}
                           </div>
-
-                          {/* Column content */}
-                          {isMinimized ? (
-                            <div className="column-title select-none">
-                              {unidade.nome}
-                            </div>
-                          ) : (
+                          {!isMinimized && (
                             <div className="scroll-area-container">
                               <ScrollArea className="h-full">
                                 <div className="scroll-area-content">
-                                  {frotasUnidade.map((frota) => (
+                                  {frotasPorUnidade[unidade.id].map((frota) => (
                                     <FrotaCard
                                       key={frota.id}
                                       frota={frota}

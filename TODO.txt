@@ -21,6 +21,9 @@ Following the new pattern (Detailed List tabs):
 
 ### Gerenciamento
 
+#### Retiradas
+- [ ] Button Nova Retirada (modal) not working.
+
 #### Estoque
 - [ ] Inventário Atual
 - [ ] Movimentações
@@ -28,7 +31,25 @@ Following the new pattern (Detailed List tabs):
 
 #### Paradas
 - [x] Tratativas (reference implementation)
-- [ ] Controle de Paradas (transform it into a unique page with tabs as we're doing with the other pages)
+- [x] Controle de Paradas
+  - [x] Transformed into a unique page with tabs
+  - [x] Standardized table implementation for Tipos de Parada
+    - [x] Fixed row heights to 49px
+    - [x] Set 15 rows per page
+    - [x] Added proper filter and sort functionality
+    - [x] Single Eye icon centered in details column
+    - [x] Integrated pagination in table structure
+    - [x] Moved actions to details modal
+    - [x] Added confirmation dialog for delete actions
+  - [x] Removed nested Cadastros tab structure
+  - [x] Created separate main tabs for each cadastro type
+  - [x] Added white background to page content area
+  - [x] Updated TipoParada modal to match standards
+    - [x] Added proper header with actions
+    - [x] Integrated standardized icon selector
+    - [x] Added tooltips for actions
+    - [x] Standardized button styles and layout
+    - [x] Added confirmation dialog for delete
 
 #### Equipamentos
 - [x] Cadastro de Equipamentos

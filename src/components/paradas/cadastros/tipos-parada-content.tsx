@@ -1,29 +1,44 @@
-import { useState, useEffect } from "react"
+"use client"
+
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Pencil, Trash2 } from "lucide-react"
-import { TipoParadaModal } from "../TipoParadaModal"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Plus, Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 import { tiposParadaService } from "@/services/tiposParadaService"
 import { TipoParada } from "@/types/paradas"
-import { useToast } from "@/components/ui/use-toast"
 import { renderIcon } from "@/utils/icon-utils"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
+import { TipoParadaModal } from "../TipoParadaModal"
+
+interface FilterState {
+  [key: string]: Set<string>
+}
 
 export function TiposParadaContent() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [tiposParada, setTiposParada] = useState<TipoParada[]>([])
-  const [editingTipo, setEditingTipo] = useState<TipoParada | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [deletingTipo, setDeletingTipo] = useState<TipoParada | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [tipos, setTipos] = useState<TipoParada[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
+  const [selectedTipo, setSelectedTipo] = useState<TipoParada | null>(null)
+  const [showNewDialog, setShowNewDialog] = useState(false)
+  const [filters, setFilters] = useState<FilterState>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'nome', direction: 'asc' })
+  const rowsPerPage = 15
   const { toast } = useToast()
 
-  const carregarTiposParada = async () => {
+  const columns = [
+    { key: "nome", title: "Nome", sortable: true },
+    { key: "icone", title: "Ícone", sortable: false },
+  ] as const
+
+  const carregarTipos = async () => {
     try {
-      setIsLoading(true)
+      setLoading(true)
       const tipos = await tiposParadaService.buscarTipos()
-      setTiposParada(tipos)
+      setTipos(tipos)
     } catch (error) {
       console.error("Erro ao carregar tipos de parada:", error)
       toast({
@@ -32,133 +47,296 @@ export function TiposParadaContent() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   useEffect(() => {
-    carregarTiposParada()
+    carregarTipos()
   }, [])
 
-  const handleTipoParadaUpdated = () => {
-    carregarTiposParada()
+  const handleTipoUpdated = () => {
+    carregarTipos()
   }
 
-  const handleDelete = async () => {
-    if (!deletingTipo) return
+  // Filter options for dropdown
+  const filterOptions = useMemo(() => {
+    return columns.reduce(
+      (acc, column) => {
+        acc[column.key] = Array.from(
+          new Set(
+            tipos
+              .map((item) => item[column.key as keyof TipoParada])
+              .filter((value): value is string => typeof value === "string"),
+          ),
+        )
+        return acc
+      },
+      {} as Record<string, string[]>,
+    )
+  }, [tipos])
 
-    try {
-      await tiposParadaService.excluirTipo(deletingTipo.id)
-      toast({
-        title: "Sucesso",
-        description: "Tipo de parada excluído com sucesso",
+  const handleFilterToggle = (columnKey: string, option: string) => {
+    setFilters((prevFilters) => {
+      const newFilters = { ...prevFilters }
+      const columnFilters = newFilters[columnKey] ? new Set(newFilters[columnKey]) : new Set<string>()
+
+      if (columnFilters.has(option)) {
+        columnFilters.delete(option)
+      } else {
+        columnFilters.add(option)
+      }
+
+      newFilters[columnKey] = columnFilters
+      return newFilters
+    })
+  }
+
+  const handleClearFilter = (columnKey: string) => {
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [columnKey]: new Set<string>(),
+    }))
+  }
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  const filteredAndSortedData = useMemo(() => {
+    let filtered = tipos.filter((row) =>
+      Object.entries(filters).every(([key, selectedOptions]) => {
+        if (selectedOptions.size === 0) return true
+        const value = row[key as keyof TipoParada]
+        return typeof value === "string" && selectedOptions.has(value)
+      }) &&
+      (search === "" || 
+        Object.values(row).some(value => 
+          value?.toString().toLowerCase().includes(search.toLowerCase())
+        ))
+    )
+
+    if (sortConfig.key) {
+      filtered = [...filtered].sort((a, b) => {
+        const aValue = a[sortConfig.key as keyof TipoParada]
+        const bValue = b[sortConfig.key as keyof TipoParada]
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortConfig.direction === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue)
+        }
+        return 0
       })
-      carregarTiposParada()
-    } catch (error) {
-      console.error("Erro ao excluir tipo de parada:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o tipo de parada",
-        variant: "destructive",
-      })
-    } finally {
-      setDeletingTipo(null)
     }
-  }
 
-  const tiposFiltrados = tiposParada.filter(tipo => {
-    if (!searchTerm) return true
-    return tipo.nome.toLowerCase().includes(searchTerm.toLowerCase())
-  })
+    return filtered
+  }, [tipos, filters, search, sortConfig])
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage)
+  const startIndex = (currentPage - 1) * rowsPerPage
+  const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
+
+  function FilterDropdown({
+    title,
+    options,
+    selectedOptions,
+    onOptionToggle,
+    onClear,
+  }: {
+    title: string
+    options: string[]
+    selectedOptions: Set<string>
+    onOptionToggle: (option: string) => void
+    onClear: () => void
+  }) {
+    return (
+      <DropdownMenu modal={true}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Filter className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
+          <div className="space-y-4">
+            <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
+            <Input placeholder={`Buscar ${title.toLowerCase()}...`} />
+            <div className="space-y-2 max-h-48 overflow-auto">
+              {options.map((option) => (
+                <div key={option} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={option}
+                    checked={selectedOptions.has(option)}
+                    onCheckedChange={() => onOptionToggle(option)}
+                  />
+                  <label htmlFor={option} className="text-sm">
+                    {option}
+                  </label>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between">
+              <Button variant="outline" size="sm" onClick={onClear}>
+                Limpar
+              </Button>
+              <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
+            </div>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
 
   return (
-    <div className="h-full flex flex-col space-y-4 p-4">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-lg border">
-        <div className="flex-1 relative">
-          <Input
-            placeholder="Buscar tipos de parada..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9"
-          />
-          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-        </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Tipo
+      <div className="flex justify-between items-center">
+        <Input 
+          className="max-w-md" 
+          placeholder="Buscar tipos de parada..." 
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <Button
+          className="bg-black hover:bg-black/90 text-white"
+          onClick={() => setShowNewDialog(true)}
+        >
+          <Plus className="mr-2 h-4 w-4" /> Novo Tipo
         </Button>
       </div>
 
-      {/* List */}
-      <ScrollArea className="flex-1 bg-white rounded-lg border">
-        <div className="p-4 space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-gray-500">Carregando tipos de parada...</p>
-            </div>
-          ) : tiposFiltrados.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <p className="text-sm text-gray-500">Nenhum tipo de parada encontrado</p>
-              {!searchTerm && (
-                <Button
-                  variant="ghost"
-                  className="mt-2"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  Criar novo tipo
-                </Button>
-              )}
-            </div>
-          ) : (
-            tiposFiltrados.map((tipo) => (
-              <div
-                key={tipo.id}
-                className="flex items-center justify-between p-4 bg-white rounded-lg border group hover:shadow-sm transition-shadow"
-              >
-                <div className="flex items-center gap-4">
-                  {tipo.icone && renderIcon(tipo.icone, "h-5 w-5 text-gray-500")}
-                  <span className="font-medium">{tipo.nome}</span>
-                </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setEditingTipo(tipo)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeletingTipo(tipo)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
+      {/* Table */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader className="bg-black">
+            <TableRow>
+              {columns.map((column) => (
+                <TableHead key={column.key} className="text-white font-medium h-12">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <span>{column.title}</span>
+                      {column.sortable && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-white hover:text-white"
+                          onClick={() => handleSort(column.key)}
+                        >
+                          <ArrowUpDown className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <FilterDropdown
+                      title={column.title}
+                      options={filterOptions[column.key] || []}
+                      selectedOptions={filters[column.key] || new Set()}
+                      onOptionToggle={(option) => handleFilterToggle(column.key, option)}
+                      onClear={() => handleClearFilter(column.key)}
+                    />
+                  </div>
+                </TableHead>
+              ))}
+              <TableHead className="text-white font-medium h-12 w-[100px] text-center">Detalhes</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center py-8">
+                  Carregando tipos de parada...
+                </TableCell>
+              </TableRow>
+            ) : paginatedData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center py-8">
+                  Nenhum tipo de parada encontrado
+                </TableCell>
+              </TableRow>
+            ) : (
+              <>
+                {paginatedData.map((tipo) => (
+                  <TableRow key={tipo.id} className="h-[46px] hover:bg-gray-50 border-b border-gray-200">
+                    <TableCell className="py-0 border-x border-gray-100">{tipo.nome}</TableCell>
+                    <TableCell className="py-0 border-x border-gray-100">
+                      <div className="flex items-center gap-2">
+                        {tipo.icone && renderIcon(tipo.icone, "h-4 w-4")}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-0 border-x border-gray-100">
+                      <div className="flex justify-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setSelectedTipo(tipo)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {/* Fill empty rows */}
+                {paginatedData.length < rowsPerPage && (
+                  Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
+                    <TableRow key={`empty-${index}`} className="h-[46px] border-b border-gray-200">
+                      {Array(columns.length + 1).fill(0).map((_, colIndex) => (
+                        <TableCell key={`empty-cell-${colIndex}`} className="py-0 border-x border-gray-100">&nbsp;</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
+              </>
+            )}
+          </TableBody>
+        </Table>
+
+        {/* Pagination */}
+        <div className="border-t py-2.5 px-4 flex items-center justify-between bg-white">
+          <div className="text-sm text-gray-500">
+            Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} resultados
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Modals */}
       <TipoParadaModal
-        open={isModalOpen || !!editingTipo}
-        onOpenChange={(open) => {
-          setIsModalOpen(open)
-          if (!open) setEditingTipo(null)
+        open={showNewDialog || !!selectedTipo}
+        onOpenChange={(open: boolean) => {
+          setShowNewDialog(open)
+          if (!open) setSelectedTipo(null)
         }}
-        tipoParada={editingTipo}
-        onTipoParadaUpdated={handleTipoParadaUpdated}
-      />
-
-      <ConfirmDialog
-        open={!!deletingTipo}
-        onOpenChange={(open) => !open && setDeletingTipo(null)}
-        title="Excluir Tipo de Parada"
-        description={`Tem certeza que deseja excluir o tipo de parada "${deletingTipo?.nome}"?`}
-        onConfirm={handleDelete}
+        tipoParada={selectedTipo}
+        onTipoParadaUpdated={handleTipoUpdated}
       />
     </div>
   )

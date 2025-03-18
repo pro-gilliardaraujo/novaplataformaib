@@ -3,34 +3,60 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ParadasProvider } from "@/contexts/ParadasContext"
 import { ParadasContent } from "@/components/paradas/paradas-content"
-import { HistoricoParadasContent } from "@/components/paradas/historico-content"
-import { CadastrosContent } from "@/components/paradas/cadastros-content"
+import { TiposParadaContent } from "@/components/paradas/cadastros/tipos-parada-content"
+import { FrotasContent } from "@/components/paradas/cadastros/frotas-content"
+import { UnidadesContent } from "@/components/paradas/cadastros/unidades-content"
 
 export default function ParadasPage() {
   return (
     <ParadasProvider>
       <div className="h-screen flex flex-col bg-gray-50">
         <div className="flex-1 flex flex-col">
-          <Tabs defaultValue="paradas" className="flex-1 flex flex-col">
-            <div className="border-b bg-white px-4">
-              <TabsList className="h-14">
-                <TabsTrigger value="paradas">Paradas</TabsTrigger>
-                <TabsTrigger value="historico">Histórico</TabsTrigger>
-                <TabsTrigger value="cadastros">Cadastros</TabsTrigger>
-              </TabsList>
+          <Tabs defaultValue="paradas" className="flex-1">
+            <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-2">
+              <TabsTrigger 
+                value="paradas" 
+                className="rounded-none border-b-2 border-b-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground hover:text-foreground data-[state=active]:border-b-black data-[state=active]:text-foreground"
+              >
+                Paradas
+              </TabsTrigger>
+              <TabsTrigger 
+                value="tipos" 
+                className="rounded-none border-b-2 border-b-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground hover:text-foreground data-[state=active]:border-b-black data-[state=active]:text-foreground"
+              >
+                Tipos de Parada
+              </TabsTrigger>
+              <TabsTrigger 
+                value="frotas" 
+                className="rounded-none border-b-2 border-b-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground hover:text-foreground data-[state=active]:border-b-black data-[state=active]:text-foreground"
+              >
+                Frotas
+              </TabsTrigger>
+              <TabsTrigger 
+                value="unidades" 
+                className="rounded-none border-b-2 border-b-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground hover:text-foreground data-[state=active]:border-b-black data-[state=active]:text-foreground"
+              >
+                Unidades
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex-1 p-2 bg-white">
+              <TabsContent value="paradas" className="h-full m-0">
+                <ParadasContent />
+              </TabsContent>
+
+              <TabsContent value="tipos" className="h-full m-0">
+                <TiposParadaContent />
+              </TabsContent>
+
+              <TabsContent value="frotas" className="h-full m-0">
+                <FrotasContent />
+              </TabsContent>
+
+              <TabsContent value="unidades" className="h-full m-0">
+                <UnidadesContent />
+              </TabsContent>
             </div>
-
-            <TabsContent value="paradas" className="flex-1 m-0">
-              <ParadasContent />
-            </TabsContent>
-
-            <TabsContent value="historico" className="flex-1 m-0">
-              <HistoricoParadasContent />
-            </TabsContent>
-
-            <TabsContent value="cadastros" className="flex-1 m-0">
-              <CadastrosContent />
-            </TabsContent>
           </Tabs>
         </div>
       </div>

@@ -1,175 +1,107 @@
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Check, Paintbrush } from "lucide-react"
+import { Paintbrush } from "lucide-react"
+import { GithubPicker, ChromePicker } from 'react-color'
+import { RGBColor } from 'react-color'
 
 interface ColorPickerProps {
-  color: string
-  onChange: (color: string) => void
+  color: string | null
+  onChange: (color: string | null) => void
 }
 
-const lightColors = [
-  // Row 1 - Cool colors
-  'bg-sky-50',
-  'bg-cyan-50',
-  'bg-blue-50',
-  'bg-indigo-50',
-  'bg-violet-50',
-  // Row 1 - Warm colors
-  'bg-yellow-50',
-  'bg-orange-50',
-  'bg-red-50',
-  'bg-rose-50',
-  'bg-pink-50',
-  // Row 2 - Nature colors
-  'bg-emerald-50',
-  'bg-green-50',
-  'bg-teal-50',
-  'bg-lime-50',
-  'bg-amber-50',
-  // Row 2 - Neutral colors
-  'bg-slate-50',
-  'bg-zinc-50',
-  'bg-stone-50',
-  'bg-neutral-50',
-  'bg-gray-50',
-]
-
-const mediumColors = [
-  // Row 1 - Cool colors
-  'bg-sky-200',
-  'bg-cyan-200',
-  'bg-blue-200',
-  'bg-indigo-200',
-  'bg-violet-200',
-  // Row 1 - Warm colors
-  'bg-yellow-200',
-  'bg-orange-200',
-  'bg-red-200',
-  'bg-rose-200',
-  'bg-pink-200',
-  // Row 2 - Nature colors
-  'bg-emerald-200',
-  'bg-green-200',
-  'bg-teal-200',
-  'bg-lime-200',
-  'bg-amber-200',
-  // Row 2 - Neutral colors
-  'bg-slate-200',
-  'bg-zinc-200',
-  'bg-stone-200',
-  'bg-neutral-200',
-  'bg-gray-200',
-]
-
-const darkColors = [
-  // Row 1 - Cool colors
-  'bg-sky-300',
-  'bg-cyan-300',
-  'bg-blue-300',
-  'bg-indigo-300',
-  'bg-violet-300',
-  // Row 1 - Warm colors
-  'bg-yellow-300',
-  'bg-orange-300',
-  'bg-red-300',
-  'bg-rose-300',
-  'bg-pink-300',
-  // Row 2 - Nature colors
-  'bg-emerald-300',
-  'bg-green-300',
-  'bg-teal-300',
-  'bg-lime-300',
-  'bg-amber-300',
-  // Row 2 - Neutral colors
-  'bg-slate-300',
-  'bg-zinc-300',
-  'bg-stone-300',
-  'bg-neutral-300',
-  'bg-gray-300',
+// Extended preset colors array for GithubPicker (8 columns x 4 rows)
+const presetColors = [
+  // Row 1 - Reds to Purples
+  '#FF0000', '#FF4D4D', '#FF9999', '#8B0000', '#800020', '#4B0082', '#663399', '#800080',
+  // Row 2 - Blues
+  '#0000FF', '#4169E1', '#87CEEB', '#00008B', '#000080', '#191970', '#7B68EE', '#6A5ACD',
+  // Row 3 - Greens
+  '#00FF00', '#90EE90', '#98FB98', '#006400', '#228B22', '#32CD32', '#3CB371', '#2E8B57',
+  // Row 4 - Yellows, Oranges, Browns
+  '#FFFF00', '#FFD700', '#FFA500', '#FF8C00', '#DAA520', '#B8860B', '#D2691E', '#8B4513'
 ]
 
 export function ColorPicker({ color, onChange }: ColorPickerProps) {
+  const [tempColor, setTempColor] = useState<RGBColor>(() => {
+    // Convert initial color to RGB format
+    if (!color) return { r: 255, g: 255, b: 255, a: 1 }
+    
+    // Handle rgba format
+    const rgba = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d*\.?\d+))?\)/)
+    if (rgba) {
+      return {
+        r: parseInt(rgba[1]),
+        g: parseInt(rgba[2]),
+        b: parseInt(rgba[3]),
+        a: rgba[4] ? parseFloat(rgba[4]) : 1
+      }
+    }
+    
+    // Handle hex format
+    const hex = color.replace('#', '')
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16),
+      a: 1
+    }
+  })
+
+  const handleColorChange = (colorResult: any) => {
+    const newColor = colorResult.rgb
+    setTempColor(newColor)
+    onChange(`rgba(${newColor.r}, ${newColor.g}, ${newColor.b}, ${newColor.a})`)
+  }
+
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
           size="sm"
-          className={`h-6 w-6 p-0 ${color} border border-gray-200`}
+          className="h-6 w-6 p-0 border border-gray-200"
+          style={{ 
+            background: color || 'white',
+            transition: 'background-color 0.2s ease'
+          }}
         >
           <Paintbrush className="h-4 w-4 text-gray-500" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[420px] p-2">
+      <PopoverContent className="w-[240px] p-3">
         <div className="space-y-3">
-          {/* Light Colors Section */}
+          {/* Preset Colors using GithubPicker */}
           <div>
-            <div className="text-xs font-medium text-gray-500 mb-1.5">Cores Suaves</div>
-            <div className="grid grid-cols-10 gap-1">
-              {lightColors.map((bgColor) => (
-                <Button
-                  key={bgColor}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onChange(bgColor)}
-                  className={`h-8 w-8 p-0 ${bgColor} border border-gray-200 ${
-                    color === bgColor ? 'ring-2 ring-black ring-offset-2' : ''
-                  }`}
-                >
-                  {color === bgColor && (
-                    <Check className="h-4 w-4 text-gray-500" />
-                  )}
-                </Button>
-              ))}
-            </div>
+            <GithubPicker
+              width="214px"
+              colors={presetColors}
+              color={`rgba(${tempColor.r}, ${tempColor.g}, ${tempColor.b}, ${tempColor.a})`}
+              onChange={handleColorChange}
+              triangle="hide"
+            />
           </div>
 
-          {/* Medium Colors Section */}
-          <div>
-            <div className="text-xs font-medium text-gray-500 mb-1.5">Cores Médias</div>
-            <div className="grid grid-cols-10 gap-1">
-              {mediumColors.map((bgColor) => (
-                <Button
-                  key={bgColor}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onChange(bgColor)}
-                  className={`h-8 w-8 p-0 ${bgColor} border border-gray-200 ${
-                    color === bgColor ? 'ring-2 ring-black ring-offset-2' : ''
-                  }`}
-                >
-                  {color === bgColor && (
-                    <Check className="h-4 w-4 text-gray-500" />
-                  )}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Dark Colors Section */}
-          <div>
-            <div className="text-xs font-medium text-gray-500 mb-1.5">Cores Vibrantes</div>
-            <div className="grid grid-cols-10 gap-1">
-              {darkColors.map((bgColor) => (
-                <Button
-                  key={bgColor}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onChange(bgColor)}
-                  className={`h-8 w-8 p-0 ${bgColor} border border-gray-200 ${
-                    color === bgColor ? 'ring-2 ring-black ring-offset-2' : ''
-                  }`}
-                >
-                  {color === bgColor && (
-                    <Check className="h-4 w-4 text-gray-500" />
-                  )}
-                </Button>
-              ))}
-            </div>
+          {/* Custom Color Selection using ChromePicker */}
+          <div className="[&_div[style*='margin-left: -6px']]:hidden [&_input[value^='#']]:hidden [&_label]:hidden [&_svg]:hidden">
+            <ChromePicker
+              color={tempColor}
+              onChange={handleColorChange}
+              styles={{
+                default: {
+                  picker: {
+                    width: '214px',
+                    boxShadow: 'none',
+                    border: 'none',
+                    paddingBottom: '6px'
+                  }
+                }
+              }}
+            />
           </div>
         </div>
       </PopoverContent>

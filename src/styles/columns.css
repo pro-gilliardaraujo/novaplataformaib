@@ -7,45 +7,90 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 0.75rem !important;
+  font-weight: 500;
+  padding: 0.5rem 0;
+  overflow: hidden;
 }
 
 /* Column header - consistent height for both states */
 .column-header {
-  height: 72px; /* Fixed height for header */
-  padding: 0.75rem;
+  height: 56px;
+  padding: 0.5rem 0.75rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  background-color: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(4px);
+  background: inherit;
   border-top-left-radius: 0.5rem;
   border-top-right-radius: 0.5rem;
   display: flex;
   align-items: center;
   user-select: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* Add a semi-transparent overlay to the header */
+.column-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  z-index: -1;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
 }
 
 /* Maximized column header content alignment */
 .column-header > div {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.column-header h3 {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 200px !important;
+  text-align: center !important;
+  margin: 0 auto !important;
 }
 
 .column-header > div > div:first-child {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  min-width: 0;
+  cursor: grab;
+}
+
+.column-header > div > div:first-child:active {
+  cursor: grabbing;
 }
 
 .column-header > div > div:last-child {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Button group in maximized state */
+.column-header .color-picker-group {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 0.375rem;
+  padding: 0.25rem;
 }
 
 /* Minimized column header styles */
 .minimized-column .column-header {
   padding: 0.5rem;
+  height: 100%;
 }
 
 .minimized-column .column-header > div {
@@ -68,10 +113,10 @@
 .grid-responsive {
   display: flex;
   gap: 1rem;
-  height: 100%;
-  padding: 0.5rem;
+  height: calc(100vh - 160px); /* Account for header, top bar, and padding */
+  margin: 0.5rem;
   user-select: none;
-  width: 100%;
+  width: calc(100% - 1rem);
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -84,60 +129,84 @@
   display: flex;
   flex-direction: column;
   border-radius: 0.5rem;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.grid-responsive > div.minimized-column {
-  flex: 0 0 60px;
-  max-width: 60px;
-  min-width: 60px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 }
 
 /* Column content */
 .scroll-area-container {
   flex: 1;
-  min-height: 0;
-  height: calc(100% - 72px); /* Subtract header height */
+  height: calc(100% - 56px); /* Update to match new header height */
   position: relative;
+  overflow: hidden;
+  background: inherit; /* Inherit the column's background color */
 }
 
-/* ScrollArea styles */
-.scroll-area-container [data-radix-scroll-area-viewport] {
-  height: 100% !important;
+/* Add a semi-transparent overlay to the content area */
+.scroll-area-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  z-index: 0;
 }
 
-/* Content area */
+/* Ensure content is above the overlay */
 .scroll-area-content {
+  position: relative;
+  z-index: 1;
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-/* Ensure cards have proper spacing */
+/* Ensure cards have proper spacing and visibility */
 .scroll-area-content > * {
   flex-shrink: 0;
+  width: 100%;
 }
 
-/* Update minimized column styles */
-.minimized-column .column-title {
-  writing-mode: vertical-lr;
-  transform: rotate(180deg);
-  white-space: nowrap;
-  text-orientation: mixed;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0.025em;
-  padding: 0.5rem 0;
-  overflow: hidden; /* Prevent text overflow */
+/* Radix ScrollArea styles */
+[data-radix-scroll-area-viewport] {
+  height: 100% !important;
+}
+
+[data-radix-scroll-area-scrollbar] {
+  padding: 0 !important;
+  margin: 0.25rem !important;
+}
+
+[data-radix-scroll-area-thumb] {
+  background-color: rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Column transition */
 .column-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Drag and drop styles */
+[data-rbd-draggable-context-id] {
+  user-select: none;
+  height: 100%;
+}
+
+[data-rbd-drag-handle-draggable-id] {
+  cursor: grab;
+}
+
+[data-rbd-drag-handle-draggable-id]:active {
+  cursor: grabbing;
+}
+
+[data-rbd-draggable-id][data-rbd-dragging="true"] {
+  z-index: 999;
+  pointer-events: none;
+}
+
+[data-rbd-draggable-id]:not([data-rbd-dragging="true"]) {
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -162,8 +231,53 @@
   border-width: 2px;
 }
 
+/* Minimized column styles */
 .minimized-column {
-  height: auto !important;
+  flex: 0 0 60px !important;
+  max-width: 60px !important;
+  min-width: 60px !important;
+  position: relative;
+}
+
+.minimized-column .column-header {
+  height: 100%;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.minimized-column .controls {
+  position: absolute;
+  top: 0.5rem;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+}
+
+.minimized-column .controls > div {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 0.25rem;
+  padding: 0.25rem;
+}
+
+.minimized-column .writing-mode-vertical {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  height: calc(100% - 48px);
+  margin-top: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem !important;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .column-title {
@@ -172,51 +286,7 @@
   user-select: none;
 }
 
-/* Drag and drop styles */
-[data-rbd-draggable-context-id] {
-  user-select: none;
-}
-
-[data-rbd-drag-handle-draggable-id] {
-  cursor: grab;
-}
-
-[data-rbd-drag-handle-draggable-id]:active {
-  cursor: grabbing;
-}
-
-[data-rbd-draggable-id][data-rbd-dragging="true"] {
-  z-index: 999;
-  pointer-events: none;
-}
-
-[data-rbd-draggable-id]:not([data-rbd-dragging="true"]) {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Grid layout */
-.grid-responsive {
-  display: flex;
-  gap: 1rem;
-  height: 100%;
-  padding: 0.5rem;
-  user-select: none;
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.grid-responsive > div {
-  flex: 1;
-  min-width: 300px;
-  max-width: 400px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  border-radius: 0.5rem;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
+/* Remove duplicate grid-responsive styles at the bottom */
 .grid-responsive > div[data-rbd-dragging="true"] {
   transition: none !important;
 } 

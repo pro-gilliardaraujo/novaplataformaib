@@ -1,196 +1,363 @@
-import { useState, useEffect } from "react"
+"use client"
+
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Pencil, Trash2 } from "lucide-react"
-import { NovaFrotaModal } from "./nova-frota-modal"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Plus, Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 import { frotasService } from "@/services/frotasService"
 import { Frota } from "@/types/paradas"
-import { useToast } from "@/components/ui/use-toast"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
+import { NovaFrotaModal } from "./nova-frota-modal"
 import { useParadas } from "@/contexts/ParadasContext"
 
+interface FilterState {
+  [key: string]: Set<string>
+}
+
+function FilterDropdown({
+  title,
+  options,
+  selectedOptions,
+  onOptionToggle,
+  onClear,
+}: {
+  title: string
+  options: string[]
+  selectedOptions: Set<string>
+  onOptionToggle: (option: string) => void
+  onClear: () => void
+}) {
+  return (
+    <DropdownMenu modal={true}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Filter className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
+        <div className="space-y-4">
+          <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
+          <Input placeholder={`Buscar ${title.toLowerCase()}...`} />
+          <div className="space-y-2 max-h-48 overflow-auto">
+            {options.map((option) => (
+              <div key={option} className="flex items-center space-x-2">
+                <Checkbox
+                  id={option}
+                  checked={selectedOptions.has(option)}
+                  onCheckedChange={() => onOptionToggle(option)}
+                />
+                <label htmlFor={option} className="text-sm">
+                  {option}
+                </label>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between">
+            <Button variant="outline" size="sm" onClick={onClear}>
+              Limpar
+            </Button>
+            <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function FrotasContent() {
-  const { unidades } = useParadas()
-  const [searchTerm, setSearchTerm] = useState("")
+  const { unidades, isLoading: isLoadingUnidades } = useParadas()
   const [frotas, setFrotas] = useState<Frota[]>([])
-  const [editingFrota, setEditingFrota] = useState<Frota | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [deletingFrota, setDeletingFrota] = useState<Frota | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [selectedUnidade, setSelectedUnidade] = useState<string>("todas")
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
+  const [selectedFrota, setSelectedFrota] = useState<Frota | null>(null)
+  const [showNewDialog, setShowNewDialog] = useState(false)
+  const [filters, setFilters] = useState<FilterState>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'frota', direction: 'asc' })
+  const initialLoadDone = useRef(false)
+  const rowsPerPage = 15
   const { toast } = useToast()
+
+  const columns = [
+    { key: "frota", title: "Frota", sortable: true },
+    { key: "descricao", title: "Descrição", sortable: true },
+    { key: "unidade", title: "Unidade", sortable: true },
+  ] as const
 
   const carregarFrotas = async () => {
     try {
-      setIsLoading(true)
+      setLoading(true)
+      console.log("Iniciando carregamento de frotas...")
       const frotas = await frotasService.buscarFrotas()
+      console.log("Frotas carregadas:", frotas)
       setFrotas(frotas)
     } catch (error) {
       console.error("Erro ao carregar frotas:", error)
       toast({
-        title: "Erro",
-        description: "Não foi possível carregar as frotas",
+        title: "Erro ao carregar frotas",
+        description: error instanceof Error ? error.message : "Não foi possível carregar as frotas. Verifique o console para mais detalhes.",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
+  // Load frotas only once when component mounts
   useEffect(() => {
     carregarFrotas()
-  }, [])
+  }, []) // Empty dependency array
 
   const handleFrotaUpdated = () => {
     carregarFrotas()
   }
 
-  const handleDelete = async () => {
-    if (!deletingFrota) return
+  // Filter options for dropdown
+  const filterOptions = useMemo(() => {
+    return columns.reduce(
+      (acc, column) => {
+        if (column.key === "unidade") {
+          acc[column.key] = unidades.map(u => u.nome)
+        } else {
+          acc[column.key] = Array.from(
+            new Set(
+              frotas
+                .map((item) => item[column.key as keyof Frota])
+                .filter((value): value is string => typeof value === "string"),
+            ),
+          )
+        }
+        return acc
+      },
+      {} as Record<string, string[]>,
+    )
+  }, [frotas, unidades])
 
-    try {
-      await frotasService.excluirFrota(deletingFrota.id)
-      toast({
-        title: "Sucesso",
-        description: "Frota excluída com sucesso",
-      })
-      carregarFrotas()
-    } catch (error) {
-      console.error("Erro ao excluir frota:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir a frota",
-        variant: "destructive",
-      })
-    } finally {
-      setDeletingFrota(null)
-    }
+  const handleFilterToggle = (columnKey: string, option: string) => {
+    setFilters((prevFilters) => {
+      const newFilters = { ...prevFilters }
+      const columnFilters = newFilters[columnKey] ? new Set(newFilters[columnKey]) : new Set<string>()
+
+      if (columnFilters.has(option)) {
+        columnFilters.delete(option)
+      } else {
+        columnFilters.add(option)
+      }
+
+      newFilters[columnKey] = columnFilters
+      return newFilters
+    })
   }
 
-  const frotasFiltradas = frotas.filter(frota => {
-    if (selectedUnidade !== "todas" && frota.unidade_id !== selectedUnidade) return false
-    if (!searchTerm) return true
-    return (
-      frota.frota.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      frota.descricao.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleClearFilter = (columnKey: string) => {
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [columnKey]: new Set<string>(),
+    }))
+  }
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  const filteredAndSortedData = useMemo(() => {
+    let filtered = frotas.filter((row) =>
+      Object.entries(filters).every(([key, selectedOptions]) => {
+        if (selectedOptions.size === 0) return true
+        if (key === "unidade") {
+          const unidade = unidades.find(u => u.id === row.unidade_id)
+          return unidade && selectedOptions.has(unidade.nome)
+        }
+        const value = row[key as keyof Frota]
+        return typeof value === "string" && selectedOptions.has(value)
+      }) &&
+      (search === "" || 
+        Object.values(row).some(value => 
+          value?.toString().toLowerCase().includes(search.toLowerCase())
+        ))
     )
-  })
+
+    if (sortConfig.key) {
+      filtered = [...filtered].sort((a, b) => {
+        if (sortConfig.key === "unidade") {
+          const aUnidade = unidades.find(u => u.id === a.unidade_id)?.nome || ""
+          const bUnidade = unidades.find(u => u.id === b.unidade_id)?.nome || ""
+          return sortConfig.direction === 'asc' 
+            ? aUnidade.localeCompare(bUnidade)
+            : bUnidade.localeCompare(aUnidade)
+        }
+        const aValue = a[sortConfig.key as keyof Frota]
+        const bValue = b[sortConfig.key as keyof Frota]
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortConfig.direction === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue)
+        }
+        return 0;
+      })
+    }
+
+    return filtered;
+  }, [frotas, filters, search, sortConfig, unidades])
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage)
+  const startIndex = (currentPage - 1) * rowsPerPage
+  const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
 
   return (
-    <div className="h-full flex flex-col space-y-4 p-4">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-lg border">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="flex-1 relative">
-            <Input
-              placeholder="Buscar frotas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9"
-            />
-            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          </div>
-          <Select value={selectedUnidade} onValueChange={setSelectedUnidade}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Selecione uma unidade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas as unidades</SelectItem>
-              {unidades.map((unidade) => (
-                <SelectItem key={unidade.id} value={unidade.id}>
-                  {unidade.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Frota
+      <div className="flex justify-between items-center">
+        <Input 
+          className="max-w-md" 
+          placeholder="Buscar frotas..." 
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <Button
+          className="bg-black hover:bg-black/90 text-white"
+          onClick={() => setShowNewDialog(true)}
+        >
+          <Plus className="mr-2 h-4 w-4" /> Nova Frota
         </Button>
       </div>
 
-      {/* List */}
-      <ScrollArea className="flex-1 bg-white rounded-lg border">
-        <div className="p-4 space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-gray-500">Carregando frotas...</p>
-            </div>
-          ) : frotasFiltradas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <p className="text-sm text-gray-500">Nenhuma frota encontrada</p>
-              {!searchTerm && selectedUnidade === "todas" && (
-                <Button
-                  variant="ghost"
-                  className="mt-2"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  Criar nova frota
-                </Button>
-              )}
-            </div>
-          ) : (
-            frotasFiltradas.map((frota) => {
-              const unidade = unidades.find(u => u.id === frota.unidade_id)
-              return (
-                <div
-                  key={frota.id}
-                  className="flex items-center justify-between p-4 bg-white rounded-lg border group hover:shadow-sm transition-shadow"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{frota.frota}</span>
-                      <span className="text-sm text-gray-500">{frota.descricao}</span>
+      {/* Table */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader className="bg-black">
+            <TableRow>
+              {columns.map((column) => (
+                <TableHead key={column.key} className="text-white font-medium h-12">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <span>{column.title}</span>
+                      {column.sortable && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-white hover:text-white"
+                          onClick={() => handleSort(column.key)}
+                        >
+                          <ArrowUpDown className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    {unidade && (
-                      <span className="text-sm text-gray-500">
-                        {unidade.nome}
-                      </span>
-                    )}
+                    <FilterDropdown
+                      title={column.title}
+                      options={filterOptions[column.key] || []}
+                      selectedOptions={filters[column.key] || new Set()}
+                      onOptionToggle={(option) => handleFilterToggle(column.key, option)}
+                      onClear={() => handleClearFilter(column.key)}
+                    />
                   </div>
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditingFrota(frota)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeletingFrota(frota)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )
-            })
-          )}
+                </TableHead>
+              ))}
+              <TableHead className="text-white font-medium h-12 w-[100px] text-center">Detalhes</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {(loading || isLoadingUnidades) ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-8">
+                  Carregando dados...
+                </TableCell>
+              </TableRow>
+            ) : paginatedData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-8">
+                  Nenhuma frota encontrada
+                </TableCell>
+              </TableRow>
+            ) : (
+              <>
+                {paginatedData.map((frota) => {
+                  const unidade = unidades.find(u => u.id === frota.unidade_id)
+                  return (
+                    <TableRow key={frota.id} className="h-[46px] hover:bg-gray-50 border-b border-gray-200">
+                      <TableCell className="py-0 border-x border-gray-100">{frota.frota}</TableCell>
+                      <TableCell className="py-0 border-x border-gray-100">{frota.descricao}</TableCell>
+                      <TableCell className="py-0 border-x border-gray-100">{unidade?.nome}</TableCell>
+                      <TableCell className="py-0 border-x border-gray-100">
+                        <div className="flex justify-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setSelectedFrota(frota)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+                {/* Fill empty rows */}
+                {paginatedData.length < rowsPerPage && (
+                  Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
+                    <TableRow key={`empty-${index}`} className="h-[46px] border-b border-gray-200">
+                      {Array(columns.length + 1).fill(0).map((_, colIndex) => (
+                        <TableCell key={`empty-cell-${colIndex}`} className="py-0 border-x border-gray-100">&nbsp;</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
+              </>
+            )}
+          </TableBody>
+        </Table>
+
+        {/* Pagination */}
+        <div className="border-t py-2.5 px-4 flex items-center justify-between bg-white">
+          <div className="text-sm text-gray-500">
+            Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} resultados
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </ScrollArea>
+      </div>
 
-      {/* Modals */}
+      {/* Modal */}
       <NovaFrotaModal
-        open={isModalOpen || !!editingFrota}
+        open={showNewDialog || !!selectedFrota}
         onOpenChange={(open) => {
-          setIsModalOpen(open)
-          if (!open) setEditingFrota(null)
+          setShowNewDialog(open)
+          if (!open) setSelectedFrota(null)
         }}
-        frota={editingFrota}
+        frota={selectedFrota}
         onFrotaUpdated={handleFrotaUpdated}
-      />
-
-      <ConfirmDialog
-        open={!!deletingFrota}
-        onOpenChange={(open) => !open && setDeletingFrota(null)}
-        title="Excluir Frota"
-        description={`Tem certeza que deseja excluir a frota "${deletingFrota?.frota}"?`}
-        onConfirm={handleDelete}
       />
     </div>
   )

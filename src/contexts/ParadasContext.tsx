@@ -57,6 +57,7 @@ export function ParadasProvider({ children }: { children: ReactNode }) {
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   
   // Initialize with empty states - will be populated after loading from Supabase
   const [frotasSelecionadas, setFrotasSelecionadas] = useState<Set<string>>(new Set())
@@ -66,133 +67,49 @@ export function ParadasProvider({ children }: { children: ReactNode }) {
   const [allDateColors, setAllDateColors] = useState<Record<string, Record<string, string>>>({})
   const [selectedUnidade, setSelectedUnidade] = useState("todas")
 
-  // Load configuration from Supabase
-  useEffect(() => {
-    const loadConfig = async () => {
-      if (!user?.id) {
-        setIsConfigLoading(false)
-        return
-      }
-
-      try {
-        const config = await scenarioConfigService.loadConfig(user.id)
-        if (config) {
-          setColumnOrder(config.column_order)
-          setAllDateColors(config.column_colors || {})
-          setUnidadeColors(config.column_colors?.[data] || {})
-          setMinimizedColumns(new Set(config.minimized_columns))
-          setFrotasSelecionadas(new Set(config.selected_frotas))
-        }
-      } catch (error) {
-        console.error('Error loading config:', error)
-        // Load from localStorage as fallback
-        const savedFrotas = localStorage.getItem('frotasSelecionadas')
-        if (savedFrotas) setFrotasSelecionadas(new Set(JSON.parse(savedFrotas)))
-        
-        const savedOrder = localStorage.getItem('columnOrder')
-        if (savedOrder) setColumnOrder(JSON.parse(savedOrder))
-        
-        const savedColors = localStorage.getItem('unidadeColors')
-        if (savedColors) {
-          const colors = JSON.parse(savedColors)
-          setUnidadeColors(colors)
-          setAllDateColors({ [data]: colors })
-        }
-        
-        const savedMinimized = localStorage.getItem('minimizedColumns')
-        if (savedMinimized) setMinimizedColumns(new Set(JSON.parse(savedMinimized)))
-      } finally {
-        setIsConfigLoading(false)
-      }
+  // Function declarations
+  const carregarUnidades = async () => {
+    // Don't load if we already have data
+    if (!user || unidades.length > 0) {
+      return
     }
 
-    loadConfig()
-  }, [user?.id, data])
+    try {
+      setIsLoading(true)
+      setError(null)
 
-  // Load initial data
-  useEffect(() => {
-    if (!isConfigLoading) {
-      carregarUnidades()
-    }
-  }, [isConfigLoading, data])
+      const { data: unidadesData, error: unidadesError } = await supabase
+        .from('unidades')
+        .select(`
+          *,
+          frotas (
+            id,
+            frota,
+            descricao,
+            unidade_id,
+            created_at,
+            updated_at
+          )
+        `)
+        .order('nome')
 
-  // Update colors when date changes
-  useEffect(() => {
-    const loadColorsForDate = async () => {
-      if (!isConfigLoading && user?.id) {
-        try {
-          // Reload the latest config from Supabase
-          const config = await scenarioConfigService.loadConfig(user.id)
-          if (config && config.column_colors) {
-            setAllDateColors(config.column_colors)
-            const dateColors = config.column_colors[data]
-            if (dateColors) {
-              setUnidadeColors(dateColors)
-            } else {
-              // Assign sequential colors for new date
-              const newColors = columnOrder.reduce((acc, columnId, index) => {
-                acc[columnId] = availableColors[index % availableColors.length]
-                return acc
-              }, {} as Record<string, string>)
-              
-              setUnidadeColors(newColors)
-              setAllDateColors(prev => ({ ...prev, [data]: newColors }))
-            }
-          }
-        } catch (error) {
-          console.error('Error loading colors for date:', error)
-        }
+      if (unidadesError) throw unidadesError
+
+      setUnidades(unidadesData)
+      
+      // Se não houver frotas selecionadas, seleciona todas por padrão
+      if (frotasSelecionadas.size === 0) {
+        const todasFrotas = new Set(unidadesData.flatMap(u => u.frotas?.map((f: Frota) => f.id) || []))
+        setFrotasSelecionadas(todasFrotas)
       }
+    } catch (error) {
+      console.error("Erro ao carregar unidades:", error)
+      setError("Erro ao carregar unidades")
+    } finally {
+      setIsLoading(false)
     }
-
-    loadColorsForDate()
-  }, [data, isConfigLoading, user?.id, columnOrder])
-
-  // Save colors when they change
-  const updateUnidadeColor = (unidadeId: string, color: string) => {
-    const newColors = { ...unidadeColors, [unidadeId]: color }
-    setUnidadeColors(newColors)
-    setAllDateColors(prev => ({ ...prev, [data]: newColors }))
   }
 
-  // Save to localStorage when settings change
-  useEffect(() => {
-    if (!isConfigLoading) {
-      localStorage.setItem('columnOrder', JSON.stringify(columnOrder))
-    }
-  }, [columnOrder, isConfigLoading])
-
-  useEffect(() => {
-    if (!isConfigLoading) {
-      localStorage.setItem('unidadeColors', JSON.stringify(unidadeColors))
-    }
-  }, [unidadeColors, isConfigLoading])
-
-  useEffect(() => {
-    if (!isConfigLoading) {
-      localStorage.setItem('minimizedColumns', JSON.stringify(Array.from(minimizedColumns)))
-    }
-  }, [minimizedColumns, isConfigLoading])
-
-  useEffect(() => {
-    if (!isConfigLoading) {
-      localStorage.setItem('frotasSelecionadas', JSON.stringify(Array.from(frotasSelecionadas)))
-    }
-  }, [frotasSelecionadas, isConfigLoading])
-
-  // Save to Supabase when any settings change
-  useEffect(() => {
-    if (isConfigLoading || !user?.id) return
-
-    const saveConfig = async () => {
-      await saveScenarioConfig()
-    }
-    
-    const timeoutId = setTimeout(saveConfig, 1000)
-    return () => clearTimeout(timeoutId)
-  }, [columnOrder, allDateColors, minimizedColumns, frotasSelecionadas, user?.id, isConfigLoading])
-
-  // Save scenario config to Supabase
   const saveScenarioConfig = async () => {
     if (!user?.id) return
 
@@ -214,79 +131,139 @@ export function ParadasProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const carregarUnidades = async () => {
-    if (!user) return
+  // Load initial data only once when the component mounts and user is available
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (!user?.id || isInitialized) return
 
-    try {
-      setIsLoading(true)
-      setError(null)
+      try {
+        setIsConfigLoading(true)
+        setIsLoading(true)
+        
+        // Load config first
+        const config = await scenarioConfigService.loadConfig(user.id)
+        if (config) {
+          setColumnOrder(config.column_order || [])
+          setAllDateColors(config.column_colors || {})
+          setUnidadeColors(config.column_colors?.[data] || {})
+          setMinimizedColumns(new Set(config.minimized_columns || []))
+          setFrotasSelecionadas(new Set(config.selected_frotas || []))
+        }
 
-      // First, get the user's permissions for the "paradas" category
-      const { data: permissions, error: permissionsError } = await supabase
-        .from('user_permissions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('category_slug', 'paradas')
-        .single()
-
-      if (permissionsError && permissionsError.code !== 'PGRST116') { // Not found error
-        throw permissionsError
+        // Then load unidades if we don't have them yet
+        if (unidades.length === 0) {
+          await carregarUnidades()
+        }
+        
+        setIsInitialized(true)
+      } catch (error) {
+        console.error('Error loading initial data:', error)
+        // Load from localStorage as fallback
+        const savedFrotas = localStorage.getItem('frotasSelecionadas')
+        if (savedFrotas) setFrotasSelecionadas(new Set(JSON.parse(savedFrotas)))
+        
+        const savedOrder = localStorage.getItem('columnOrder')
+        if (savedOrder) setColumnOrder(JSON.parse(savedOrder))
+        
+        const savedColors = localStorage.getItem('unidadeColors')
+        if (savedColors) {
+          const colors = JSON.parse(savedColors)
+          setUnidadeColors(colors)
+          setAllDateColors({ [data]: colors })
+        }
+        
+        const savedMinimized = localStorage.getItem('minimizedColumns')
+        if (savedMinimized) setMinimizedColumns(new Set(JSON.parse(savedMinimized)))
+        
+        setIsInitialized(true)
+      } finally {
+        setIsConfigLoading(false)
+        setIsLoading(false)
       }
-
-      // Then get the units with their frotas
-      const { data: unidadesData, error: unidadesError } = await supabase
-        .from('unidades')
-        .select(`
-          *,
-          frotas (
-            id,
-            frota,
-            descricao,
-            unidade_id,
-            created_at,
-            updated_at
-          )
-        `)
-        .order('nome')
-
-      if (unidadesError) throw unidadesError
-
-      // If user has no permissions yet, show no units
-      if (!permissions) {
-        setUnidades([])
-        setError("Você não tem permissão para acessar esta página")
-        return
-      }
-
-      // Filter units based on permissions
-      const filteredUnidades = permissions.is_admin 
-        ? unidadesData 
-        : unidadesData.filter(unidade => 
-            permissions.unit_ids?.includes(unidade.id)
-          )
-
-      setUnidades(filteredUnidades)
-      
-      // Se não houver frotas selecionadas, seleciona todas por padrão
-      if (frotasSelecionadas.size === 0) {
-        const todasFrotas = new Set(filteredUnidades.flatMap(u => u.frotas?.map(f => f.id) || []))
-        setFrotasSelecionadas(todasFrotas)
-      }
-      
-      await atualizarCenario(filteredUnidades, filteredUnidades.flatMap(u => u.frotas || []))
-    } catch (error) {
-      console.error("Erro ao carregar unidades:", error)
-      setError("Erro ao carregar unidades")
-    } finally {
-      setIsLoading(false)
     }
-  }
+
+    loadInitialData()
+  }, [user?.id]) // Only depend on user.id
+
+  // Debounced save to localStorage and Supabase with proper dependencies
+  useEffect(() => {
+    if (!isInitialized || isConfigLoading || !user?.id) return
+
+    const debouncedSave = async () => {
+      // Update allDateColors with current date's colors
+      const newAllDateColors = {
+        ...allDateColors,
+        [data]: unidadeColors
+      }
+
+      // Save to localStorage
+      localStorage.setItem('columnOrder', JSON.stringify(columnOrder))
+      localStorage.setItem('unidadeColors', JSON.stringify(unidadeColors))
+      localStorage.setItem('minimizedColumns', JSON.stringify(Array.from(minimizedColumns)))
+      localStorage.setItem('frotasSelecionadas', JSON.stringify(Array.from(frotasSelecionadas)))
+
+      // Save to Supabase
+      try {
+        await scenarioConfigService.saveConfig({
+          user_id: user.id,
+          column_order: columnOrder,
+          column_colors: newAllDateColors,
+          minimized_columns: Array.from(minimizedColumns),
+          selected_frotas: Array.from(frotasSelecionadas)
+        })
+      } catch (error) {
+        console.error('Error saving to Supabase:', error)
+      }
+    }
+    
+    const timeoutId = setTimeout(debouncedSave, 2000) // 2 second debounce
+    return () => clearTimeout(timeoutId)
+  }, [
+    isInitialized,
+    columnOrder,
+    unidadeColors,
+    minimizedColumns,
+    frotasSelecionadas,
+    data,
+    user?.id
+  ])
+
+  // Update colors when date changes
+  useEffect(() => {
+    if (!isInitialized || !user?.id || isConfigLoading) return
+
+    const dateColors = allDateColors[data]
+    if (dateColors) {
+      setUnidadeColors(dateColors)
+    } else {
+      const newColors = columnOrder.reduce((acc, columnId, index) => {
+        acc[columnId] = availableColors[index % availableColors.length]
+        return acc
+      }, {} as Record<string, string>)
+      
+      setUnidadeColors(newColors)
+      setAllDateColors(prev => ({ ...prev, [data]: newColors }))
+    }
+  }, [data, isInitialized])
+
+  // Update scenario only when data changes and not loading
+  useEffect(() => {
+    if (!isInitialized || !user?.id || isConfigLoading || isLoading || unidades.length === 0) return
+
+    const updateScenario = async () => {
+      try {
+        setIsLoading(true)
+        await atualizarCenario()
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    updateScenario()
+  }, [data, isInitialized])
 
   // Função para atualizar o cenário
-  const atualizarCenario = async (unidadesAtuais: Unidade[] = unidades, frotas: Frota[] = unidades.flatMap(u => u.frotas || [])) => {
-    setIsLoading(true)
-    setError(null)
-
+  const atualizarCenario = async () => {
     try {
       // Convert date to start/end of day in America/Sao_Paulo timezone
       const selectedDate = new Date(data)
@@ -344,15 +321,15 @@ export function ParadasProvider({ children }: { children: ReactNode }) {
       const todasParadas = [...(paradasDia || []), ...(paradasAtivasAnteriores || [])]
 
       // 3. Buscar contagem de histórico para cada frota
-      const historicoPromises = frotas.map(async (frota) => {
+      const historicoPromises = Array.from(frotasSelecionadas).map(async (frotaId: string) => {
         const { count } = await supabase
           .from('paradas')
           .select('*', { count: 'exact', head: true })
-          .eq('frota_id', frota.id)
+          .eq('frota_id', frotaId)
           .gte('inicio', startOfDay.toISOString())
           .lte('inicio', endOfDay.toISOString())
 
-        return { frotaId: frota.id, count: count || 0 }
+        return { frotaId, count: count || 0 }
       })
 
       const historicoCounts = await Promise.all(historicoPromises)
@@ -360,37 +337,41 @@ export function ParadasProvider({ children }: { children: ReactNode }) {
       // 4. Montar o mapa de status
       const novoStatus = new Map<string, FrotaStatus>()
 
-      frotas.forEach(frota => {
+      Array.from(frotasSelecionadas).forEach((frotaId: string) => {
         // For historical data (not today), all paradas should be considered finished
         const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
         const isHistoricalData = data !== hoje
         
         // Get active parada (without fim) - only for today
         const paradasFrota = todasParadas.filter(p => 
-          p.frota_id === frota.id && (!p.fim || isHistoricalData)
+          p.frota_id === frotaId && (!p.fim || isHistoricalData)
         ) || []
 
         // Sort paradas by inicio to get the most recent one first
         paradasFrota.sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime())
 
         // Get history count including both active and completed paradas
-        const historicoCount = historicoCounts.find(h => 
-          h.frotaId === frota.id
+        const historicoCount = historicoCounts.find((h: { frotaId: string; count: number }) => 
+          h.frotaId === frotaId
         )?.count || 0
 
-        novoStatus.set(frota.id, {
-          frota,
-          parada_atual: paradasFrota[0] || null,
-          historico_count: historicoCount
-        })
+        const frota = unidades
+          .flatMap(u => u.frotas || [])
+          .find(f => f.id === frotaId)
+
+        if (frota) {
+          novoStatus.set(frotaId, {
+            frota,
+            parada_atual: paradasFrota[0] || null,
+            historico_count: historicoCount
+          })
+        }
       })
 
       setStatusFrotas(novoStatus)
     } catch (error) {
       console.error('Error updating scenario:', error)
       setError('Erro ao atualizar cenário')
-    } finally {
-      setIsLoading(false)
     }
   }
 

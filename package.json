@@ -61,6 +61,7 @@
     "phosphor-react": "^1.4.1",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.3.0",
+    "react-color": "^2.19.3",
     "react-day-picker": "^9.6.1",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.54.2",
@@ -78,6 +79,7 @@
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18.2.0",
+    "@types/react-color": "^3.0.13",
     "@types/react-dom": "^18.2.0",
     "@types/uuid": "^9.0.7",
     "autoprefixer": "^10.0.1",

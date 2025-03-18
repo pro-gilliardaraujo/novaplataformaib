@@ -1,79 +1,24 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { X, Trash2 } from "lucide-react"
 import { tiposParadaService } from "@/services/tiposParadaService"
 import { TipoParada } from "@/types/paradas"
 import { useToast } from "@/components/ui/use-toast"
-import * as HeroIconsOutline from "@heroicons/react/24/outline"
-import * as HeroIconsSolid from "@heroicons/react/24/solid"
-import * as HeroIconsMini from "@heroicons/react/20/solid"
-import * as Pi from "phosphor-react"
-import * as Fa from "react-icons/fa"
-import * as Md from "react-icons/md"
-import * as Io from "react-icons/io"
-import * as Ri from "react-icons/ri"
-import * as Bi from "react-icons/bi"
 import { renderIcon } from "@/utils/icon-utils"
+import { IconSelectorDialog } from "@/components/icon-selector-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface TipoParadaModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   tipoParada: TipoParada | null
   onTipoParadaUpdated: () => void
-}
-
-const iconLibraries = [
-  { label: "Heroicons", value: "heroicons" },
-  { label: "Phosphor", value: "phosphor" },
-  { label: "Material", value: "material" },
-  { label: "Font Awesome", value: "fontawesome" },
-  { label: "Remix Icons", value: "remixicon" },
-  { label: "Box Icons", value: "boxicons" },
-  { label: "Ionicons", value: "ionicons" }
-]
-
-const iconStyles = {
-  heroicons: [
-    { label: "Outline", value: "outline" },
-    { label: "Solid", value: "solid" },
-    { label: "Mini", value: "mini" }
-  ],
-  phosphor: [
-    { label: "Regular", value: "regular" },
-    { label: "Bold", value: "bold" },
-    { label: "Light", value: "light" },
-    { label: "Thin", value: "thin" }
-  ],
-  material: [
-    { label: "Outlined", value: "outlined" },
-    { label: "Filled", value: "filled" },
-    { label: "Round", value: "round" },
-    { label: "Sharp", value: "sharp" }
-  ],
-  fontawesome: [
-    { label: "Regular", value: "regular" },
-    { label: "Solid", value: "solid" },
-    { label: "Light", value: "light" }
-  ],
-  remixicon: [
-    { label: "Line", value: "line" },
-    { label: "Fill", value: "fill" }
-  ],
-  boxicons: [
-    { label: "Regular", value: "regular" },
-    { label: "Solid", value: "solid" },
-    { label: "Logo", value: "logo" }
-  ],
-  ionicons: [
-    { label: "Outline", value: "outline" },
-    { label: "Sharp", value: "sharp" },
-    { label: "Filled", value: "filled" }
-  ]
 }
 
 export function TipoParadaModal({
@@ -83,26 +28,19 @@ export function TipoParadaModal({
   onTipoParadaUpdated
 }: TipoParadaModalProps) {
   const [nome, setNome] = useState("")
-  const [iconLibrary, setIconLibrary] = useState("heroicons")
-  const [iconStyle, setIconStyle] = useState("outline")
-  const [iconName, setIconName] = useState("")
+  const [icone, setIcone] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showIconSelector, setShowIconSelector] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     if (tipoParada) {
       setNome(tipoParada.nome)
-      if (tipoParada.icone) {
-        const [library, style, name] = tipoParada.icone.split('/')
-        setIconLibrary(library)
-        setIconStyle(style)
-        setIconName(name)
-      }
+      setIcone(tipoParada.icone || "")
     } else {
       setNome("")
-      setIconLibrary("heroicons")
-      setIconStyle("outline")
-      setIconName("")
+      setIcone("")
     }
   }, [tipoParada])
 
@@ -119,8 +57,6 @@ export function TipoParadaModal({
     setIsSubmitting(true)
 
     try {
-      const icone = iconName ? `${iconLibrary}/${iconStyle}/${iconName}` : ""
-
       if (tipoParada) {
         await tiposParadaService.atualizarTipo(tipoParada.id, nome, icone)
         toast({
@@ -149,90 +85,123 @@ export function TipoParadaModal({
     }
   }
 
+  const handleDelete = async () => {
+    if (!tipoParada) return
+
+    try {
+      await tiposParadaService.excluirTipo(tipoParada.id)
+      toast({
+        title: "Sucesso",
+        description: "Tipo de parada excluído com sucesso",
+      })
+      onTipoParadaUpdated()
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Erro ao excluir tipo de parada:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o tipo de parada",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {tipoParada ? "Editar Tipo de Parada" : "Novo Tipo de Parada"}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px] p-0">
+          <DialogHeader className="h-12 border-b relative">
+            <DialogTitle className="absolute inset-0 flex items-center justify-center text-base font-medium">
+              {tipoParada ? "Editar Tipo de Parada" : "Novo Tipo de Parada"}
+            </DialogTitle>
+            <div className="absolute right-4 flex gap-2">
+              {tipoParada && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0 rounded-md shadow-sm"
+                        onClick={() => setShowDeleteDialog(true)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Excluir tipo de parada</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              <DialogClose asChild>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-md shadow-sm"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="nome">Nome</Label>
-            <Input
-              id="nome"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Digite o nome do tipo de parada"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Ícone</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor="iconLibrary" className="text-xs">Biblioteca</Label>
-                <Select value={iconLibrary} onValueChange={setIconLibrary}>
-                  <SelectTrigger id="iconLibrary">
-                    <SelectValue placeholder="Selecione a biblioteca" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {iconLibraries.map((lib) => (
-                      <SelectItem key={lib.value} value={lib.value}>
-                        {lib.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="p-6 space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome">Nome</Label>
+                <Input
+                  id="nome"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  placeholder="Digite o nome do tipo de parada"
+                />
               </div>
 
-              <div>
-                <Label htmlFor="iconStyle" className="text-xs">Estilo</Label>
-                <Select value={iconStyle} onValueChange={setIconStyle}>
-                  <SelectTrigger id="iconStyle">
-                    <SelectValue placeholder="Selecione o estilo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {iconStyles[iconLibrary as keyof typeof iconStyles].map((style) => (
-                      <SelectItem key={style.value} value={style.value}>
-                        {style.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <Label>Ícone</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 border rounded-md flex items-center justify-center">
+                    {icone ? renderIcon(icone, "h-5 w-5") : "—"}
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowIconSelector(true)}
+                  >
+                    Selecionar Ícone
+                  </Button>
+                </div>
               </div>
             </div>
-
-            <div>
-              <Label htmlFor="iconName" className="text-xs">Nome do Ícone</Label>
-              <Input
-                id="iconName"
-                value={iconName}
-                onChange={(e) => setIconName(e.target.value)}
-                placeholder="Ex: DocumentDuplicateIcon"
-              />
-            </div>
-
-            {iconName && (
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-sm">Prévia:</span>
-                {renderIcon(`${iconLibrary}/${iconStyle}/${iconName}`, "h-5 w-5")}
-              </div>
-            )}
           </div>
-        </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {tipoParada ? "Salvar Alterações" : "Criar"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="border-t px-6 py-4 flex justify-end">
+            <Button 
+              onClick={handleSubmit} 
+              disabled={isSubmitting}
+              className="bg-black hover:bg-black/90 text-white"
+            >
+              {tipoParada ? "Salvar Alterações" : "Criar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <IconSelectorDialog
+        open={showIconSelector}
+        onOpenChange={setShowIconSelector}
+        onSelectIcon={setIcone}
+        itemName={nome || "Novo Tipo"}
+        itemType="tipo"
+      />
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Excluir Tipo de Parada"
+        description={`Tem certeza que deseja excluir o tipo de parada "${tipoParada?.nome}"?`}
+        onConfirm={handleDelete}
+      />
+    </>
   )
 } 
