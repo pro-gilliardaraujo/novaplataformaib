@@ -23,6 +23,7 @@ export interface UserProfile {
   ultimo_acesso?: string | null
   base_profile?: "global_admin" | "global_viewer" | "regional_admin" | "regional_viewer" | "custom"
   unit_id?: string | null
+  permissions?: string[]
 }
 
 export interface NovoUsuarioData {

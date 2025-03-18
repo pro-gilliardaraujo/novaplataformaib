@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { PageLayout } from "@/components/page-layout"
 import { EquipamentosTable } from "@/components/equipamentos-table"
 import { NovoEquipamentoModal } from "@/components/novo-equipamento-modal"
 import { EditarEquipamentoModal } from "@/components/editar-equipamento-modal"
@@ -72,6 +71,7 @@ export default function EquipamentosPage() {
     try {
       await equipamentoService.updateEquipamento(codigoPatrimonio, updates)
       await fetchEquipamentos()
+      setSelectedEquipamentoForEdit(null)
       toast({
         title: "Sucesso",
         description: "Equipamento atualizado com sucesso!",
@@ -91,6 +91,7 @@ export default function EquipamentosPage() {
     try {
       await equipamentoService.deleteEquipamento(codigoPatrimonio)
       await fetchEquipamentos()
+      setSelectedEquipamento(null)
       toast({
         title: "Sucesso",
         description: "Equipamento excluído com sucesso!",
@@ -113,34 +114,34 @@ export default function EquipamentosPage() {
   )
 
   return (
-    <div className="h-screen flex flex-col p-4 bg-white">
-      {/* Top bar */}
-      <div className="flex justify-between items-center mb-3 bg-white">
-        <Input 
-          className="max-w-md" 
-          placeholder="Buscar equipamentos..." 
-          type="search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <Button
-          className="bg-black hover:bg-black/90 text-white"
-          onClick={() => setIsModalOpen(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" /> Novo Equipamento
-        </Button>
-      </div>
+    <div className="h-full flex flex-col">
+      <div className="p-4 space-y-4">
+        {/* Top bar */}
+        <div className="flex justify-between items-center bg-white">
+          <Input 
+            className="max-w-md" 
+            placeholder="Buscar equipamentos..." 
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button
+            className="bg-black hover:bg-black/90 text-white"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Novo Equipamento
+          </Button>
+        </div>
 
-      {/* Main content area */}
-      <div className="flex-1">
+        {/* Error alert */}
         {error && (
-          <Alert variant="destructive" className="mb-3">
+          <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         
-        {/* Table with fixed height */}
+        {/* Table */}
         <div className="flex-1">
           {isLoading ? (
             <div className="h-full flex items-center justify-center">Carregando equipamentos...</div>
@@ -148,13 +149,12 @@ export default function EquipamentosPage() {
             <EquipamentosTable
               equipamentos={filteredEquipamentos}
               onView={(equipamento) => setSelectedEquipamento(equipamento)}
-              onEdit={(equipamento) => setSelectedEquipamentoForEdit(equipamento)}
-              onDelete={handleDeleteEquipamento}
             />
           )}
         </div>
       </div>
 
+      {/* Modals */}
       <NovoEquipamentoModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
@@ -166,6 +166,8 @@ export default function EquipamentosPage() {
           open={!!selectedEquipamento}
           onOpenChange={(open) => !open && setSelectedEquipamento(null)}
           equipamento={selectedEquipamento}
+          onEdit={setSelectedEquipamentoForEdit}
+          onDelete={handleDeleteEquipamento}
         />
       )}
 
@@ -175,7 +177,6 @@ export default function EquipamentosPage() {
           onOpenChange={(open) => !open && setSelectedEquipamentoForEdit(null)}
           onEquipamentoEdited={(updates) => {
             handleEditEquipamento(selectedEquipamentoForEdit.codigo_patrimonio, updates)
-            setSelectedEquipamentoForEdit(null)
           }}
           equipamentoData={selectedEquipamentoForEdit}
         />

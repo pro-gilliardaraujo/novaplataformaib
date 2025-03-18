@@ -9,9 +9,15 @@
 - [x] Standardized button styles in modals (rounded-md shadow-sm)
 - [x] Moved action buttons to details modals
 - [x] Standardized "Ações" column to "Detalhes" with centered Eye icon
+- [x] Added confirmation dialogs for all delete actions
+- [x] Standardized table row heights to 49px
+- [x] Implemented 15 rows per page in tables
+- [x] Added proper filter and sort functionality
+- [x] Standardized modal header actions with tooltips
+- [x] Standardized table pagination as part of table structure with border-t
 
 ## Pages to Update
-Following the new pattern (Overview + Detailed List tabs):
+Following the new pattern (Detailed List tabs):
 
 ### Gerenciamento
 
@@ -22,22 +28,42 @@ Following the new pattern (Overview + Detailed List tabs):
 
 #### Paradas
 - [x] Tratativas (reference implementation)
-- [ ] Controle de Paradas
+- [ ] Controle de Paradas (transform it into a unique page with tabs as we're doing with the other pages)
 
 #### Equipamentos
-- [ ] Cadastro de Equipamentos
+- [x] Cadastro de Equipamentos
+  - [x] Removed "Visão Geral" tab
+  - [x] Standardized table implementation
+  - [x] Added confirmation dialog for delete actions
+  - [x] Fixed row heights to 49px
+  - [x] Set 15 rows per page
+  - [x] Implemented proper filter and sort buttons
+  - [x] Updated modal with proper header actions
+  - [x] Standardized pagination inside table structure
 
 #### Usuários
 - [ ] Cadastro de Usuários
+  - [x] Table implementation following Tratativas pattern
+  - [x] Integrated pagination in table structure
+  - [x] Fixed row heights to 47px
+  - [x] Set 15 rows per page
+  - [x] Added sorting functionality with ArrowUpDown icon
+  - [x] Added filter dropdowns
+  - [x] Single Eye icon centered in details column
+  - [x] Confirmation dialog for delete
+  - [x] Move all actions (edit/delete/permissions) to details modal
+  - [x] Update modal header actions with tooltips
 - [ ] Permissões
+  - [ ] Table implementation following Tratativas pattern
+  - [ ] Role management interface
+  - [ ] Permission assignment modal
 
 ## Implementation Steps for Each Page
 1. Delete existing page content
 2. Copy base structure from Tratativas page
 3. Update types and interfaces
 4. Implement page-specific components:
-   - Dashboard component
-   - Table component
+   - Table component with integrated pagination
    - Details Modal
    - Edit Modal (if needed)
 5. Update API calls and data handling
@@ -45,19 +71,22 @@ Following the new pattern (Overview + Detailed List tabs):
 7. Verify UI consistency
 
 ## UI Standards to Follow
-- Use Tabs component with "Visão Geral" and "Lista Detalhada"
-- Consistent header styling
-- Standard table implementation
 - Table standards:
   - Rename "Ações" column to "Detalhes"
   - Single Eye icon centered in details column
-  - All action buttons (edit, delete, etc.) must be in details modal, specific pages can have individual action buttons
+  - All action buttons (edit, delete, etc.) must be in details modal
+  - Row height must be exactly 49px
+  - 15 rows per page
+  - Filter icon beside sorting buttons
+  - Proper header text alignment
+  - Pagination must be part of table structure with border-t
 - Modal patterns:
   - Rounded buttons (h-8 w-8 rounded-md shadow-sm)
   - Consistent header layout
   - Standard section divisions
   - All action buttons for item manipulation
-  - Edit/Delete/Other actions in modal header
+  - Edit/Delete/Other actions in modal header with tooltips
+  - Confirmation dialog for delete actions
 
 ## Notes
 - Each dropdown item from sidebar will become a tab content

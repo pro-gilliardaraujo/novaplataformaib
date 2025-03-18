@@ -8,6 +8,7 @@ import { UsuariosTable } from "@/components/usuarios-table"
 import { NovoUsuarioModal } from "@/components/novo-usuario-modal"
 import { EditarUsuarioModal } from "@/components/editar-usuario-modal"
 import { UsuarioDetailsModal } from "@/components/usuario-details-modal"
+import { GerenciarPermissoesModal } from "@/components/gerenciar-permissoes-modal"
 import { User, NovoUsuarioData, UpdateUsuarioData } from "@/types/user"
 import { userService } from "@/services/userService"
 import { Input } from "@/components/ui/input"
@@ -20,6 +21,7 @@ export default function UsuariosPage() {
   const [selectedUsuario, setSelectedUsuario] = useState<User | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
+  const [isPermissoesModalOpen, setIsPermissoesModalOpen] = useState(false)
   const { toast } = useToast()
 
   const fetchUsuarios = async () => {
@@ -63,38 +65,23 @@ export default function UsuariosPage() {
     }
   }
 
-  const handleEditUsuario = async (userId: string, updates: UpdateUsuarioData) => {
-    try {
-      await userService.updateUser(userId, updates)
-      const updatedUsuarios = usuarios.map(usuario => {
-        if (usuario.id === userId) {
-          return {
-            ...usuario,
-            profile: {
-              ...usuario.profile,
-              ...updates
-            }
-          }
-        }
-        return usuario
-      })
-      setUsuarios(updatedUsuarios)
-      setSelectedUsuario(null)
-      setIsEditModalOpen(false)
-    } catch (error) {
-      console.error("Erro ao editar usuário:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao editar usuário. Por favor, tente novamente.",
-        variant: "destructive",
-      })
-    }
+  const handleEditUsuario = async (usuario: User) => {
+    setSelectedUsuario(usuario)
+    setIsEditModalOpen(true)
+    setIsDetailsModalOpen(false)
+  }
+
+  const handleManagePermissions = async (usuario: User) => {
+    setSelectedUsuario(usuario)
+    setIsPermissoesModalOpen(true)
+    setIsDetailsModalOpen(false)
   }
 
   const handleDeleteUsuario = async (id: string) => {
     try {
       await userService.deleteUser(id)
       await fetchUsuarios()
+      setIsDetailsModalOpen(false)
       toast({
         title: "Sucesso",
         description: "Usuário excluído com sucesso!",
@@ -151,11 +138,9 @@ export default function UsuariosPage() {
               setSelectedUsuario(usuario)
               setIsDetailsModalOpen(true)
             }}
-            onEdit={(usuario) => {
-              setSelectedUsuario(usuario)
-              setIsEditModalOpen(true)
-            }}
+            onEdit={handleEditUsuario}
             onDelete={handleDeleteUsuario}
+            onManagePermissions={handleManagePermissions}
           />
         </div>
       </div>
@@ -182,6 +167,16 @@ export default function UsuariosPage() {
             open={isDetailsModalOpen}
             onOpenChange={setIsDetailsModalOpen}
             usuario={selectedUsuario}
+            onEdit={handleEditUsuario}
+            onDelete={handleDeleteUsuario}
+            onManagePermissions={handleManagePermissions}
+          />
+
+          <GerenciarPermissoesModal
+            open={isPermissoesModalOpen}
+            onOpenChange={setIsPermissoesModalOpen}
+            user={selectedUsuario}
+            mode="edit"
           />
         </>
       )}
