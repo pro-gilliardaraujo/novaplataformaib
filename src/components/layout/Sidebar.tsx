@@ -66,8 +66,20 @@ export default function Sidebar() {
 
       if (categoriesError) throw categoriesError
 
-      const reports = categories.filter(cat => cat.section === 'reports')
-      const management = categories.filter(cat => cat.section === 'management')
+      // Transform categories to handle special cases
+      const transformedCategories = categories.map(category => {
+        // Make "Controle de Paradas" a single page
+        if (category.slug === 'paradas') {
+          return {
+            ...category,
+            pages: []
+          }
+        }
+        return category
+      })
+
+      const reports = transformedCategories.filter(cat => cat.section === 'reports')
+      const management = transformedCategories.filter(cat => cat.section === 'management')
 
       return { reports, management }
     },

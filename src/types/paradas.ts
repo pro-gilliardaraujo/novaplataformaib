@@ -1,3 +1,5 @@
+import { Frota } from "./frotas"
+
 export interface Frota {
   id: string
   frota: string

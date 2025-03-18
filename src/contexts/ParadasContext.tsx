@@ -1,11 +1,12 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, ReactNode } from "react"
 import { Frota, FrotaStatus, Parada, Unidade } from "@/types/paradas"
 import { supabase } from "@/lib/supabase"
 import { scenarioConfigService } from "@/services/scenarioConfigService"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "@/components/ui/use-toast"
+import { unidadesService } from "@/services/unidadesService"
 
 interface ParadasContextType {
   data: string // Data atual no formato YYYY-MM-DD
@@ -25,6 +26,9 @@ interface ParadasContextType {
   minimizedColumns: Set<string>
   setMinimizedColumns: (columns: Set<string>) => void
   carregarUnidades: () => Promise<void>
+  selectedUnidade: string
+  setSelectedUnidade: (unidade: string) => void
+  setUnidades: (unidades: Unidade[]) => void
 }
 
 const ParadasContext = createContext<ParadasContextType | undefined>(undefined)
@@ -42,7 +46,7 @@ const availableColors = [
   'bg-cyan-100'
 ]
 
-export function ParadasProvider({ children }: { children: React.ReactNode }) {
+export function ParadasProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [isConfigLoading, setIsConfigLoading] = useState(true)
   const [data, setData] = useState<string>(() => {
@@ -60,6 +64,7 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
   const [unidadeColors, setUnidadeColors] = useState<Record<string, string>>({})
   const [minimizedColumns, setMinimizedColumns] = useState<Set<string>>(new Set())
   const [allDateColors, setAllDateColors] = useState<Record<string, Record<string, string>>>({})
+  const [selectedUnidade, setSelectedUnidade] = useState("todas")
 
   // Load configuration from Supabase
   useEffect(() => {
@@ -210,48 +215,75 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
   }
 
   const carregarUnidades = async () => {
+    if (!user) return
+
     try {
       setIsLoading(true)
-      // Primeiro busca as unidades
+      setError(null)
+
+      // First, get the user's permissions for the "paradas" category
+      const { data: permissions, error: permissionsError } = await supabase
+        .from('user_permissions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('category_slug', 'paradas')
+        .single()
+
+      if (permissionsError && permissionsError.code !== 'PGRST116') { // Not found error
+        throw permissionsError
+      }
+
+      // Then get the units with their frotas
       const { data: unidadesData, error: unidadesError } = await supabase
         .from('unidades')
-        .select('*')
+        .select(`
+          *,
+          frotas (
+            id,
+            frota,
+            descricao,
+            unidade_id,
+            created_at,
+            updated_at
+          )
+        `)
         .order('nome')
 
       if (unidadesError) throw unidadesError
 
-      // Depois busca as frotas
-      const { data: frotasData, error: frotasError } = await supabase
-        .from('frotas')
-        .select('*')
+      // If user has no permissions yet, show no units
+      if (!permissions) {
+        setUnidades([])
+        setError("Você não tem permissão para acessar esta página")
+        return
+      }
 
-      if (frotasError) throw frotasError
+      // Filter units based on permissions
+      const filteredUnidades = permissions.is_admin 
+        ? unidadesData 
+        : unidadesData.filter(unidade => 
+            permissions.unit_ids?.includes(unidade.id)
+          )
 
-      // Organiza os dados
-      const unidadesComFrotas = unidadesData.map(unidade => ({
-        ...unidade,
-        frotas: frotasData.filter(frota => frota.unidade_id === unidade.id)
-      }))
-
-      setUnidades(unidadesComFrotas)
+      setUnidades(filteredUnidades)
       
       // Se não houver frotas selecionadas, seleciona todas por padrão
       if (frotasSelecionadas.size === 0) {
-        const todasFrotas = new Set(frotasData.map(frota => frota.id))
+        const todasFrotas = new Set(filteredUnidades.flatMap(u => u.frotas?.map(f => f.id) || []))
         setFrotasSelecionadas(todasFrotas)
       }
       
-      await atualizarCenario(unidadesComFrotas, frotasData)
-    } catch (err) {
-      console.error('Erro ao carregar unidades:', err)
-      setError('Erro ao carregar unidades')
+      await atualizarCenario(filteredUnidades, filteredUnidades.flatMap(u => u.frotas || []))
+    } catch (error) {
+      console.error("Erro ao carregar unidades:", error)
+      setError("Erro ao carregar unidades")
     } finally {
       setIsLoading(false)
     }
   }
 
   // Função para atualizar o cenário
-  const atualizarCenario = async (unidadesAtuais = unidades, frotas = unidades.flatMap(u => u.frotas || [])) => {
+  const atualizarCenario = async (unidadesAtuais: Unidade[] = unidades, frotas: Frota[] = unidades.flatMap(u => u.frotas || [])) => {
     setIsLoading(true)
     setError(null)
 
@@ -273,6 +305,12 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
             id,
             nome,
             icone
+          ),
+          frota:frota_id (
+            id,
+            frota,
+            descricao,
+            unidade_id
           )
         `)
         .gte('inicio', startOfDay.toISOString())
@@ -289,6 +327,12 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
             id,
             nome,
             icone
+          ),
+          frota:frota_id (
+            id,
+            frota,
+            descricao,
+            unidade_id
           )
         `)
         .lt('inicio', startOfDay.toISOString())
@@ -367,7 +411,10 @@ export function ParadasProvider({ children }: { children: React.ReactNode }) {
     setUnidadeColors,
     minimizedColumns,
     setMinimizedColumns,
-    carregarUnidades
+    carregarUnidades,
+    selectedUnidade,
+    setSelectedUnidade,
+    setUnidades
   }
 
   return (

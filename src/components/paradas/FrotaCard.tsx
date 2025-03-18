@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Clock, History, AlertTriangle, PlayCircle, ClipboardList, Pencil } from "lucide-react"
 import { FrotaStatus, Parada } from "@/types/paradas"
 import { paradasService } from "@/services/paradasService"
@@ -11,11 +11,12 @@ import { EditParadaModal } from "./EditParadaModal"
 import "@/styles/material-icons.css"
 import { formatDuration } from "@/utils/dateUtils"
 import { useParadas } from "@/contexts/ParadasContext"
+import { Frota } from "@/types/frotas"
 
 interface FrotaCardProps {
-  status: FrotaStatus
-  onParar: () => void
-  onLiberar: () => void
+  frota: Frota
+  onRegistrarParada: () => void
+  onFrotaUpdated: () => void
   onHistorico: () => void
 }
 
@@ -75,11 +76,18 @@ function getIconClass(iconPath: string) {
   }
 }
 
-export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCardProps) {
-  const { data: selectedDate } = useParadas()
+export function FrotaCard({ 
+  frota,
+  onRegistrarParada,
+  onFrotaUpdated,
+  onHistorico
+}: FrotaCardProps) {
+  const { data: selectedDate, statusFrotas } = useParadas()
   const hoje = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]
   const isCurrentDate = selectedDate === hoje
-  const isParada = status.parada_atual !== null
+  
+  const status = statusFrotas.get(frota.id)
+  const isParada = status?.parada_atual !== null
 
   // Function to check if a parada crossed midnight
   const didParadaCrossMidnight = (parada: Parada) => {
@@ -105,7 +113,7 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
     return { ...parada, fim: new Date(`${selectedDate}T23:59:59`).toISOString() }
   }
 
-  const effectiveParada = getEffectiveState(status.parada_atual ?? null)
+  const effectiveParada = getEffectiveState(status?.parada_atual ?? null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isOverdue, setIsOverdue] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -113,35 +121,35 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
 
   // Reset overdue state when parada changes or is released
   useEffect(() => {
-    setIsOverdue(false);
-  }, [status.parada_atual]);
+    setIsOverdue(false)
+  }, [status?.parada_atual])
 
   // Update current time every second and check if parada is overdue
   useEffect(() => {
-    if (!isParada) return;
+    if (!isParada || !status?.parada_atual) return
 
     const interval = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
+      const now = new Date()
+      setCurrentTime(now)
 
       // Check if parada is overdue
-      const parada = status.parada_atual as Parada;
-      if (parada.previsao_horario) {
-        const previsaoDate = new Date(parada.previsao_horario);
-        const wasOverdue = isOverdue;
-        const isNowOverdue = now.getTime() > previsaoDate.getTime();
+      const parada = status.parada_atual
+      if (parada?.previsao_horario) {
+        const previsaoDate = new Date(parada.previsao_horario)
+        const wasOverdue = isOverdue
+        const isNowOverdue = now.getTime() > previsaoDate.getTime()
         
         // If we just became overdue, play the sound
         if (!wasOverdue && isNowOverdue) {
-          audioRef.current?.play();
+          audioRef.current?.play()
         }
         
-        setIsOverdue(isNowOverdue);
+        setIsOverdue(isNowOverdue)
       }
-    }, 1000);
+    }, 1000)
 
-    return () => clearInterval(interval);
-  }, [isParada, isOverdue, status.parada_atual]);
+    return () => clearInterval(interval)
+  }, [isParada, isOverdue, status?.parada_atual])
 
   // Get tag color based on status
   const getTagColor = (parada: Parada | null) => {
@@ -156,8 +164,8 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
   }
 
   // Get previsão text color
-  const getPrevisaoColor = (parada: Parada) => {
-    if (!parada.previsao_horario) return 'text-gray-600'
+  const getPrevisaoColor = (parada: Parada | null) => {
+    if (!parada?.previsao_horario) return 'text-gray-600'
     if (!parada.fim) return 'text-gray-600' // Currently active
     
     const previsaoDate = new Date(parada.previsao_horario).getTime()
@@ -173,7 +181,7 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
           <div className="w-1 bg-green-500" />
           <div className="flex-1 p-3 space-y-2">
             <div className="font-medium">
-              {status.frota.frota} - {status.frota.descricao}
+              {frota.frota} - {frota.descricao}
             </div>
 
             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -186,17 +194,17 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
                 <Button 
                   variant="destructive" 
                   className="w-[120px]"
-                  onClick={onParar}
+                  onClick={onRegistrarParada}
                 >
                   Parar
                 </Button>
               )}
               <div className="flex-1" />
-              {status.historico_count > 0 && (
+              {status?.historico_count && status.historico_count > 0 && (
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={onHistorico}
+                  onClick={onFrotaUpdated}
                 >
                   <History className="h-4 w-4" />
                 </Button>
@@ -205,10 +213,12 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
           </div>
         </div>
       </div>
-    );
+    )
   }
 
-  const parada = effectiveParada as Parada
+  if (!effectiveParada) return null
+
+  const parada = effectiveParada
   const tagColor = getTagColor(parada)
   const previsaoColor = getPrevisaoColor(parada)
   
@@ -237,7 +247,7 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
           <div className={`w-1 ${tagColor}`} />
           <div className="flex-1 p-3 space-y-2">
             <div className="font-medium">
-              {status.frota.frota} - {status.frota.descricao}
+              {frota.frota} - {frota.descricao}
             </div>
 
             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -272,7 +282,7 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
                 <Button 
                   variant="default" 
                   className="w-[120px] bg-green-600 hover:bg-green-700"
-                  onClick={onLiberar}
+                  onClick={onFrotaUpdated}
                 >
                   Liberar
                 </Button>
@@ -291,11 +301,11 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
                     <Pencil className="h-4 w-4" />
                   </Button>
                 )}
-                {status.historico_count > 0 && (
+                {status?.historico_count && status.historico_count > 0 && (
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={onHistorico}
+                    onClick={onFrotaUpdated}
                   >
                     <History className="h-4 w-4" />
                   </Button>
@@ -310,9 +320,9 @@ export function FrotaCard({ status, onParar, onLiberar, onHistorico }: FrotaCard
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         parada={parada}
-        onParadaUpdated={onLiberar}
+        onParadaUpdated={onFrotaUpdated}
         isFromHistory={false}
       />
     </>
-  );
+  )
 } 

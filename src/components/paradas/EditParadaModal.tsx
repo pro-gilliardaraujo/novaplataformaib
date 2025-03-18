@@ -1,88 +1,54 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/components/ui/use-toast"
-import { Parada, TipoParada } from "@/types/paradas"
-import { paradasService } from "@/services/paradasService"
-import { Clock, ClipboardList, X } from "lucide-react"
-import { renderIcon } from "@/utils/icon-utils"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { paradasService } from "@/services/paradasService"
+import { tiposParadaService } from "@/services/tiposParadaService"
+import { Parada, TipoParada } from "@/types/paradas"
+import { useToast } from "@/components/ui/use-toast"
+import { renderIcon } from "@/utils/icon-utils"
 
 interface EditParadaModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  parada: Parada | null;
-  onParadaUpdated: () => void;
-  isFromHistory: boolean;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  parada: Parada
+  onParadaUpdated: () => void
+  isFromHistory?: boolean
 }
 
-export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated, isFromHistory }: EditParadaModalProps) {
-  const [tipoParadaId, setTipoParadaId] = useState<string>("")
-  const [motivo, setMotivo] = useState<string>("")
-  const [previsao, setPrevisao] = useState<string>("")
-  const [inicio, setInicio] = useState<string>("")
-  const [fim, setFim] = useState<string>("")
+export function EditParadaModal({
+  open,
+  onOpenChange,
+  parada,
+  onParadaUpdated,
+  isFromHistory
+}: EditParadaModalProps) {
+  const [tipoParadaId, setTipoParadaId] = useState("")
+  const [motivo, setMotivo] = useState("")
+  const [previsaoHorario, setPrevisaoHorario] = useState("")
   const [tiposParada, setTiposParada] = useState<TipoParada[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
-  // Update state when parada changes
   useEffect(() => {
     if (parada) {
-      setTipoParadaId(parada.tipo_parada_id)
+      setTipoParadaId(parada.tipo_id)
       setMotivo(parada.motivo || "")
-      
-      // Set inicio time
-      const inicioDate = new Date(parada.inicio)
-      setInicio(inicioDate.toLocaleTimeString('pt-BR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      }))
-      
-      // Set fim time if it exists
-      if (parada.fim) {
-        const fimDate = new Date(parada.fim)
-        setFim(fimDate.toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        }))
-      } else {
-        setFim("")
-      }
-      
-      // Set previsao time
-      if (parada.previsao_horario) {
-        const previsaoDate = new Date(parada.previsao_horario)
-        setPrevisao(previsaoDate.toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        }))
-      } else {
-        setPrevisao("")
-      }
+      setPrevisaoHorario(parada.previsao_horario || "")
     }
   }, [parada])
 
-  // Load tipos parada when modal opens
   useEffect(() => {
-    const carregarTipos = async () => {
+    const carregarTiposParada = async () => {
       try {
-        const tipos = await paradasService.buscarTiposParada()
+        const tipos = await tiposParadaService.buscarTipos()
         setTiposParada(tipos)
       } catch (error) {
-        console.error('Erro ao carregar tipos de parada:', error)
+        console.error("Erro ao carregar tipos de parada:", error)
         toast({
           title: "Erro",
           description: "Não foi possível carregar os tipos de parada",
@@ -91,216 +57,108 @@ export function EditParadaModal({ open, onOpenChange, parada, onParadaUpdated, i
       }
     }
 
-    if (open) {
-      carregarTipos()
-    }
-  }, [open, toast])
+    carregarTiposParada()
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!parada) return
-
+  const handleSubmit = async () => {
     if (!tipoParadaId) {
       toast({
-        title: "Campo obrigatório",
-        description: "Selecione o tipo de parada",
+        title: "Erro",
+        description: "Selecione um tipo de parada",
         variant: "destructive",
       })
       return
     }
 
-    setIsLoading(true)
+    setIsSubmitting(true)
 
     try {
-      // Convert time-only values to full datetime
-      let previsaoHorario: string | undefined = undefined
-      let inicioHorario: string | undefined = undefined
-      let fimHorario: string | undefined = undefined
-
-      // Handle previsao time
-      if (previsao) {
-        const today = new Date()
-        const [hours, minutes, seconds] = previsao.split(':').map(Number)
-        today.setHours(hours, minutes, seconds || 0)
-        previsaoHorario = today.toISOString()
-      }
-
-      // Handle inicio time
-      if (inicio) {
-        const inicioDate = new Date(parada.inicio) // Keep original date, update only time
-        const [hours, minutes, seconds] = inicio.split(':').map(Number)
-        inicioDate.setHours(hours, minutes, seconds || 0)
-        inicioHorario = inicioDate.toISOString()
-      }
-
-      // Handle fim time for historical entries
-      if (parada.fim && fim) {
-        const fimDate = new Date(parada.fim) // Keep original date, update only time
-        const [hours, minutes, seconds] = fim.split(':').map(Number)
-        fimDate.setHours(hours, minutes, seconds || 0)
-        fimHorario = fimDate.toISOString()
-      }
-
-      // Use different update function based on whether it's a historical entry
-      if (isFromHistory) {
-        await paradasService.atualizarParadaHistorico(
-          parada.id,
-          tipoParadaId,
-          motivo,
-          previsaoHorario,
-          inicioHorario,
-          fimHorario
-        )
-      } else {
-        await paradasService.atualizarParada(
-          parada.id,
-          tipoParadaId,
-          motivo,
-          previsaoHorario,
-          inicioHorario
-        )
-      }
+      await paradasService.atualizarParada(
+        parada.id,
+        tipoParadaId,
+        motivo,
+        previsaoHorario || null
+      )
 
       toast({
-        title: "Parada atualizada",
-        description: "A parada foi atualizada com sucesso",
+        title: "Sucesso",
+        description: "Parada atualizada com sucesso",
       })
 
       onParadaUpdated()
       onOpenChange(false)
     } catch (error) {
-      console.error('Erro ao atualizar parada:', error)
+      console.error("Erro ao atualizar parada:", error)
       toast({
         title: "Erro",
         description: "Não foi possível atualizar a parada",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
-  // Don't render if no parada is provided
-  if (!parada) return null
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[900px]">
-        <div>
-          <div className="flex items-center">
-            <div className="flex-1" />
-            <DialogTitle className="text-xl font-semibold flex-1 text-center whitespace-nowrap">
-              Editar Parada <span className="text-red-500">{parada.frota?.frota} - {parada.frota?.descricao}</span>
-            </DialogTitle>
-            <div className="flex-1 flex justify-end">
-              <DialogClose asChild>
-                <Button 
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogClose>
-            </div>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            Editar Parada - {parada?.frota?.frota}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tipo">Tipo de Parada</Label>
+            <Select value={tipoParadaId} onValueChange={setTipoParadaId}>
+              <SelectTrigger id="tipo">
+                <SelectValue placeholder="Selecione um tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {tiposParada.map((tipo) => (
+                  <SelectItem key={tipo.id} value={tipo.id}>
+                    <div className="flex items-center gap-2">
+                      {tipo.icone && renderIcon(tipo.icone, "h-4 w-4")}
+                      <span>{tipo.nome}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="border-b mt-4" />
+
+          <div className="space-y-2">
+            <Label htmlFor="motivo">Motivo</Label>
+            <Input
+              id="motivo"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Digite o motivo da parada"
+            />
+          </div>
+
+          {!isFromHistory && (
+            <div className="space-y-2">
+              <Label htmlFor="previsao">Previsão de Retorno</Label>
+              <Input
+                id="previsao"
+                type="datetime-local"
+                value={previsaoHorario}
+                onChange={(e) => setPrevisaoHorario(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column - Tipo de Parada */}
-            <div className="space-y-2">
-              <Label>Tipo de Parada</Label>
-              <div className="border rounded-lg">
-                <RadioGroup
-                  value={tipoParadaId}
-                  onValueChange={setTipoParadaId}
-                  className="divide-y max-h-[264px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
-                >
-                  {tiposParada.map(tipo => (
-                    <div
-                      key={tipo.id}
-                      className={`flex items-center space-x-3 p-3 hover:bg-gray-50 ${
-                        tipoParadaId === tipo.id ? 'bg-gray-100' : ''
-                      }`}
-                    >
-                      <RadioGroupItem value={tipo.id} id={tipo.id} />
-                      <Label htmlFor={tipo.id} className="flex items-center gap-2 cursor-pointer">
-                        {tipo.icone && renderIcon(tipo.icone)}
-                        <span>{tipo.nome}</span>
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-            </div>
-
-            {/* Right Column - Motivo e Previsão */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="inicio">Horário de Início</Label>
-                <Input
-                  id="inicio"
-                  type="time"
-                  step="1"
-                  value={inicio}
-                  onChange={(e) => setInicio(e.target.value)}
-                  className="resize-none"
-                />
-              </div>
-
-              {parada.fim && (
-                <div className="space-y-2">
-                  <Label htmlFor="fim">Horário de Fim</Label>
-                  <Input
-                    id="fim"
-                    type="time"
-                    step="1"
-                    value={fim}
-                    onChange={(e) => setFim(e.target.value)}
-                    className="resize-none"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="motivo">Motivo (opcional)</Label>
-                <Textarea
-                  id="motivo"
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                  placeholder="Descreva o motivo da parada"
-                  className="resize-none h-[200px]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="previsao">Previsão de Liberação</Label>
-                <Input
-                  id="previsao"
-                  type="time"
-                  step="1"
-                  value={previsao}
-                  onChange={(e) => setPrevisao(e.target.value)}
-                  className="resize-none"
-                />
-                <span className="text-sm text-gray-500">
-                  Selecione a hora prevista para a liberação
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-6">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
-              {isLoading ? "Salvando..." : "Salvar"}
-            </Button>
-          </div>
-        </form>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            Salvar Alterações
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )

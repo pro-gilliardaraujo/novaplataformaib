@@ -2,55 +2,73 @@ import { supabase } from "@/lib/supabase"
 import { Parada, TipoParada } from "@/types/paradas"
 
 export const paradasService = {
+  async buscarParadasDia(data: string): Promise<Parada[]> {
+    const { data: paradas, error } = await supabase
+      .from("paradas")
+      .select(`
+        *,
+        frota:frotas(*),
+        tipo:tipos_parada(*)
+      `)
+      .gte("inicio", `${data}T00:00:00`)
+      .lte("inicio", `${data}T23:59:59`)
+      .order("inicio", { ascending: false })
+
+    if (error) {
+      console.error("Erro ao buscar paradas:", error)
+      throw error
+    }
+
+    return paradas
+  },
+
   async registrarParada(
     frotaId: string,
     tipoParadaId: string,
     motivo: string,
     previsaoHorario?: string
   ): Promise<Parada> {
-    const now = new Date().toISOString()
-
     const { data, error } = await supabase
-      .from('paradas')
+      .from("paradas")
       .insert([{
         frota_id: frotaId,
-        tipo_parada_id: tipoParadaId,
+        tipo_id: tipoParadaId,
         motivo,
-        previsao_horario: previsaoHorario,
-        inicio: now,
+        inicio: new Date().toISOString(),
+        previsao_horario: previsaoHorario
       }])
       .select(`
         *,
-        tipo:tipo_parada_id (
-          id,
-          nome,
-          icone
-        )
+        frota:frotas(*),
+        tipo:tipos_parada(*)
       `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("Erro ao registrar parada:", error)
+      throw error
+    }
+
     return data
   },
 
   async liberarParada(paradaId: string): Promise<Parada> {
-    const now = new Date().toISOString()
-
     const { data, error } = await supabase
-      .from('paradas')
-      .update({ fim: now })
-      .eq('id', paradaId)
+      .from("paradas")
+      .update({ fim: new Date().toISOString() })
+      .eq("id", paradaId)
       .select(`
         *,
-        tipo:tipo_parada_id (
-          id,
-          nome,
-          icone
-        )
+        frota:frotas(*),
+        tipo:tipos_parada(*)
       `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("Erro ao liberar parada:", error)
+      throw error
+    }
+
     return data
   },
 
@@ -96,30 +114,28 @@ export const paradasService = {
     paradaId: string,
     tipoParadaId: string,
     motivo: string,
-    previsaoHorario?: string,
-    inicioHorario?: string
+    previsaoHorario?: string
   ): Promise<Parada> {
-    // Update only the data fields, completely excluding fim from the update
     const { data, error } = await supabase
-      .from('paradas')
+      .from("paradas")
       .update({
-        tipo_parada_id: tipoParadaId,
+        tipo_id: tipoParadaId,
         motivo,
-        previsao_horario: previsaoHorario,
-        inicio: inicioHorario
+        previsao_horario: previsaoHorario
       })
-      .eq('id', paradaId)
+      .eq("id", paradaId)
       .select(`
         *,
-        tipo:tipo_parada_id (
-          id,
-          nome,
-          icone
-        )
+        frota:frotas(*),
+        tipo:tipos_parada(*)
       `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("Erro ao atualizar parada:", error)
+      throw error
+    }
+
     return data
   },
 
@@ -156,10 +172,9 @@ export const paradasService = {
     return data
   },
 
-  // Função auxiliar para calcular duração em minutos
   calcularDuracao(inicio: string, fim?: string | null): number {
     const inicioDate = new Date(inicio)
     const fimDate = fim ? new Date(fim) : new Date()
-    return Math.floor((fimDate.getTime() - inicioDate.getTime()) / 60000)
+    return Math.floor((fimDate.getTime() - inicioDate.getTime()) / 1000)
   }
 } 
