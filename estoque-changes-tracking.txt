@@ -1,0 +1,72 @@
+TRACKING DE ALTERAÇÕES - PÁGINA DE ESTOQUE
+=========================================
+
+Data de Início: 20/03/2024
+Página: /gerenciamento/estoque
+
+1. ANÁLISE INICIAL
+-----------------
+- Localização: /src/app/gerenciamento/estoque/page.tsx
+- Componentes Relacionados:
+  * Página Principal (EstoquePage)
+  * Componentes de Relatório de Inventário
+  * Componentes de Movimentações
+  * Modais de Gerenciamento
+
+2. MUDANÇAS NECESSÁRIAS
+----------------------
+1. Estrutura do Supabase ✅
+   - Atualizar categoria para não ser dropdown
+   - Configurar página única com abas
+   - Atualizar conteúdo da página
+
+2. Página Principal ✅
+   - Converter para formato com abas
+   - Implementar três abas principais:
+     * Visão Geral
+     * Lista Detalhada
+     * Movimentações
+   - Manter funcionalidades existentes
+
+3. IMPLEMENTAÇÕES
+----------------
+1. Migração do Supabase:
+   - ✅ Atualização da categoria para página única
+   - ✅ Configuração do conteúdo com abas
+   - ✅ Manutenção das permissões existentes
+
+2. Página Principal:
+   - ✅ Implementação das abas
+   - ✅ Configuração dos componentes de cada aba
+   - ✅ Definição das configurações de cada visualização
+
+4. STATUS ATUAL
+--------------
+- Pendente: 0
+- Em Progresso: 0
+- Concluído: 2
+- Total: 2
+
+5. MELHORIAS FUTURAS
+-------------------
+1. Performance
+   - Implementar cache de dados
+   - Otimizar carregamento entre abas
+   - Melhorar gestão de estado
+
+2. UX/UI
+   - Adicionar transições entre abas
+   - Melhorar feedback visual
+   - Implementar atalhos de teclado
+
+3. Funcionalidades
+   - Adicionar filtros avançados
+   - Implementar exportação de dados
+   - Melhorar visualização de histórico
+
+6. OBSERVAÇÕES FINAIS
+--------------------
+- Estrutura uniformizada com outras páginas do sistema
+- Mantida todas as funcionalidades existentes
+- Interface mais organizada e intuitiva
+- Melhor separação de responsabilidades entre componentes 
