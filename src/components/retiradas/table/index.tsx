@@ -17,7 +17,9 @@ interface FilterState {
 interface RetiradaTableProps {
   retiradas: Retirada[]
   isLoading: boolean
-  onRetiradaEdited: () => void
+  onViewRetirada?: (retirada: Retirada) => void
+  onEditRetirada?: (retirada: Retirada) => void
+  onNewRetirada?: () => void
 }
 
 interface FilterDropdownProps {
@@ -83,7 +85,13 @@ function FilterDropdown({
   )
 }
 
-export function RetiradaTable({ retiradas, isLoading, onRetiradaEdited }: RetiradaTableProps) {
+export function RetiradaTable({ 
+  retiradas, 
+  isLoading, 
+  onViewRetirada,
+  onEditRetirada,
+  onNewRetirada 
+}: RetiradaTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<FilterState>({})
@@ -181,6 +189,23 @@ export function RetiradaTable({ retiradas, isLoading, onRetiradaEdited }: Retira
   const startIndex = (currentPage - 1) * rowsPerPage
   const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
 
+  const handleEdit = async (retirada: Retirada) => {
+    if (onEditRetirada) {
+      // Chama o handler de edição
+      await onEditRetirada(retirada)
+      
+      // Atualiza a retirada na lista
+      const updatedRetiradas = retiradas.map(r => 
+        r.id === retirada.id ? { ...retirada, ...retirada } : r
+      )
+      
+      // Atualiza a retirada selecionada com os novos dados
+      if (selectedRetirada?.id === retirada.id) {
+        setSelectedRetirada({ ...selectedRetirada, ...retirada })
+      }
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -191,12 +216,14 @@ export function RetiradaTable({ retiradas, isLoading, onRetiradaEdited }: Retira
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <Button
-          className="bg-black hover:bg-black/90 text-white"
-          onClick={() => {}}
-        >
-          <Plus className="mr-2 h-4 w-4" /> Nova Retirada
-        </Button>
+        {onNewRetirada && (
+          <Button
+            className="bg-black hover:bg-black/90 text-white"
+            onClick={onNewRetirada}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Nova Retirada
+          </Button>
+        )}
       </div>
       
       <div className="flex-1 border rounded-lg flex flex-col min-h-0 overflow-hidden">
@@ -461,7 +488,7 @@ export function RetiradaTable({ retiradas, isLoading, onRetiradaEdited }: Retira
           open={!!selectedRetirada}
           onOpenChange={(open) => !open && setSelectedRetirada(null)}
           retirada={selectedRetirada}
-          onRetiradaEdited={onRetiradaEdited}
+          onEdit={handleEdit}
         />
       )}
     </div>

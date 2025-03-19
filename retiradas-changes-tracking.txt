@@ -1,0 +1,90 @@
+TRACKING DE ALTERAÇÕES - PÁGINA DE RETIRADAS
+===========================================
+
+Data de Início: 19/03/2024
+Página: /gerenciamento/retiradas
+
+1. ANÁLISE INICIAL
+-----------------
+- Localização: /src/app/gerenciamento/retiradas/page.tsx
+- Componentes Relacionados:
+  * Tabela de Retiradas (RetiradaTable)
+  * Modal de Nova Retirada (NovaRetiradaModal)
+  * Modal de Detalhes (RetiradaDetailsModal)
+  * Modal de Edição (EditarRetiradaModal)
+
+2. PROBLEMAS IDENTIFICADOS
+------------------------
+1. Botão "Nova Retirada" não estava abrindo o modal ✅
+   - O botão está configurado corretamente no componente pai
+   - O handler `onNewRetirada` está funcionando corretamente
+   - RESOLVIDO
+
+2. Botão de editar na modal de detalhes não estava funcionando ✅
+   - Incompatibilidade na prop `onEdit` vs `onRetiradaEdited` foi corrigida
+   - O handler `handleEditRetirada` está passando corretamente
+   - RESOLVIDO
+
+3. Modal de edição precisava de ajustes ✅
+   - Adicionado campo de status (Retirado/Devolvido)
+   - Campos de devolução salvando corretamente
+   - Visual alinhado com o modal de criação
+   - RESOLVIDO
+
+4. Atualização dos dados após edição ✅
+   - Implementada atualização imediata dos dados na lista
+   - Modal de detalhes atualiza automaticamente
+   - RESOLVIDO
+
+3. CORREÇÕES IMPLEMENTADAS
+-------------------------
+1. RetiradaTable:
+   - ✅ Implementação correta do botão "Nova Retirada"
+   - ✅ Props e handlers configurados corretamente
+   - ✅ Atualização da lista após edições
+
+2. RetiradaDetailsModal:
+   - ✅ Interface atualizada para usar `onEdit`
+   - ✅ Título formatado corretamente
+   - ✅ Atualização automática dos dados
+
+3. EditarRetiradaModal:
+   - ✅ Adicionado campo de status
+   - ✅ Campos de devolução implementados
+   - ✅ Visual padronizado
+   - ✅ Salvamento correto dos dados
+
+4. Página Principal:
+   - ✅ Gerenciamento de estado otimizado
+   - ✅ Atualização em tempo real dos dados
+   - ✅ Tratamento de erros melhorado
+
+4. STATUS ATUAL
+--------------
+- Pendente: 0
+- Em Progresso: 0
+- Concluído: 4
+- Total: 4
+
+5. MELHORIAS FUTURAS
+-------------------
+1. Otimização de Performance
+   - Implementar cache de dados
+   - Reduzir chamadas ao servidor
+
+2. UX/UI
+   - Adicionar animações de transição
+   - Melhorar feedback visual
+   - Implementar atalhos de teclado
+
+3. Validações
+   - Adicionar validações mais robustas
+   - Melhorar mensagens de erro
+   - Implementar validação em tempo real
+
+6. OBSERVAÇÕES FINAIS
+--------------------
+- Todos os problemas iniciais foram resolvidos
+- Sistema está funcionando conforme esperado
+- Usuários podem criar, visualizar e editar retiradas sem problemas
+- Atualizações são refletidas imediatamente na interface 

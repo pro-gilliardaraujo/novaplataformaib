@@ -1,0 +1,276 @@
+ESTRUTURA DO PROJETO
+====================
+
+1. CONFIGURAÇÃO E AMBIENTE
+-------------------------
+- next.config.js: Configuração do Next.js
+- next.config.ts: Configuração do Next.js em TypeScript
+- tailwind.config.ts/js: Configuração do Tailwind CSS
+- postcss.config.js/mjs: Configuração do PostCSS
+- tsconfig.json: Configuração do TypeScript
+- .env.local: Variáveis de ambiente
+- eslint.config.mjs: Configuração do ESLint
+
+2. ESTRUTURA DE CÓDIGO (src/)
+----------------------------
+2.1 Componentes (/src/components)
+    - Componentes reutilizáveis da interface
+
+2.2 Páginas e Rotas (/src/app)
+    - Páginas e rotas da aplicação
+
+2.3 Serviços (/src/services)
+    - Integrações e chamadas de API
+    - Lógica de negócios
+
+2.4 Contextos (/src/contexts)
+    - Gerenciamento de estado global
+    - Contextos do React
+
+2.5 Hooks (/src/hooks)
+    - Hooks personalizados
+
+2.6 Tipos (/src/types)
+    - Definições de tipos TypeScript
+
+2.7 Utilitários (/src/utils)
+    - Funções auxiliares
+    - Helpers
+
+2.8 Biblioteca (/src/lib)
+    - Código compartilhado
+    - Integrações de terceiros
+
+2.9 Estilos (/src/styles)
+    - Arquivos de estilo globais
+    - Temas
+
+ROTAS E PÁGINAS (/src/app)
+-------------------------
+
+1. Estrutura Principal
+   - layout.tsx: Layout principal da aplicação
+   - page.tsx: Página inicial
+   - metadata.ts: Metadados da aplicação
+   - globals.css: Estilos globais
+
+2. Áreas Autenticadas
+   - (authenticated)/: Rotas protegidas por autenticação
+   - [category]/: Rotas dinâmicas por categoria
+   - dashboard/: Painel principal
+
+3. Gerenciamento
+   - gerenciamento/: Área de gerenciamento
+   - usuarios/: Gestão de usuários
+   - paradas/: Gestão de paradas
+
+4. Relatórios e Análises
+   - relatorios/: Área de relatórios
+
+5. Autenticação e Segurança
+   - auth/: Rotas de autenticação
+   - unauthorized/: Página de acesso não autorizado
+   - alterar-senha/: Alteração de senha
+   - (public)/: Rotas públicas
+
+6. Sistema
+   - api/: Endpoints da API
+   - error/: Páginas de erro
+
+TIPOS E INTERFACES (/src/types)
+-----------------------------
+
+1. Entidades Principais
+   - user.ts: Tipos relacionados a usuários
+   - usuario.ts: Interfaces complementares de usuário
+   - equipamento.ts: Tipos de equipamentos
+   - retirada.ts: Tipos de retiradas
+   - paradas.ts: Tipos relacionados a paradas
+   - tratativas.ts: Tipos de tratativas
+
+2. Estruturas Organizacionais
+   - unidades.ts: Tipos de unidades
+   - frotas.ts: Tipos de frotas
+   - pages.ts: Tipos relacionados a páginas e navegação
+
+3. Operações
+   - movimentacoes.ts: Tipos de movimentações
+   - supabase.ts: Tipos relacionados ao Supabase
+
+4. Utilitários
+   - index.ts: Tipos compartilhados e exportações
+
+BANCO DE DADOS
+-------------
+1. Estrutura (/db)
+   - Arquivos de configuração do banco de dados
+   - Migrações
+   - Seeds
+
+2. SQL (/sql)
+   - Scripts SQL
+   - Queries
+   - Procedures
+
+3. Supabase (/supabase)
+   - Configurações do Supabase
+   - Funções
+   - Políticas de segurança
+
+4. DOCUMENTAÇÃO
+--------------
+/docs/: Documentação do projeto
+README.md: Documentação principal
+TODO.txt: Lista de tarefas
+controle-estoque-planning.txt: Planejamento do controle de estoque
+controle-estoque-progress.txt: Progresso do controle de estoque
+
+5. RECURSOS PÚBLICOS
+-------------------
+/public/: Arquivos estáticos (imagens, fontes, etc.)
+
+===================
+
+Detalhamento dos Componentes e Funções:
+(Esta seção será atualizada conforme a análise detalhada do código)
+
+COMPONENTES (/src/components)
+----------------------------
+
+1. Autenticação e Permissões
+   - permission-guard.tsx: Guarda de permissões
+   - permission-gate.tsx: Controle de acesso baseado em permissões
+   - resource-guard.tsx: Proteção de recursos
+   - auth/: Componentes de autenticação
+   - gerenciar-permissoes-modal.tsx: Modal de gerenciamento de permissões
+
+2. Layout e UI
+   - page-layout.tsx: Layout padrão de páginas
+   - crud-page-layout.tsx: Layout para páginas CRUD
+   - custom-tabs.tsx: Componentes de abas personalizadas
+   - user-menu.tsx: Menu do usuário
+   - ui/: Componentes de interface reutilizáveis
+
+3. Tabelas e Dados
+   - data-table/: Componentes base para tabelas
+   - data-table.tsx: Componente de tabela genérica
+   - usuarios-table.tsx: Tabela de usuários
+   - equipamentos-table.tsx: Tabela de equipamentos
+   - retirada-table.tsx: Tabela de retiradas
+   - tratativas-table.tsx: Tabela de tratativas
+   - template-table.tsx: Tabela de templates
+
+4. Modais
+   4.1 Usuários
+       - novo-usuario-modal.tsx: Criação de usuário
+       - editar-usuario-modal.tsx: Edição de usuário
+       - usuario-details-modal.tsx: Detalhes do usuário
+       - alterar-senha-padrao-modal.tsx: Alteração de senha
+
+   4.2 Equipamentos
+       - novo-equipamento-modal.tsx: Criação de equipamento
+       - editar-equipamento-modal.tsx: Edição de equipamento
+       - equipamento-details-modal.tsx: Detalhes do equipamento
+
+   4.3 Retiradas
+       - nova-retirada-modal.tsx: Criação de retirada
+       - editar-retirada-modal.tsx: Edição de retirada
+       - retirada-details-modal.tsx: Detalhes da retirada
+
+   4.4 Tratativas
+       - nova-tratativa-modal.tsx: Criação de tratativa
+       - editar-tratativa-modal.tsx: Edição de tratativa
+       - tratativa-details-modal.tsx: Detalhes da tratativa
+
+   4.5 Templates e Páginas
+       - template-novo-modal.tsx: Criação de template
+       - template-editar-modal.tsx: Edição de template
+       - template-details-modal.tsx: Detalhes do template
+       - page-form-modal.tsx: Formulário de página
+       - edit-page-modal.tsx: Edição de página
+       - gerenciar-pagina-modal.tsx: Gerenciamento de página
+
+5. Funcionalidades Específicas
+   - dynamic-content-renderer.tsx: Renderizador de conteúdo dinâmico
+   - filter-dropdown.tsx: Dropdown de filtros
+   - icon-selector-dialog.tsx: Seletor de ícones
+   - pages-tree-view.tsx: Visualização em árvore de páginas
+   - document-viewer-modal.tsx: Visualizador de documentos
+
+6. Diretórios Especializados
+   - paradas/: Componentes relacionados a paradas
+   - equipamentos/: Componentes de equipamentos
+   - estoque/: Componentes de controle de estoque
+   - reports/: Componentes de relatórios
+   - tratativas/: Componentes de tratativas
+   - retiradas/: Componentes de retiradas
+   - permissions/: Componentes de permissões
+
+SERVIÇOS (/src/services)
+-----------------------
+
+1. Gerenciamento de Usuários e Permissões
+   - userService.ts: Serviço de gerenciamento de usuários
+   - users.ts: Operações relacionadas a usuários
+   - permissionService.ts: Serviço de gerenciamento de permissões
+
+2. Gestão de Equipamentos e Retiradas
+   - equipamentoService.ts: Serviço de gerenciamento de equipamentos
+   - retiradas.ts: Serviço de controle de retiradas
+
+3. Gestão de Paradas e Unidades
+   - paradasService.ts: Serviço de gestão de paradas
+   - unidadesService.ts: Serviço de gestão de unidades
+   - tiposParadaService.ts: Serviço de tipos de parada
+   - frotasService.ts: Serviço de gestão de frotas
+
+4. Configuração e Páginas
+   - scenarioConfigService.ts: Serviço de configuração de cenários
+   - pageService.ts: Serviço de gerenciamento de páginas
+
+CONTEXTOS (/src/contexts)
+------------------------
+
+1. Autenticação
+   - AuthContext.tsx: Contexto de autenticação e autorização
+     * Gerenciamento de estado de autenticação
+     * Controle de sessão do usuário
+     * Verificação de permissões
+
+2. Paradas
+   - ParadasContext.tsx: Contexto de gestão de paradas
+     * Estado global para paradas
+     * Gerenciamento de dados de paradas
+     * Controle de estado das operações de parada
+
+HOOKS (/src/hooks)
+-----------------
+
+1. Autenticação e Permissões
+   - useAuth.ts: Hook para gerenciamento de autenticação
+   - usePermissions.ts: Hook para verificação de permissões
+   - useUserPermissions.ts: Hook para gerenciamento de permissões do usuário
+   - useCheckPermission.ts: Hook para verificação individual de permissões
+
+2. Recursos e Unidades
+   - useResources.ts: Hook para gerenciamento de recursos
+   - useUnits.ts: Hook para gerenciamento de unidades
+   - useUnitResources.ts: Hook para recursos específicos de unidades
+   - useBaseProfile.ts: Hook para perfil base do usuário
+
+3. Interface e Responsividade
+   - use-mobile.ts: Hook para detecção de dispositivos móveis
+
+UTILITÁRIOS (/src/utils)
+-----------------------
+
+1. Formatação e Data
+   - dateUtils.ts: Utilitários para manipulação de datas
+   - formatters.ts: Funções de formatação diversas
+
+2. Ícones e Templates
+   - icon-utils.tsx: Utilitários para manipulação de ícones
+   - icons.tsx: Definições de ícones do sistema
+   - templates.ts: Utilitários para manipulação de templates
+
+[Continua com as próximas seções...] 

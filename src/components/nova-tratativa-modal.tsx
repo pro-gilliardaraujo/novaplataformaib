@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCPF } from "@/utils/formatters"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { storageService } from "@/services/storageService"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -175,25 +176,14 @@ export function NovaTratativaModal({
     fileInputRef.current?.click()
   }
 
-  const uploadImages = async (files: File[]): Promise<string[]> => {
-    const uploadPromises = files.map(async (file) => {
-      const fileName = `temp/${uuidv4()}-${file.name}`
-      const { error: uploadError } = await supabase.storage.from("tratativas").upload(fileName, file)
-      if (uploadError) throw uploadError
-      const { data: urlData } = supabase.storage.from("tratativas").getPublicUrl(fileName)
-      return urlData.publicUrl
-    })
-    return Promise.all(uploadPromises)
-  }
-
-  const callPdfTaskApi = async (id: string | number) => {
+  const callPdfTaskApi = async (id: string) => {
     try {
       const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ id: id.toString() }),
+        body: JSON.stringify({ id }),
       })
 
       if (!response.ok) {
@@ -224,7 +214,27 @@ export function NovaTratativaModal({
 
     try {
       let imageUrls: string[] = []
-      imageUrls = await uploadImages(files)
+      for (const file of files) {
+        if (file) {
+          try {
+            const fileName = `${Date.now()}-${file.name}`
+            const { url } = await storageService.uploadFile({
+              bucket: "tratativas",
+              path: fileName,
+              file
+            })
+            
+            imageUrls.push(url)
+          } catch (uploadError) {
+            toast({
+              title: "Erro",
+              description: "Erro ao fazer upload do arquivo",
+              variant: "destructive",
+            })
+            return
+          }
+        }
+      }
 
       let advertidoStatus = ""
       const [penalidade] = formData.penalidade.split(" - ")

@@ -67,12 +67,29 @@ export default function RetiradasPage() {
 
   const handleUpdateRetirada = async (id: string, updates: UpdateRetiradaData) => {
     try {
-      await retiradaService.update(id, updates)
+      const updatedRetirada = await retiradaService.update(id, updates)
+      
+      // Atualiza o estado local com a retirada atualizada
+      setRetiradas(prevRetiradas => 
+        prevRetiradas.map(retirada => 
+          retirada.id === id ? { ...retirada, ...updatedRetirada } : retirada
+        )
+      )
+
+      // Se a retirada que está sendo visualizada foi atualizada, atualiza ela também
+      if (selectedRetirada?.id === id) {
+        setSelectedRetirada(prevRetirada => ({ ...prevRetirada!, ...updatedRetirada }))
+      }
+
+      // Se a retirada que está sendo editada foi atualizada, atualiza ela também
+      if (selectedRetiradaForEdit?.id === id) {
+        setSelectedRetiradaForEdit(null)
+      }
+
       toast({
         title: "Retirada Atualizada",
         description: "Retirada atualizada com sucesso!",
       })
-      await fetchRetiradas()
     } catch (error) {
       console.error("Error updating retirada:", error)
       throw new Error("Erro ao atualizar retirada")

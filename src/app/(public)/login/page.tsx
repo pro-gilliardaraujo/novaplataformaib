@@ -8,6 +8,7 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase"
 import Image from "next/image"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 type Step = "email" | "password" | "first-access"
 
@@ -20,12 +21,20 @@ export default function LoginPage() {
   const [step, setStep] = useState<Step>("email")
   const [isFirstAccess, setIsFirstAccess] = useState(false)
   const [passwordError, setPasswordError] = useState("")
+  const [generalError, setGeneralError] = useState("")
   const router = useRouter()
   const { toast } = useToast()
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setGeneralError("")
     setIsLoading(true)
+
+    if (!email.endsWith("@ib.logistica")) {
+      setGeneralError("Por favor, use seu email corporativo (@ib.logistica)")
+      setIsLoading(false)
+      return
+    }
 
     try {
       // Verifica se é primeiro acesso
@@ -36,18 +45,22 @@ export default function LoginPage() {
         .single()
 
       if (profileError) {
-        throw new Error("Email não encontrado")
+        setGeneralError("Email não encontrado. Verifique se digitou corretamente.")
+        return
       }
 
       setIsFirstAccess(profileData.firstLogin)
       setStep(profileData.firstLogin ? "first-access" : "password")
+      
+      if (profileData.firstLogin) {
+        toast({
+          title: "Primeiro Acesso",
+          description: "Por favor, crie sua senha para continuar.",
+        })
+      }
     } catch (error) {
       console.error("Erro ao verificar email:", error)
-      toast({
-        title: "Erro",
-        description: "Email não encontrado. Por favor, verifique e tente novamente.",
-        variant: "destructive",
-      })
+      setGeneralError("Não foi possível verificar o email. Tente novamente.")
     } finally {
       setIsLoading(false)
     }
@@ -55,6 +68,7 @@ export default function LoginPage() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setGeneralError("")
     setIsLoading(true)
 
     try {
@@ -63,20 +77,28 @@ export default function LoginPage() {
         password,
       })
 
-      if (error) throw error
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          setGeneralError("Senha incorreta. Tente novamente.")
+        } else {
+          setGeneralError("Erro ao fazer login. Tente novamente.")
+        }
+        return
+      }
 
-      // Aguarda a sessão ser estabelecida
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      toast({
+        title: "Login realizado com sucesso",
+        description: "Redirecionando para o sistema...",
+      })
+
+      // Aguarda a sessão ser estabelecida e o toast ser exibido
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
       // Força um refresh da página
       window.location.href = "/"
     } catch (error) {
       console.error("Erro ao fazer login:", error)
-      toast({
-        title: "Erro",
-        description: "Senha inválida.",
-        variant: "destructive",
-      })
+      setGeneralError("Erro inesperado. Por favor, tente novamente.")
     } finally {
       setIsLoading(false)
     }
@@ -85,6 +107,12 @@ export default function LoginPage() {
   const handleFirstAccessSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPasswordError("")
+    setGeneralError("")
+
+    if (newPassword.length < 6) {
+      setPasswordError("A senha deve ter pelo menos 6 caracteres")
+      return
+    }
 
     if (newPassword !== confirmPassword) {
       setPasswordError("As senhas não coincidem")
@@ -117,25 +145,24 @@ export default function LoginPage() {
         password: newPassword,
       })
 
-      if (signInError) throw signInError
-
-      // Aguarda a sessão ser estabelecida
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      if (signInError) {
+        setGeneralError("Erro ao fazer login com a nova senha")
+        return
+      }
 
       toast({
-        title: "Sucesso",
-        description: "Senha alterada com sucesso!",
+        title: "Senha criada com sucesso",
+        description: "Redirecionando para o sistema...",
       })
+
+      // Aguarda a sessão ser estabelecida
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
       // Força um refresh da página
       window.location.href = "/"
     } catch (error) {
       console.error("Erro ao atualizar senha:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar a senha. Por favor, tente novamente.",
-        variant: "destructive",
-      })
+      setGeneralError("Não foi possível criar a senha. Por favor, tente novamente.")
     } finally {
       setIsLoading(false)
     }
@@ -156,21 +183,32 @@ export default function LoginPage() {
             <h2 className="text-2xl font-bold text-gray-900">Login</h2>
           </div>
 
+          {generalError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription>{generalError}</AlertDescription>
+            </Alert>
+          )}
+
           {step === "email" ? (
             <form onSubmit={handleEmailSubmit} className="space-y-6">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email
+                  Email Corporativo
                 </label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   required
                   className="mt-1"
-                  placeholder="seu.email@iblogistica.com.br"
+                  placeholder="nome@ib.logistica"
+                  pattern="[a-z0-9._%+-]+@ib\.logistica$"
+                  title="Use seu email corporativo (@ib.logistica)"
                 />
+                <p className="mt-1 text-sm text-gray-500">
+                  Use seu email corporativo (nome@ib.logistica) ou (nome.sobrenome@ib.logistica)
+                </p>
               </div>
 
               <Button
@@ -190,7 +228,10 @@ export default function LoginPage() {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setStep("email")}
+                    onClick={() => {
+                      setStep("email")
+                      setGeneralError("")
+                    }}
                     className="text-sm text-gray-500 hover:text-gray-700"
                   >
                     Editar
@@ -232,7 +273,11 @@ export default function LoginPage() {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setStep("email")}
+                    onClick={() => {
+                      setStep("email")
+                      setGeneralError("")
+                      setPasswordError("")
+                    }}
                     className="text-sm text-gray-500 hover:text-gray-700"
                   >
                     Editar
@@ -250,48 +295,40 @@ export default function LoginPage() {
                 <PasswordInput
                   id="newPassword"
                   value={newPassword}
-                  onChange={(e) => {
-                    setNewPassword(e.target.value)
-                    setPasswordError("")
-                  }}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   required
                   className="mt-1"
                   placeholder="Digite sua nova senha"
+                  minLength={6}
                 />
+                <p className="mt-1 text-sm text-gray-500">
+                  Mínimo de 6 caracteres
+                </p>
               </div>
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Confirmar Senha
+                  Confirme a Senha
                 </label>
                 <PasswordInput
                   id="confirmPassword"
                   value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value)
-                    setPasswordError("")
-                  }}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   className="mt-1"
-                  placeholder="Confirme sua nova senha"
+                  placeholder="Digite novamente sua senha"
                 />
                 {passwordError && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {passwordError}
-                  </p>
+                  <p className="mt-1 text-sm text-red-500">{passwordError}</p>
                 )}
               </div>
-
-              <p className="text-sm text-gray-500">
-                Este é seu primeiro acesso. Por favor, defina uma nova senha.
-              </p>
 
               <Button
                 type="submit"
                 className="w-full bg-black hover:bg-black/90"
                 disabled={isLoading}
               >
-                {isLoading ? "Atualizando..." : "Definir Nova Senha"}
+                {isLoading ? "Criando senha..." : "Criar Senha"}
               </Button>
             </form>
           )}
