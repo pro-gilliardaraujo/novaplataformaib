@@ -1,6 +1,7 @@
 "use client"
 
 import { InventoryReport } from "./reports/inventory/InventoryReport"
+import { InventoryMovements } from "./reports/inventory/InventoryMovements"
 
 interface DynamicContentRendererProps {
   content: {
@@ -15,6 +16,11 @@ export function DynamicContentRenderer({ content }: DynamicContentRendererProps)
   // Inventory reports
   if (type === 'inventory_overview' || type === 'inventory_list') {
     return <InventoryReport type={type} settings={settings} />
+  }
+
+  // Inventory movements
+  if (type === 'inventory_movements') {
+    return <InventoryMovements settings={settings} />
   }
 
   // Default fallback
