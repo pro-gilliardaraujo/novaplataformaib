@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
-import { X, Edit, Trash2, ArrowUpDown } from "lucide-react"
+import { X, Edit, Trash2, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import Image from "next/image"
 import { MovimentacaoEstoqueModal } from "./MovimentacaoEstoqueModal"
 import { HistoricoMovimentacoes } from "./HistoricoMovimentacoes"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface DetalhesItemModalProps {
   open: boolean
@@ -57,34 +58,36 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showMovimentacao, setShowMovimentacao] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const { toast } = useToast()
 
   // Load images when modal opens
-  useEffect(() => {
-    const carregarImagens = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('imagens_item')
-          .select('*')
-          .eq('item_id', item.id)
+  const carregarImagens = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('imagens_item')
+        .select('*')
+        .eq('item_id', item.id)
 
-        if (error) throw error
+      if (error) throw error
 
-        setImagens(data || [])
-      } catch (error) {
-        console.error('Erro ao carregar imagens:', error)
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar as imagens do item",
-          variant: "destructive",
-        })
-      }
+      setImagens(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar imagens:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as imagens do item",
+        variant: "destructive",
+      })
     }
+  }
 
+  useEffect(() => {
     if (open) {
+      setIsEditing(false) // Reset editing mode when modal opens
       carregarImagens()
     }
-  }, [open, item.id, toast])
+  }, [open, item.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,8 +104,8 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
     setIsLoading(true)
 
     try {
-      const { error } = await supabase
-        .from('items_estoque')
+      const { data, error } = await supabase
+        .from('itens_estoque')
         .update({
           descricao,
           codigo_fabricante: codigoFabricante,
@@ -114,8 +117,17 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
           alertas_ativos: alertasAtivos
         })
         .eq('id', item.id)
+        .select()
+        .single()
 
-      if (error) throw error
+      if (error) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível atualizar o item: " + error.message,
+          variant: "destructive",
+        })
+        return
+      }
       
       toast({
         title: "Sucesso",
@@ -124,11 +136,12 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
 
       onSuccess()
       setIsEditing(false)
+      onOpenChange(false)
     } catch (error) {
       console.error('Erro ao atualizar item:', error)
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar o item",
+        description: "Erro inesperado ao atualizar o item",
         variant: "destructive",
       })
     } finally {
@@ -137,8 +150,6 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
   }
 
   const handleDelete = async () => {
-    if (!confirm("Tem certeza que deseja excluir este item?")) return
-
     setIsLoading(true)
 
     try {
@@ -161,7 +172,7 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
 
       // 3. Delete item
       const { error: itemError } = await supabase
-        .from('items_estoque')
+        .from('itens_estoque')
         .delete()
         .eq('id', item.id)
 
@@ -186,6 +197,45 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
     }
   }
 
+  const handleDeleteImage = async (imagem: ImagemItem) => {
+    try {
+      // 1. Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('itens-estoque')
+        .remove([imagem.url_imagem])
+
+      if (storageError) throw storageError
+
+      // 2. Delete from database
+      const { error: dbError } = await supabase
+        .from('imagens_item')
+        .delete()
+        .eq('id', imagem.id)
+
+      if (dbError) throw dbError
+
+      // 3. Reload images from database
+      await carregarImagens()
+
+      // 4. Clear selected image if it was deleted
+      if (selectedImage === supabase.storage.from('itens-estoque').getPublicUrl(imagem.url_imagem).data.publicUrl) {
+        setSelectedImage(null)
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Imagem excluída com sucesso",
+      })
+    } catch (error) {
+      console.error('Erro ao excluir imagem:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a imagem",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setIsEditing(false)
@@ -195,12 +245,21 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[900px]">
-        <div>
-          <div className="flex items-center">
+    <Dialog open={open} onOpenChange={(open) => {
+      // Só fecha o modal se clicar fora dele ou no X
+      if (!open) {
+        handleOpenChange(false)
+      }
+    }}>
+      <DialogContent className="max-w-[1200px] h-[90vh] p-0">
+        {/* Content */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="flex items-center h-14 border-b px-4">
             <div className="flex-1" />
-            <DialogTitle className="text-xl font-semibold flex-1 text-center">Detalhes do Item</DialogTitle>
+            <DialogTitle className="text-xl font-semibold flex-1 text-center">
+              {isEditing ? `Editar - ${item.descricao}` : `Detalhes - ${item.descricao}`}
+            </DialogTitle>
             <div className="flex-1 flex justify-end gap-2">
               {!isEditing && (
                 <>
@@ -220,17 +279,18 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={handleDelete}
-                    disabled={isLoading}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </>
               )}
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isLoading}
+                title="Excluir item"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
               <DialogClose asChild>
                 <Button 
                   variant="outline"
@@ -241,201 +301,242 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
               </DialogClose>
             </div>
           </div>
-          <div className="border-b mt-4" />
-        </div>
 
-        <Tabs defaultValue="detalhes" className="mt-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
-            <TabsTrigger value="historico">Histórico</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="detalhes">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column - Item Info */}
-              <div className="space-y-4">
-                <form onSubmit={handleSubmit}>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="descricao">Descrição</Label>
-                      {isEditing ? (
-                        <Input
-                          id="descricao"
-                          value={descricao}
-                          onChange={(e) => setDescricao(e.target.value)}
-                        />
-                      ) : (
-                        <p className="text-gray-600">{descricao}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="codigo">Código do Fabricante</Label>
-                      {isEditing ? (
-                        <Input
-                          id="codigo"
-                          value={codigoFabricante}
-                          onChange={(e) => setCodigoFabricante(e.target.value)}
-                        />
-                      ) : (
-                        <p className="text-gray-600">{codigoFabricante}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="quantidade">Quantidade</Label>
-                      {isEditing ? (
-                        <Input
-                          id="quantidade"
-                          type="number"
-                          min="0"
-                          value={quantidade}
-                          onChange={(e) => setQuantidade(e.target.value)}
-                        />
-                      ) : (
-                        <p className="text-gray-600">{quantidade}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="observacoes">Observações</Label>
-                      {isEditing ? (
-                        <Textarea
-                          id="observacoes"
-                          value={observacoes}
-                          onChange={(e) => setObservacoes(e.target.value)}
-                          className="resize-none h-[120px]"
-                        />
-                      ) : (
-                        <p className="text-gray-600 whitespace-pre-wrap">{observacoes || "Nenhuma observação"}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-4">
-                      <Label>Níveis de Estoque</Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="nivelMinimo">Nível Mínimo</Label>
-                          {isEditing ? (
-                            <Input
-                              id="nivelMinimo"
-                              type="number"
-                              min="0"
-                              value={nivelMinimo}
-                              onChange={(e) => setNivelMinimo(e.target.value)}
-                              placeholder="Digite o nível mínimo"
-                            />
-                          ) : (
-                            <p className="text-gray-600">
-                              {nivelMinimo ? nivelMinimo : "Não definido"}
-                            </p>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="nivelCritico">Nível Crítico</Label>
-                          {isEditing ? (
-                            <Input
-                              id="nivelCritico"
-                              type="number"
-                              min="0"
-                              value={nivelCritico}
-                              onChange={(e) => setNivelCritico(e.target.value)}
-                              placeholder="Digite o nível crítico"
-                            />
-                          ) : (
-                            <p className="text-gray-600">
-                              {nivelCritico ? nivelCritico : "Não definido"}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {isEditing ? (
-                          <>
-                            <Checkbox
-                              id="alertasAtivos"
-                              checked={alertasAtivos}
-                              onCheckedChange={(checked) => setAlertasAtivos(checked as boolean)}
-                            />
-                            <Label htmlFor="alertasAtivos" className="cursor-pointer">
-                              Ativar alertas de estoque baixo
-                            </Label>
-                          </>
-                        ) : (
-                          <p className="text-gray-600">
-                            Alertas: {alertasAtivos ? "Ativos" : "Inativos"}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {isEditing && (
-                      <div className="flex justify-end gap-2 mt-6">
-                        <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
-                          Cancelar
-                        </Button>
-                        <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
-                          {isLoading ? "Salvando..." : "Salvar"}
-                        </Button>
-                      </div>
+          {/* Main Content Container */}
+          <div className="flex-1 flex">
+            {/* Left Container - Fields */}
+            <div className="w-[40%] border-r p-4">
+              <div className="h-full overflow-y-auto">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="descricao" className="text-sm font-medium text-gray-500">Descrição</Label>
+                    {isEditing ? (
+                      <Input
+                        id="descricao"
+                        value={descricao}
+                        onChange={(e) => setDescricao(e.target.value)}
+                        className="mt-1 w-full"
+                      />
+                    ) : (
+                      <p className="mt-1">{descricao}</p>
                     )}
                   </div>
-                </form>
-              </div>
 
-              {/* Right Column - Images */}
-              <div className="space-y-4">
-                <Label>Imagens</Label>
-                {imagens.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    {imagens.map((imagem) => {
-                      const imageUrl = supabase.storage
-                        .from('itens-estoque')
-                        .getPublicUrl(imagem.url_imagem).data.publicUrl
-
-                      return (
-                        <div
-                          key={imagem.id}
-                          className="relative aspect-square rounded-lg overflow-hidden cursor-pointer"
-                          onClick={() => setSelectedImage(imageUrl)}
-                        >
-                          <Image
-                            src={imageUrl}
-                            alt={`Imagem ${imagem.id}`}
-                            fill
-                            className="object-cover hover:scale-105 transition-transform"
-                          />
-                        </div>
-                      )
-                    })}
+                  <div>
+                    <Label htmlFor="codigo" className="text-sm font-medium text-gray-500">Código do Fabricante</Label>
+                    {isEditing ? (
+                      <Input
+                        id="codigo"
+                        value={codigoFabricante}
+                        onChange={(e) => setCodigoFabricante(e.target.value)}
+                        className="mt-1 w-full"
+                      />
+                    ) : (
+                      <p className="mt-1">{codigoFabricante}</p>
+                    )}
                   </div>
+
+                  <div>
+                    <Label htmlFor="quantidade" className="text-sm font-medium text-gray-500">Quantidade</Label>
+                    {isEditing ? (
+                      <Input
+                        id="quantidade"
+                        type="number"
+                        min="0"
+                        value={quantidade}
+                        onChange={(e) => setQuantidade(e.target.value)}
+                        className="mt-1 w-full"
+                      />
+                    ) : (
+                      <p className="mt-1">{quantidade}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="nivelMinimo" className="text-sm font-medium text-gray-500">Nível Mínimo</Label>
+                    {isEditing ? (
+                      <Input
+                        id="nivelMinimo"
+                        type="number"
+                        min="0"
+                        value={nivelMinimo}
+                        onChange={(e) => setNivelMinimo(e.target.value)}
+                        className="mt-1 w-full"
+                      />
+                    ) : (
+                      <p className="mt-1">{nivelMinimo || "Não definido"}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="nivelCritico" className="text-sm font-medium text-gray-500">Nível Crítico</Label>
+                    {isEditing ? (
+                      <Input
+                        id="nivelCritico"
+                        type="number"
+                        min="0"
+                        value={nivelCritico}
+                        onChange={(e) => setNivelCritico(e.target.value)}
+                        className="mt-1 w-full"
+                      />
+                    ) : (
+                      <p className="mt-1">{nivelCritico || "Não definido"}</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    {isEditing ? (
+                      <>
+                        <Checkbox
+                          id="alertasAtivos"
+                          checked={alertasAtivos}
+                          onCheckedChange={(checked) => setAlertasAtivos(checked as boolean)}
+                        />
+                        <Label htmlFor="alertasAtivos" className="cursor-pointer">
+                          Ativar alertas de estoque baixo
+                        </Label>
+                      </>
+                    ) : (
+                      <p className="text-gray-600">
+                        Alertas: {alertasAtivos ? "Ativos" : "Inativos"}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="observacoes" className="text-sm font-medium text-gray-500">Observações</Label>
+                    {isEditing ? (
+                      <Textarea
+                        id="observacoes"
+                        value={observacoes}
+                        onChange={(e) => setObservacoes(e.target.value)}
+                        className="mt-1 resize-none h-[120px] w-full"
+                      />
+                    ) : (
+                      <p className="mt-1 whitespace-pre-wrap">{observacoes || "Nenhuma observação"}</p>
+                    )}
+                  </div>
+
+                  {isEditing && (
+                    <div className="flex justify-end pt-4">
+                      <Button 
+                        onClick={handleSubmit} 
+                        disabled={isLoading} 
+                        className="bg-black hover:bg-black/90 w-full"
+                      >
+                        {isLoading ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Container - Images */}
+            <div className="w-[60%] p-4">
+              <div className="h-full flex flex-col">
+                {imagens.length > 0 ? (
+                  <>
+                    {/* Main Image Container */}
+                    <div className="flex-1 bg-white rounded-lg border border-gray-200">
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={selectedImage || supabase.storage
+                            .from('itens-estoque')
+                            .getPublicUrl(imagens[0].url_imagem).data.publicUrl}
+                          alt="Imagem principal"
+                          fill
+                          className="object-contain"
+                          sizes="(max-width: 1200px) 75vw, 50vw"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Thumbnails Container */}
+                    <div className="h-24 mt-3 bg-white rounded-lg border border-gray-200">
+                      <div className="relative h-full px-2">
+                        {imagens.length > 4 && (
+                          <>
+                            <button
+                              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-1 shadow-md border border-gray-200"
+                              onClick={() => {
+                                const container = document.getElementById('thumbnails-container')
+                                if (container) {
+                                  container.scrollLeft -= 80
+                                }
+                              }}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-1 shadow-md border border-gray-200"
+                              onClick={() => {
+                                const container = document.getElementById('thumbnails-container')
+                                if (container) {
+                                  container.scrollLeft += 80
+                                }
+                              }}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                        <div 
+                          id="thumbnails-container"
+                          className="flex gap-2 overflow-x-auto scrollbar-hide h-full items-center px-1"
+                        >
+                          {imagens.map((imagem) => {
+                            const imageUrl = supabase.storage
+                              .from('itens-estoque')
+                              .getPublicUrl(imagem.url_imagem).data.publicUrl
+
+                            return (
+                              <div
+                                key={imagem.id}
+                                className={`relative h-[80px] w-[80px] flex-shrink-0 rounded-md overflow-hidden cursor-pointer border-2 transition-all ${
+                                  selectedImage === imageUrl 
+                                    ? 'border-black' 
+                                    : 'border-gray-200 hover:border-gray-400'
+                                }`}
+                              >
+                                {isEditing && (
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="absolute top-1 right-1 h-5 w-5 bg-white/80 hover:bg-white border-none p-0 z-10"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteImage(imagem)
+                                    }}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                <div onClick={() => setSelectedImage(imageUrl)}>
+                                  <Image
+                                    src={imageUrl}
+                                    alt={`Imagem ${imagem.id}`}
+                                    fill
+                                    className="object-cover"
+                                    sizes="80px"
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 ) : (
-                  <p className="text-gray-500 text-center py-8">Nenhuma imagem cadastrada</p>
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-gray-500">Nenhuma imagem cadastrada</p>
+                  </div>
                 )}
               </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="historico" className="mt-4">
-            <HistoricoMovimentacoes itemId={item.id} />
-          </TabsContent>
-        </Tabs>
-
-        {/* Image Preview Modal */}
-        {selectedImage && (
-          <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-            <DialogContent className="max-w-[90vw] max-h-[90vh]">
-              <div className="relative w-full h-full">
-                <Image
-                  src={selectedImage}
-                  alt="Preview"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+          </div>
+        </div>
 
         {/* Movimentação Modal */}
         <MovimentacaoEstoqueModal
@@ -443,6 +544,15 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
           onOpenChange={setShowMovimentacao}
           item={item}
           onSuccess={onSuccess}
+        />
+
+        <ConfirmDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+          title="Excluir Item"
+          description={`Tem certeza que deseja excluir o item "${item.descricao}"? Esta ação não pode ser desfeita.`}
+          onConfirm={handleDelete}
+          variant="destructive"
         />
       </DialogContent>
     </Dialog>
