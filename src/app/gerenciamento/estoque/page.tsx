@@ -1,11 +1,39 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { InventoryOverview } from "@/components/reports/inventory/InventoryOverview"
-import InventoryList from "@/components/reports/inventory/InventoryList"
+import { InventoryList } from "@/components/reports/inventory/InventoryList"
 import { InventoryMovements } from "@/components/reports/inventory/InventoryMovements"
+import { supabase } from "@/lib/supabase"
+
+interface CategoriaItem {
+  id: string
+  nome: string
+  cor?: string
+}
 
 export default function EstoquePage() {
+  const [categorias, setCategorias] = useState<CategoriaItem[]>([])
+
+  useEffect(() => {
+    const loadCategorias = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('categorias_item')
+          .select('id, nome, cor')
+          .order('nome')
+
+        if (error) throw error
+        setCategorias(data || [])
+      } catch (error) {
+        console.error('Erro ao carregar categorias:', error)
+      }
+    }
+
+    loadCategorias()
+  }, [])
+
   const listSettings = {
     showFilters: true,
     showExport: true,
@@ -69,7 +97,7 @@ export default function EstoquePage() {
             <InventoryOverview settings={overviewSettings} />
           </TabsContent>
           <TabsContent value="list" className="h-full m-0">
-            <InventoryList settings={listSettings} />
+            <InventoryList settings={listSettings} categorias={categorias} />
           </TabsContent>
           <TabsContent value="movements" className="h-full m-0">
             <InventoryMovements settings={movementsSettings} />

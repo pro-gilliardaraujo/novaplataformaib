@@ -21,6 +21,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 interface DetalhesItemModalProps {
   open: boolean
@@ -35,6 +38,19 @@ interface DetalhesItemModalProps {
     nivel_minimo?: number
     nivel_critico?: number
     alertas_ativos?: boolean
+    ultima_movimentacao_detalhes?: {
+      data: string
+      tipo: 'entrada' | 'saida'
+      quantidade: number
+      motivo: string
+      responsavel: string
+      destino?: string | null
+      frota?: string | null
+      nota_fiscal?: string | null
+    }
+    categoria?: {
+      nome: string
+    }
   }
   onSuccess: () => void
   categorias: {
@@ -48,6 +64,25 @@ interface DetalhesItemModalProps {
 interface ImagemItem {
   id: string
   url_imagem: string
+}
+
+function DetailItem({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-start">
+      <span className="text-sm font-medium text-gray-500">{label}</span>
+      <span className="text-sm mt-1">{value}</span>
+    </div>
+  )
+}
+
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <div className="flex items-center mb-4">
+      <div className="flex-grow h-px bg-gray-200"></div>
+      <h3 className="text-base font-medium px-4">{title}</h3>
+      <div className="flex-grow h-px bg-gray-200"></div>
+    </div>
+  )
 }
 
 export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categorias }: DetalhesItemModalProps) {
@@ -251,238 +286,126 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
   }
 
   return (
-    <Dialog open={open} onOpenChange={(open) => {
-      // Só fecha o modal se clicar fora dele ou no X
-      if (!open) {
-        handleOpenChange(false)
-      }
-    }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[1200px] h-[90vh] p-0">
-        {/* Content */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center h-14 border-b px-4">
+          <div className="flex items-center h-14 shrink-0 border-b px-4">
             <div className="flex-1" />
             <DialogTitle className="text-xl font-semibold flex-1 text-center">
-              {isEditing ? `Editar - ${item.descricao}` : `Detalhes - ${item.descricao}`}
+              Detalhes - {item.descricao}
             </DialogTitle>
-            <div className="flex-1 flex justify-end gap-2">
-              {!isEditing && (
-                <>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setShowMovimentacao(true)}
-                        >
-                          <ArrowUpDown className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Registrar Movimentação</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setIsEditing(true)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Editar Item</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </>
-              )}
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setShowDeleteDialog(true)}
-                      disabled={isLoading}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Excluir Item</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DialogClose asChild>
-                      <Button 
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </DialogClose>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Fechar</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <div className="flex-1 flex justify-end">
+              <DialogClose asChild>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-md shadow-sm"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
             </div>
           </div>
 
-          {/* Main Content Container */}
-          <div className="flex-1 flex">
-            {/* Left Container - Fields */}
-            <div className="w-[40%] border-r p-4">
-              <div className="h-full overflow-y-auto">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="descricao" className="text-sm font-medium text-gray-500">Descrição</Label>
-                    {isEditing ? (
-                      <Input
-                        id="descricao"
-                        value={descricao}
-                        onChange={(e) => setDescricao(e.target.value)}
-                        className="mt-1 w-full"
-                      />
-                    ) : (
-                      <p className="mt-1">{descricao}</p>
-                    )}
+          {/* Content */}
+          <div className="flex flex-1 min-h-0">
+            {/* Left Column - Informações */}
+            <div className="w-[30%] overflow-y-auto border-r border-gray-200">
+              <div className="p-4 space-y-6">
+                <div>
+                  <SectionTitle title="Informações do Item" />
+                  <div className="grid grid-cols-1 gap-4">
+                    <DetailItem label="Código do Fabricante" value={item.codigo_fabricante} />
+                    <DetailItem label="Descrição" value={item.descricao} />
+                    <DetailItem label="Categoria" value={item.categoria?.nome || 'Sem Categoria'} />
+                    <DetailItem label="Quantidade Atual" value={item.quantidade_atual} />
+                    <DetailItem label="Nível Mínimo" value={item.nivel_minimo || '-'} />
+                    <DetailItem label="Nível Crítico" value={item.nivel_critico || '-'} />
+                    <DetailItem 
+                      label="Alertas Ativos" 
+                      value={
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          item.alertas_ativos
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}>
+                          {item.alertas_ativos ? "Sim" : "Não"}
+                        </span>
+                      }
+                    />
                   </div>
-
-                  <div>
-                    <Label htmlFor="codigo" className="text-sm font-medium text-gray-500">Código do Fabricante</Label>
-                    {isEditing ? (
-                      <Input
-                        id="codigo"
-                        value={codigoFabricante}
-                        onChange={(e) => setCodigoFabricante(e.target.value)}
-                        className="mt-1 w-full"
-                      />
-                    ) : (
-                      <p className="mt-1">{codigoFabricante}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="quantidade" className="text-sm font-medium text-gray-500">Quantidade</Label>
-                    {isEditing ? (
-                      <Input
-                        id="quantidade"
-                        type="number"
-                        min="0"
-                        value={quantidade}
-                        onChange={(e) => setQuantidade(e.target.value)}
-                        className="mt-1 w-full"
-                      />
-                    ) : (
-                      <p className="mt-1">{quantidade}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="nivelMinimo" className="text-sm font-medium text-gray-500">Nível Mínimo</Label>
-                    {isEditing ? (
-                      <Input
-                        id="nivelMinimo"
-                        type="number"
-                        min="0"
-                        value={nivelMinimo}
-                        onChange={(e) => setNivelMinimo(e.target.value)}
-                        className="mt-1 w-full"
-                      />
-                    ) : (
-                      <p className="mt-1">{nivelMinimo || "Não definido"}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="nivelCritico" className="text-sm font-medium text-gray-500">Nível Crítico</Label>
-                    {isEditing ? (
-                      <Input
-                        id="nivelCritico"
-                        type="number"
-                        min="0"
-                        value={nivelCritico}
-                        onChange={(e) => setNivelCritico(e.target.value)}
-                        className="mt-1 w-full"
-                      />
-                    ) : (
-                      <p className="mt-1">{nivelCritico || "Não definido"}</p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    {isEditing ? (
-                      <>
-                        <Checkbox
-                          id="alertasAtivos"
-                          checked={alertasAtivos}
-                          onCheckedChange={(checked) => setAlertasAtivos(checked as boolean)}
-                        />
-                        <Label htmlFor="alertasAtivos" className="cursor-pointer">
-                          Ativar alertas de estoque baixo
-                        </Label>
-                      </>
-                    ) : (
-                      <p className="text-gray-600">
-                        Alertas: {alertasAtivos ? "Ativos" : "Inativos"}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="observacoes" className="text-sm font-medium text-gray-500">Observações</Label>
-                    {isEditing ? (
-                      <Textarea
-                        id="observacoes"
-                        value={observacoes}
-                        onChange={(e) => setObservacoes(e.target.value)}
-                        className="mt-1 resize-none h-[120px] w-full"
-                      />
-                    ) : (
-                      <p className="mt-1 whitespace-pre-wrap">{observacoes || "Nenhuma observação"}</p>
-                    )}
-                  </div>
-
-                  {isEditing && (
-                    <div className="flex justify-end pt-4">
-                      <Button 
-                        onClick={handleSubmit} 
-                        disabled={isLoading} 
-                        className="bg-black hover:bg-black/90 w-full"
-                      >
-                        {isLoading ? "Salvando..." : "Salvar"}
-                      </Button>
-                    </div>
-                  )}
                 </div>
+
+                {item.observacoes && (
+                  <div>
+                    <SectionTitle title="Observações" />
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm whitespace-pre-wrap">{item.observacoes}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right Container - Images */}
-            <div className="w-[60%] p-4">
-              <div className="h-full flex flex-col">
+            {/* Middle Column - Última Movimentação */}
+            <div className="w-[30%] overflow-y-auto border-r border-gray-200">
+              <div className="p-4">
+                {item.ultima_movimentacao_detalhes && (
+                  <div>
+                    <SectionTitle title="Última Movimentação" />
+                    <div className="grid grid-cols-1 gap-4">
+                      <DetailItem 
+                        label="Data" 
+                        value={format(new Date(item.ultima_movimentacao_detalhes.data), "dd/MM/yyyy HH:mm", { locale: ptBR })} 
+                      />
+                      <DetailItem 
+                        label="Tipo" 
+                        value={
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            item.ultima_movimentacao_detalhes.tipo === 'entrada'
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {item.ultima_movimentacao_detalhes.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                          </span>
+                        }
+                      />
+                      <DetailItem label="Quantidade" value={item.ultima_movimentacao_detalhes.quantidade} />
+                      <DetailItem label="Motivo" value={item.ultima_movimentacao_detalhes.motivo} />
+                      <DetailItem label="Responsável" value={item.ultima_movimentacao_detalhes.responsavel} />
+                      {item.ultima_movimentacao_detalhes.tipo === 'saida' && (
+                        <>
+                          <DetailItem 
+                            label="Destino" 
+                            value={item.ultima_movimentacao_detalhes.destino || '-'} 
+                          />
+                          <DetailItem 
+                            label="Frota" 
+                            value={item.ultima_movimentacao_detalhes.frota || '-'} 
+                          />
+                        </>
+                      )}
+                      {item.ultima_movimentacao_detalhes.tipo === 'entrada' && (
+                        <DetailItem 
+                          label="Nota Fiscal" 
+                          value={item.ultima_movimentacao_detalhes.nota_fiscal || '-'} 
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column - Imagens */}
+            <div className="w-[40%] overflow-y-auto">
+              <div className="p-4">
+                <SectionTitle title="Imagens" />
                 {imagens.length > 0 ? (
-                  <>
-                    {/* Main Image Container */}
-                    <div className="flex-1 bg-white rounded-lg border border-gray-200">
+                  <div className="space-y-4">
+                    {/* Imagem Principal */}
+                    <div className="bg-white rounded-lg border border-gray-200 h-[400px]">
                       <div className="relative w-full h-full">
                         <Image
                           src={selectedImage || supabase.storage
@@ -491,57 +414,42 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
                           alt="Imagem principal"
                           fill
                           className="object-contain"
-                          sizes="(max-width: 1200px) 75vw, 50vw"
+                          sizes="(max-width: 1200px) 40vw"
                         />
                       </div>
                     </div>
 
-                    {/* Thumbnails Container */}
-                    <div className="h-24 mt-3 bg-white rounded-lg border border-gray-200">
+                    {/* Miniaturas */}
+                    <div className="h-24 bg-white rounded-lg border border-gray-200">
                       <div className="relative h-full px-2">
                         {imagens.length > 4 && (
                           <>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-1 shadow-md border border-gray-200"
-                                    onClick={() => {
-                                      const container = document.getElementById('thumbnails-container')
-                                      if (container) {
-                                        container.scrollLeft -= 80
-                                      }
-                                    }}
-                                  >
-                                    <ChevronLeft className="h-4 w-4" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Imagem anterior</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-1 shadow-md border border-gray-200"
-                                    onClick={() => {
-                                      const container = document.getElementById('thumbnails-container')
-                                      if (container) {
-                                        container.scrollLeft += 80
-                                      }
-                                    }}
-                                  >
-                                    <ChevronRight className="h-4 w-4" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Próxima imagem</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full"
+                              onClick={() => {
+                                const container = document.getElementById('thumbnails-container')
+                                if (container) {
+                                  container.scrollLeft -= 80
+                                }
+                              }}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full"
+                              onClick={() => {
+                                const container = document.getElementById('thumbnails-container')
+                                if (container) {
+                                  container.scrollLeft += 80
+                                }
+                              }}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
                           </>
                         )}
                         <div 
@@ -561,71 +469,31 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
                                     ? 'border-black' 
                                     : 'border-gray-200 hover:border-gray-400'
                                 }`}
+                                onClick={() => setSelectedImage(imageUrl)}
                               >
-                                {isEditing && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="icon"
-                                          className="absolute top-1 right-1 h-5 w-5 bg-white/80 hover:bg-white border-none p-0 z-10"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleDeleteImage(imagem)
-                                          }}
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Excluir imagem</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
-                                <div onClick={() => setSelectedImage(imageUrl)}>
-                                  <Image
-                                    src={imageUrl}
-                                    alt={`Imagem ${imagem.id}`}
-                                    fill
-                                    className="object-cover"
-                                    sizes="80px"
-                                  />
-                                </div>
+                                <Image
+                                  src={imageUrl}
+                                  alt={`Imagem ${imagem.id}`}
+                                  fill
+                                  className="object-cover"
+                                  sizes="80px"
+                                />
                               </div>
                             )
                           })}
                         </div>
                       </div>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <div className="flex-1 flex items-center justify-center">
-                    <p className="text-gray-500">Nenhuma imagem cadastrada</p>
+                  <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                    <p className="text-sm text-gray-500">Nenhuma imagem cadastrada</p>
                   </div>
                 )}
               </div>
             </div>
           </div>
         </div>
-
-        {/* Movimentação Modal */}
-        <MovimentacaoEstoqueModal
-          open={showMovimentacao}
-          onOpenChange={setShowMovimentacao}
-          item={item}
-          onSuccess={onSuccess}
-        />
-
-        <ConfirmDialog
-          open={showDeleteDialog}
-          onOpenChange={setShowDeleteDialog}
-          title="Excluir Item"
-          description={`Tem certeza que deseja excluir o item "${item.descricao}"? Esta ação não pode ser desfeita.`}
-          onConfirm={handleDelete}
-          variant="destructive"
-        />
       </DialogContent>
     </Dialog>
   )

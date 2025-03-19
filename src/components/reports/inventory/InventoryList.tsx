@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo, Dispatch, SetStateAction } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { supabase } from "@/lib/supabase"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { Eye, Edit, Plus, Search, Download, ChevronLeft, ChevronRight, Trash2, Filter, ArrowUpDown, Check, ChevronsUpDown } from "lucide-react"
+import { Eye, Plus, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Download } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,26 +17,9 @@ import {
 } from "@/components/ui/table"
 import { ItemEstoqueModal } from "@/components/estoque/ItemEstoqueModal"
 import { DetalhesItemModal } from "@/components/estoque/DetalhesItemModal"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
 
 interface InventoryItem {
   id: string
@@ -50,30 +33,16 @@ interface InventoryItem {
   alertas_ativos?: boolean
   categoria?: { id: string; nome: string }
   ultima_movimentacao?: string
-}
-
-interface SupabaseItem {
-  id: string
-  codigo_fabricante: string
-  descricao: string
-  quantidade_atual: number
-  observacoes: string | null
-  created_at: string
-  updated_at: string
-  nivel_minimo: number | null
-  nivel_critico: number | null
-  alertas_ativos: boolean
-  category_id: string | null
-  destino_movimentacao: string | null
-  frota_destino: string | null
-  categoria: {
-    id: string
-    nome: string
-  } | null
+  ultima_movimentacao_detalhes?: any
 }
 
 interface InventoryListProps {
   categorias: CategoriaItem[]
+  settings: {
+    showFilters: boolean
+    showExport: boolean
+    columns: string[]
+  }
 }
 
 interface CategoriaItem {
@@ -82,171 +51,173 @@ interface CategoriaItem {
   cor?: string
 }
 
-interface ItemEstoqueModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
-  categorias: CategoriaItem[]
+interface FilterState {
+  [key: string]: Set<string>
 }
 
-interface DetalhesItemModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  item: InventoryItem | null
-}
-
-interface Column {
-  key: keyof InventoryItem
+function FilterDropdown({
+  title,
+  options,
+  selectedOptions,
+  onOptionToggle,
+  onClear,
+}: {
   title: string
-  getValue?: (item: InventoryItem) => string
-}
-
-interface FilterDropdownProps {
   options: string[]
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  label?: string
-}
-
-function FilterDropdown({ options, value, onChange, placeholder = "Selecione...", label }: FilterDropdownProps) {
-  const [open, setOpen] = useState(false)
+  selectedOptions: Set<string>
+  onOptionToggle: (option: string) => void
+  onClear: () => void
+}) {
+  const [searchTerm, setSearchTerm] = useState("")
+  const filteredOptions = options.filter(option => 
+    option.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-        >
-          {value ? value : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    <DropdownMenu modal={true}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Filter className="h-4 w-4" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
-          <CommandInput placeholder={`Pesquisar ${label?.toLowerCase() || "opção"}...`} />
-          <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-          <CommandGroup>
-            {options.map((option) => (
-              <CommandItem
-                key={option}
-                value={option}
-                onSelect={() => {
-                  onChange(option)
-                  setOpen(false)
-                }}
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    value === option ? "opacity-100" : "opacity-0"
-                  )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
+        <div className="space-y-4">
+          <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
+          <Input 
+            placeholder={`Buscar ${title.toLowerCase()}...`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <div className="space-y-2 max-h-48 overflow-auto">
+            {filteredOptions.map((option) => (
+              <div key={option} className="flex items-center space-x-2">
+                <Checkbox
+                  id={option}
+                  checked={selectedOptions.has(option)}
+                  onCheckedChange={() => onOptionToggle(option)}
                 />
-                {option}
-              </CommandItem>
+                <label htmlFor={option} className="text-sm">
+                  {option}
+                </label>
+              </div>
             ))}
-          </CommandGroup>
-        </Command>
-      </PopoverContent>
-    </Popover>
+          </div>
+          <div className="flex items-center justify-between">
+            <Button variant="outline" size="sm" onClick={onClear}>
+              Limpar
+            </Button>
+            <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
-interface FilterState {
-  [key: string]: string
-}
-
-interface SortConfig {
-  key: keyof InventoryItem
-  direction: "asc" | "desc"
-}
-
-export function InventoryList({ categorias }: InventoryListProps) {
-  const { toast } = useToast()
+export function InventoryList({ categorias, settings }: InventoryListProps) {
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState<FilterState>({})
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "codigo_fabricante", direction: "asc" })
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'codigo_fabricante', direction: 'asc' })
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(10)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
+  const rowsPerPage = 15
+  const { toast } = useToast()
 
-  const columns = useMemo(() => [
-    { key: "codigo_fabricante", label: "Código" },
-    { key: "descricao", label: "Descrição" },
-    { key: "categoria", label: "Categoria" },
-    { key: "quantidade_atual", label: "Quantidade" },
-    { key: "nivel_minimo", label: "Nível Mínimo" },
-    { key: "nivel_critico", label: "Nível Crítico" },
-    { key: "ultima_movimentacao", label: "Última Movimentação" }
-  ], [])
+  const columns = [
+    { key: "codigo_fabricante", title: "Código" },
+    { key: "descricao", title: "Descrição" },
+    { key: "categoria", title: "Categoria" },
+    { key: "quantidade_atual", title: "Quantidade" },
+    { key: "nivel_minimo", title: "Nível Mínimo" },
+    { key: "nivel_critico", title: "Nível Crítico" },
+    { key: "ultima_movimentacao", title: "Última Movimentação" }
+  ] as const
 
   const filterOptions = useMemo(() => {
-    return columns.reduce((acc, column) => {
-      if (column.key === "categoria") {
-        acc[column.key] = categorias.map(cat => cat.nome)
-      } else {
-        const uniqueValues = new Set(items.map(item => String(item[column.key as keyof InventoryItem])))
-        acc[column.key] = Array.from(uniqueValues).filter(Boolean)
-      }
-      return acc
-    }, {} as Record<string, string[]>)
-  }, [columns, items, categorias])
-
-  const filteredAndSortedData = useMemo(() => {
-    let filtered = items
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(item =>
-        Object.values(item).some(value =>
-          String(value).toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      )
-    }
-
-    // Apply column filters
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        filtered = filtered.filter(item => String(item[key as keyof InventoryItem]) === value)
-      }
-    })
-
-    // Apply sorting
-    return [...filtered].sort((a, b) => {
-      const aValue = String(a[sortConfig.key])
-      const bValue = String(b[sortConfig.key])
-      return sortConfig.direction === "asc" 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue)
-    })
-  }, [items, searchTerm, filters, sortConfig])
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedData.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentItems = filteredAndSortedData.slice(startIndex, endIndex)
+    return columns.reduce(
+      (acc, column) => {
+        if (column.key === "categoria") {
+          acc[column.key] = categorias.map(cat => cat.nome)
+        } else {
+          acc[column.key] = Array.from(
+            new Set(
+              items
+                .map((item) => {
+                  if (column.key === "ultima_movimentacao" && item[column.key]) {
+                    return format(new Date(item[column.key]!), "dd/MM/yyyy", { locale: ptBR })
+                  }
+                  return String(item[column.key as keyof InventoryItem])
+                })
+                .filter(Boolean)
+            ),
+          )
+        }
+        return acc
+      },
+      {} as Record<string, string[]>,
+    )
+  }, [items, categorias])
 
   const fetchItems = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from("estoque")
-        .select("*")
-        .order("codigo_fabricante", { ascending: true })
+
+      // Primeiro, buscar a última movimentação para cada item
+      const { data: ultimasMovimentacoes, error: movError } = await supabase
+        .from('movimentacoes_estoque')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (movError) throw movError
+
+      // Criar um mapa das últimas movimentações por item_id
+      const ultimasMovimentacoesPorItem = ultimasMovimentacoes.reduce((acc, mov) => {
+        if (!acc[mov.item_id]) {
+          acc[mov.item_id] = mov
+        }
+        return acc
+      }, {})
+
+      // Buscar os itens
+      const { data: items, error } = await supabase
+        .from('itens_estoque')
+        .select(`
+          *,
+          categoria:category_id (
+            id,
+            nome
+          )
+        `)
+        .order('codigo_fabricante', { ascending: true })
 
       if (error) throw error
 
-      setItems(data || [])
+      // Combinar os dados
+      const processedItems = items?.map(item => {
+        const ultimaMovimentacao = ultimasMovimentacoesPorItem[item.id]
+        return {
+          ...item,
+          ultima_movimentacao: ultimaMovimentacao?.created_at,
+          ultima_movimentacao_detalhes: ultimaMovimentacao ? {
+            data: ultimaMovimentacao.created_at,
+            tipo: ultimaMovimentacao.tipo_movimentacao,
+            quantidade: ultimaMovimentacao.quantidade,
+            motivo: ultimaMovimentacao.motivo,
+            responsavel: ultimaMovimentacao.responsavel,
+            destino: ultimaMovimentacao.destino_movimentacao,
+            frota: ultimaMovimentacao.frota_destino,
+            nota_fiscal: ultimaMovimentacao.nota_fiscal
+          } : undefined
+        }
+      })
+
+      setItems(processedItems || [])
     } catch (error) {
-      console.error("Error fetching items:", error)
+      console.error('Error fetching items:', error)
       toast({
         title: "Erro",
         description: "Não foi possível carregar os itens do estoque",
@@ -261,175 +232,303 @@ export function InventoryList({ categorias }: InventoryListProps) {
     fetchItems()
   }, [])
 
-  const handleSort = (key: keyof InventoryItem) => {
-    setSortConfig(current => ({
-      key,
-      direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
-    }))
+  const handleFilterToggle = (columnKey: string, option: string) => {
+    setFilters((prevFilters) => {
+      const newFilters = { ...prevFilters }
+      const columnFilters = newFilters[columnKey] ? new Set(newFilters[columnKey]) : new Set<string>()
+
+      if (columnFilters.has(option)) {
+        columnFilters.delete(option)
+      } else {
+        columnFilters.add(option)
+      }
+
+      newFilters[columnKey] = columnFilters
+      return newFilters
+    })
   }
 
-  const handleFilter = (key: string, value: string) => {
-    setFilters(prev => ({
+  const handleClearFilter = (columnKey: string) => {
+    setFilters((prev) => ({
       ...prev,
-      [key]: value === prev[key] ? "" : value
+      [columnKey]: new Set<string>(),
     }))
-    setCurrentPage(1)
   }
 
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value)
-    setCurrentPage(1)
-  }
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
+  const handleSort = (columnKey: string) => {
+    setSortConfig(current => ({
+      key: columnKey,
+      direction: current.key === columnKey && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
   }
 
   const handleExport = () => {
     const BOM = "\uFEFF"
-    const escapeCsvCell = (cell: any) => {
-      cell = cell ?? ""
-      const stringCell = String(cell)
-      if (stringCell.includes(",") || stringCell.includes("\n") || stringCell.includes('"')) {
-        return `"${stringCell.replace(/"/g, '""')}"`
-      }
-      return stringCell
+    
+    const escapeCsvCell = (cell: string | number) => {
+      cell = String(cell).replace(/"/g, '""')
+      return /[;\n"]/.test(cell) ? `"${cell}"` : cell
     }
 
-    const headers = [
-      "Código",
-      "Descrição",
-      "Categoria",
-      "Quantidade",
-      "Nível Mínimo",
-      "Nível Crítico",
-      "Última Movimentação"
-    ]
+    const headers = {
+      codigo_fabricante: 'Código',
+      descricao: 'Descrição',
+      categoria: 'Categoria',
+      quantidade_atual: 'Quantidade',
+      nivel_minimo: 'Nível Mínimo',
+      nivel_critico: 'Nível Crítico',
+      ultima_movimentacao: 'Última Movimentação'
+    }
 
-    const rows = [
-      headers.join(","),
+    const csvRows = [
+      // Headers
+      Object.values(headers).join(';'),
+      
+      // Data rows
       ...filteredAndSortedData.map(item => [
         escapeCsvCell(item.codigo_fabricante),
         escapeCsvCell(item.descricao),
-        escapeCsvCell(item.categoria),
+        escapeCsvCell(item.categoria?.nome || 'Sem Categoria'),
         escapeCsvCell(item.quantidade_atual),
-        escapeCsvCell(item.nivel_minimo),
-        escapeCsvCell(item.nivel_critico),
-        escapeCsvCell(item.ultima_movimentacao ? format(new Date(item.ultima_movimentacao), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "")
-      ].join(","))
-    ]
+        escapeCsvCell(item.nivel_minimo || ''),
+        escapeCsvCell(item.nivel_critico || ''),
+        escapeCsvCell(item.ultima_movimentacao 
+          ? format(new Date(item.ultima_movimentacao), "dd/MM/yyyy HH:mm", { locale: ptBR })
+          : '')
+      ].join(';'))
+    ].join('\r\n')
 
-    const csvContent = BOM + rows.join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.setAttribute("href", url)
-    link.setAttribute("download", `inventario_${format(new Date(), "dd-MM-yyyy_HH-mm")}.csv`)
+    const blob = new Blob([BOM + csvRows], { 
+      type: 'text/csv;charset=utf-8' 
+    })
+
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `estoque_${format(new Date(), 'dd-MM-yyyy_HH-mm')}.csv`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }
 
+  const filteredAndSortedData = useMemo(() => {
+    let filtered = items.filter(row => {
+      // Aplicar filtro de busca
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        return (
+          row.codigo_fabricante.toLowerCase().includes(searchLower) ||
+          row.descricao.toLowerCase().includes(searchLower) ||
+          row.categoria?.nome.toLowerCase().includes(searchLower)
+        )
+      }
+      return true
+    })
+
+    // Aplicar filtros de coluna
+    filtered = filtered.filter((row) =>
+      Object.entries(filters).every(([key, selectedOptions]) => {
+        if (selectedOptions.size === 0) return true
+        
+        if (key === "categoria") {
+          return row.categoria && selectedOptions.has(row.categoria.nome)
+        }
+        
+        if (key === "ultima_movimentacao") {
+          if (!row[key]) return selectedOptions.has("-")
+          return selectedOptions.has(format(new Date(row[key]), "dd/MM/yyyy", { locale: ptBR }))
+        }
+
+        const value = row[key as keyof InventoryItem]
+        return typeof value === "string" && selectedOptions.has(value)
+      })
+    )
+
+    // Aplicar ordenação
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key as keyof InventoryItem]
+        let bValue = b[sortConfig.key as keyof InventoryItem]
+
+        if (sortConfig.key === "categoria") {
+          aValue = a.categoria?.nome || ""
+          bValue = b.categoria?.nome || ""
+        }
+
+        if (sortConfig.key === "ultima_movimentacao") {
+          if (!aValue) return sortConfig.direction === "asc" ? -1 : 1
+          if (!bValue) return sortConfig.direction === "asc" ? 1 : -1
+          return sortConfig.direction === "asc"
+            ? new Date(aValue as string).getTime() - new Date(bValue as string).getTime()
+            : new Date(bValue as string).getTime() - new Date(aValue as string).getTime()
+        }
+
+        if (typeof aValue === "string" && typeof bValue === "string") {
+          return sortConfig.direction === "asc"
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue)
+        }
+
+        if (typeof aValue === "number" && typeof bValue === "number") {
+          return sortConfig.direction === "asc" ? aValue - bValue : bValue - aValue
+        }
+
+        return 0
+      })
+    }
+
+    return filtered
+  }, [items, searchTerm, filters, sortConfig])
+
+  const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage)
+  const startIndex = (currentPage - 1) * rowsPerPage
+  const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
+
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex justify-between items-center">
-        <Input
-          placeholder="Pesquisar..."
-          value={searchTerm}
-          onChange={handleSearch}
-          className="max-w-sm"
-        />
-        <Button onClick={handleExport}>Exportar CSV</Button>
+        <div className="w-[400px]">
+          <Input
+            placeholder="Buscar por código, descrição ou categoria..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            className="bg-black hover:bg-black/90 text-white h-9"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Novo Item
+          </Button>
+          <Button variant="outline" className="h-9" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
-        {columns.map(column => (
-          <div key={column.key} className="flex flex-col space-y-1">
-            <label className="text-sm font-medium">{column.label}</label>
-            <FilterDropdown
-              options={filterOptions[column.key] || []}
-              value={filters[column.key] || ""}
-              onChange={(value) => handleFilter(column.key, value)}
-              placeholder={`Filtrar por ${column.label.toLowerCase()}`}
-              label={column.label}
-            />
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-md border">
+      {/* Table */}
+      <div className="border rounded-lg">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-black">
             <TableRow>
-              {columns.map(column => (
-                <TableHead key={column.key}>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSort(column.key as keyof InventoryItem)}
-                    className="flex items-center space-x-1"
-                  >
-                    {column.label}
-                    <ArrowUpDown className="h-4 w-4" />
-                  </Button>
+              {columns.map((column) => (
+                <TableHead key={column.key} className="text-white font-medium h-12">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <span>{column.title}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-white hover:text-white"
+                        onClick={() => handleSort(column.key)}
+                      >
+                        <ArrowUpDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FilterDropdown
+                      title={column.title}
+                      options={filterOptions[column.key] || []}
+                      selectedOptions={filters[column.key] || new Set()}
+                      onOptionToggle={(option) => handleFilterToggle(column.key, option)}
+                      onClear={() => handleClearFilter(column.key)}
+                    />
+                  </div>
                 </TableHead>
               ))}
-              <TableHead>Ações</TableHead>
+              <TableHead className="text-white font-medium h-12 w-[100px] text-center">Detalhes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {currentItems.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{item.codigo_fabricante}</TableCell>
-                <TableCell>{item.descricao}</TableCell>
-                <TableCell>{item.categoria}</TableCell>
-                <TableCell>{item.quantidade_atual}</TableCell>
-                <TableCell>{item.nivel_minimo}</TableCell>
-                <TableCell>{item.nivel_critico}</TableCell>
-                <TableCell>
-                  {item.ultima_movimentacao
-                    ? format(new Date(item.ultima_movimentacao), "dd/MM/yyyy HH:mm", { locale: ptBR })
-                    : "-"}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setSelectedItem(item)
-                      setIsDetailsModalOpen(true)
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length + 1} className="text-center py-8">
+                  Carregando itens...
                 </TableCell>
               </TableRow>
-            ))}
+            ) : paginatedData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={columns.length + 1} className="text-center py-8">
+                  Nenhum item encontrado
+                </TableCell>
+              </TableRow>
+            ) : (
+              <>
+                {paginatedData.map((item) => (
+                  <TableRow key={item.id} className="h-[46px] hover:bg-gray-50 border-b border-gray-200">
+                    <TableCell className="py-0">{item.codigo_fabricante}</TableCell>
+                    <TableCell className="py-0">{item.descricao}</TableCell>
+                    <TableCell className="py-0">{item.categoria?.nome || 'Sem Categoria'}</TableCell>
+                    <TableCell className="py-0 text-right">{item.quantidade_atual}</TableCell>
+                    <TableCell className="py-0">{item.nivel_minimo || '-'}</TableCell>
+                    <TableCell className="py-0">{item.nivel_critico || '-'}</TableCell>
+                    <TableCell className="py-0">
+                      {item.ultima_movimentacao
+                        ? format(new Date(item.ultima_movimentacao), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                        : '-'}
+                    </TableCell>
+                    <TableCell className="py-0">
+                      <div className="flex justify-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            setSelectedItem(item)
+                            setIsDetailsModalOpen(true)
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {/* Fill empty rows */}
+                {paginatedData.length < rowsPerPage && (
+                  Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
+                    <TableRow key={`empty-${index}`} className="h-[46px] border-b border-gray-200">
+                      {Array(columns.length + 1).fill(0).map((_, colIndex) => (
+                        <TableCell key={`empty-cell-${colIndex}`} className="py-0 border-x border-gray-100">&nbsp;</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
+              </>
+            )}
           </TableBody>
         </Table>
-      </div>
 
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          Mostrando {startIndex + 1} até {Math.min(endIndex, filteredAndSortedData.length)} de {filteredAndSortedData.length} registros
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="text-sm">
-            Página {currentPage} de {totalPages}
+        {/* Pagination */}
+        <div className="border-t py-2 px-3 flex items-center justify-between bg-white">
+          <div className="text-sm text-gray-500">
+            Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} resultados
           </div>
-          <Button
-            variant="outline"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-sm text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -440,11 +539,15 @@ export function InventoryList({ categorias }: InventoryListProps) {
         categorias={categorias}
       />
 
-      <DetalhesItemModal
-        open={isDetailsModalOpen}
-        onOpenChange={setIsDetailsModalOpen}
-        item={selectedItem}
-      />
+      {selectedItem && (
+        <DetalhesItemModal
+          open={isDetailsModalOpen}
+          onOpenChange={setIsDetailsModalOpen}
+          item={selectedItem}
+          onSuccess={fetchItems}
+          categorias={categorias}
+        />
+      )}
     </div>
   )
 } 
