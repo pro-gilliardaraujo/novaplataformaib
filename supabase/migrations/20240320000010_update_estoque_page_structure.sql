@@ -1,7 +1,12 @@
--- Update Estoque category to be a single page instead of a dropdown
-UPDATE categories
-SET is_dropdown = false
-WHERE slug = 'estoque' AND section = 'management';
+-- Delete child pages from Estoque category
+DELETE FROM pages 
+WHERE category_id = (
+  SELECT id 
+  FROM categories 
+  WHERE slug = 'estoque' 
+  AND section = 'management'
+)
+AND slug != 'estoque';
 
 -- Update the existing Estoque page content
 WITH estoque_page AS (
@@ -20,51 +25,50 @@ VALUES (
   gen_random_uuid(),
   (SELECT id FROM estoque_page),
   jsonb_build_object(
-    'tabs', jsonb_build_array(
-      jsonb_build_object(
+    'type', 'tabbed_page',
+    'settings', jsonb_build_object(
+      'defaultTab', 'overview',
+      'showHeader', true
+    ),
+    'content', jsonb_build_object(
+      'overview', jsonb_build_object(
         'title', 'Visão Geral',
-        'content', jsonb_build_object(
-          'type', 'inventory_overview',
-          'settings', jsonb_build_object(
-            'showCategories', true,
-            'showLowStock', true,
-            'showCharts', true
-          )
+        'type', 'inventory_overview',
+        'settings', jsonb_build_object(
+          'showCategories', true,
+          'showLowStock', true,
+          'showCharts', true
         )
       ),
-      jsonb_build_object(
+      'list', jsonb_build_object(
         'title', 'Lista Detalhada',
-        'content', jsonb_build_object(
-          'type', 'inventory_list',
-          'settings', jsonb_build_object(
-            'showFilters', true,
-            'showExport', true,
-            'columns', jsonb_build_array(
-              'codigo_fabricante',
-              'descricao',
-              'categoria',
-              'quantidade_atual',
-              'ultima_movimentacao'
-            )
+        'type', 'inventory_list',
+        'settings', jsonb_build_object(
+          'showFilters', true,
+          'showExport', true,
+          'columns', jsonb_build_array(
+            'codigo_fabricante',
+            'descricao',
+            'categoria',
+            'quantidade_atual',
+            'ultima_movimentacao'
           )
         )
       ),
-      jsonb_build_object(
+      'movements', jsonb_build_object(
         'title', 'Movimentações',
-        'content', jsonb_build_object(
-          'type', 'inventory_movements',
-          'settings', jsonb_build_object(
-            'showFilters', true,
-            'showExport', true,
-            'showDateRange', true,
-            'columns', jsonb_build_array(
-              'data',
-              'tipo',
-              'motivo',
-              'quantidade',
-              'item',
-              'responsavel'
-            )
+        'type', 'inventory_movements',
+        'settings', jsonb_build_object(
+          'showFilters', true,
+          'showExport', true,
+          'showDateRange', true,
+          'columns', jsonb_build_array(
+            'data',
+            'tipo',
+            'motivo',
+            'quantidade',
+            'item',
+            'responsavel'
           )
         )
       )

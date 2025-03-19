@@ -16,7 +16,7 @@ Página: /gerenciamento/estoque
 2. MUDANÇAS NECESSÁRIAS
 ----------------------
 1. Estrutura do Supabase ✅
-   - Atualizar categoria para não ser dropdown
+   - Remover páginas filhas da categoria Estoque
    - Configurar página única com abas
    - Atualizar conteúdo da página
 
@@ -31,7 +31,7 @@ Página: /gerenciamento/estoque
 3. IMPLEMENTAÇÕES
 ----------------
 1. Migração do Supabase:
-   - ✅ Atualização da categoria para página única
+   - ✅ Remoção das páginas filhas da categoria
    - ✅ Configuração do conteúdo com abas
    - ✅ Manutenção das permissões existentes
 
@@ -67,6 +67,6 @@ Página: /gerenciamento/estoque
 6. OBSERVAÇÕES FINAIS
 --------------------
 - Estrutura uniformizada com outras páginas do sistema
-- Mantida todas as funcionalidades existentes
+- Removidas páginas filhas para simplificar navegação
 - Interface mais organizada e intuitiva
 - Melhor separação de responsabilidades entre componentes 
