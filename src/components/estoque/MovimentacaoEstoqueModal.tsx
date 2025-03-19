@@ -17,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface MovimentacaoEstoqueModalProps {
   open: boolean
@@ -63,6 +64,7 @@ export function MovimentacaoEstoqueModal({
   item,
   onSuccess
 }: MovimentacaoEstoqueModalProps) {
+  const { user } = useAuth()
   const [tipo, setTipo] = useState<TipoMovimentacao>('entrada')
   const [quantidade, setQuantidade] = useState("")
   const [motivo, setMotivo] = useState("")
@@ -194,6 +196,7 @@ export function MovimentacaoEstoqueModal({
           quantidade: quantidadeNum,
           motivo,
           observacoes: observacoes || null,
+          responsavel: user?.profile?.nome || user?.email || 'Sistema',
           // Só envia os campos específicos se for o tipo correto de movimentação
           ...(tipo === 'saida' ? {
             destino_movimentacao: unidadeSelecionada?.nome || null,
@@ -208,7 +211,24 @@ export function MovimentacaoEstoqueModal({
 
       if (movimentacaoError) throw movimentacaoError
 
-      // 2. Atualiza a quantidade do item
+      // 2. Registra no histórico
+      const { error: historicoError } = await supabase
+        .from('historico_estoque')
+        .insert([{
+          item_id: item.id,
+          tipo_movimentacao: tipo,
+          quantidade: quantidadeNum,
+          motivo,
+          observacoes: observacoes || null,
+          responsavel: user?.profile?.nome || user?.email || 'Sistema',
+          destino_movimentacao: tipo === 'saida' ? unidadeSelecionada?.nome || null : null,
+          frota_destino: tipo === 'saida' ? frotaSelecionada?.frota || null : null,
+          nota_fiscal: tipo === 'entrada' ? notaFiscal || null : null
+        }])
+
+      if (historicoError) throw historicoError
+
+      // 3. Atualiza a quantidade do item
       const novaQuantidade = tipo === 'entrada'
         ? item.quantidade_atual + quantidadeNum
         : item.quantidade_atual - quantidadeNum

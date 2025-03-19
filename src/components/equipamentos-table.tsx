@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react"
+import { Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown, Download } from "lucide-react"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Equipamento } from "@/types/equipamento"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime } from "@/utils/formatters"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 function FilterDropdown({
   title,
@@ -90,6 +92,7 @@ export function EquipamentosTable({
 }: EquipamentosTableProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<Record<string, Set<string>>>({})
+  const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Equipamento
     direction: 'asc' | 'desc'
@@ -184,23 +187,81 @@ export function EquipamentosTable({
   }
 
   const handleClearFilter = (columnKey: string) => {
-    setFilters((prevFilters) => ({
-      ...prevFilters,
-      [columnKey]: new Set<string>(),
-    }))
+    setFilters(current => {
+      const newFilters = { ...current }
+      delete newFilters[columnKey]
+      return newFilters
+    })
+  }
+
+  const handleExport = () => {
+    // Adiciona BOM para garantir que o Excel reconheça como UTF-8
+    const BOM = '\uFEFF'
+    
+    // Função para escapar células do CSV
+    const escapeCsvCell = (cell: string | number) => {
+      cell = String(cell).replace(/"/g, '""')
+      return /[;\n"]/.test(cell) ? `"${cell}"` : cell
+    }
+
+    const headers = {
+      codigo_patrimonio: 'Código',
+      descricao: 'Descrição',
+      num_serie: 'Número de Série',
+      created_at: 'Data de Cadastro'
+    }
+
+    const csvRows = [
+      // Headers
+      Object.values(headers).join(';'),
+      
+      // Data rows
+      ...filteredData.map(equipamento => [
+        escapeCsvCell(equipamento.codigo_patrimonio),
+        escapeCsvCell(equipamento.descricao),
+        escapeCsvCell(equipamento.num_serie || 'N/A'),
+        escapeCsvCell(format(new Date(equipamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }))
+      ].join(';'))
+    ].join('\r\n')
+
+    // Cria o blob com BOM e conteúdo
+    const blob = new Blob([BOM + csvRows], { 
+      type: 'text/csv;charset=utf-8' 
+    })
+
+    // Cria o link de download
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `equipamentos_${format(new Date(), 'dd-MM-yyyy_HH-mm')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const filteredData = useMemo(() => {
-    return sortedData.filter((row) =>
-      Object.entries(filters).every(([key, selectedOptions]) => {
-        if (selectedOptions.size === 0) return true
-        const column = columns.find(col => col.key === key)
-        if (!column) return true
-        const value = column.getValue ? column.getValue(row) : row[key as keyof Equipamento]
-        return typeof value === "string" && selectedOptions.has(value)
+    return sortedData
+      .filter(row => {
+        // Aplicar filtro de busca
+        if (searchTerm) {
+          const searchLower = searchTerm.toLowerCase()
+          return (
+            row.codigo_patrimonio.toLowerCase().includes(searchLower) ||
+            row.descricao.toLowerCase().includes(searchLower) ||
+            (row.num_serie?.toLowerCase() || '').includes(searchLower)
+          )
+        }
+        return true
       })
-    )
-  }, [sortedData, filters])
+      .filter((row) =>
+        Object.entries(filters).every(([key, selectedOptions]) => {
+          if (selectedOptions.size === 0) return true
+          const column = columns.find(col => col.key === key)
+          if (!column) return true
+          const value = column.getValue ? column.getValue(row) : row[key as keyof Equipamento]
+          return typeof value === "string" && selectedOptions.has(value)
+        })
+      )
+  }, [sortedData, filters, searchTerm])
 
   const startIndex = (currentPage - 1) * rowsPerPage
   const endIndex = startIndex + rowsPerPage
@@ -314,6 +375,23 @@ export function EquipamentosTable({
             disabled={currentPage === totalPages}
           >
             <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mb-4">
+        <div className="w-[400px]">
+          <Input
+            placeholder="Buscar equipamentos..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="h-9" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
           </Button>
         </div>
       </div>

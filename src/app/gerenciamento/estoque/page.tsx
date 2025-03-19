@@ -30,10 +30,12 @@ export default function EstoquePage() {
     showDateRange: true,
     columns: [
       'data',
+      'item',
+      'codigo',
       'tipo',
       'motivo',
+      'origem',
       'quantidade',
-      'item',
       'responsavel'
     ]
   }

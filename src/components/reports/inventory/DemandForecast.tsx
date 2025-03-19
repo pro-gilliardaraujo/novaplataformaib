@@ -262,7 +262,7 @@ export function DemandForecast({ settings }: DemandForecastProps) {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `previsao_demanda_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`
+    link.download = `previsao_demanda_${format(new Date(), 'dd-MM-yyyy_HH-mm')}.csv`
     link.click()
   }
 

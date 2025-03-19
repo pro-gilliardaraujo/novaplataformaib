@@ -9,6 +9,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download } from "lucide-react"
 import TratativaDetailsModal from "./tratativa-details-modal"
 import { Tratativa, TratativaDetailsProps } from "@/types/tratativas"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 interface FilterState {
   [key: string]: Set<string>
@@ -107,10 +109,62 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
   }
 
   const handleClearFilter = (columnKey: string) => {
-    setFilters((prevFilters) => ({
-      ...prevFilters,
+    setFilters((prev) => ({
+      ...prev,
       [columnKey]: new Set<string>(),
     }))
+  }
+
+  const handleExport = () => {
+    // Adiciona BOM para garantir que o Excel reconheça como UTF-8
+    const BOM = '\uFEFF'
+    
+    // Função para escapar células do CSV
+    const escapeCsvCell = (cell: string | number) => {
+      cell = String(cell).replace(/"/g, '""')
+      return /[;\n"]/.test(cell) ? `"${cell}"` : cell
+    }
+
+    const headers = {
+      numero_tratativa: 'Número',
+      funcionario: 'Funcionário',
+      setor: 'Setor',
+      data_infracao: 'Data',
+      status: 'Status',
+      penalidade: 'Penalidade',
+      descricao: 'Descrição',
+      observacoes: 'Observações'
+    }
+
+    const csvRows = [
+      // Headers
+      Object.values(headers).join(';'),
+      
+      // Data rows
+      ...filteredData.map(tratativa => [
+        escapeCsvCell(tratativa.numero_tratativa),
+        escapeCsvCell(tratativa.funcionario),
+        escapeCsvCell(tratativa.setor),
+        escapeCsvCell(format(new Date(tratativa.data_infracao), "dd/MM/yyyy", { locale: ptBR })),
+        escapeCsvCell(tratativa.status === 'pendente' ? 'Pendente' : 'Concluída'),
+        escapeCsvCell(tratativa.penalidade),
+        escapeCsvCell(tratativa.descricao),
+        escapeCsvCell(tratativa.observacoes || '')
+      ].join(';'))
+    ].join('\r\n')
+
+    // Cria o blob com BOM e conteúdo
+    const blob = new Blob([BOM + csvRows], { 
+      type: 'text/csv;charset=utf-8' 
+    })
+
+    // Cria o link de download
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `tratativas_${format(new Date(), 'dd-MM-yyyy_HH-mm')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const handleSort = (columnKey: string) => {
@@ -181,7 +235,7 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
           >
             <Plus className="mr-2 h-4 w-4" /> Nova Tratativa
           </Button>
-          <Button variant="outline" className="h-9">
+          <Button variant="outline" className="h-9" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Exportar
           </Button>
