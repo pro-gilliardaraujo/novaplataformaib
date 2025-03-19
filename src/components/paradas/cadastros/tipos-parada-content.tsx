@@ -34,16 +34,18 @@ export function TiposParadaContent() {
     { key: "icone", title: "Ícone", sortable: false },
   ] as const
 
-  const carregarTipos = async () => {
+  const carregarTiposParada = async () => {
     try {
       setLoading(true)
+      console.log("Iniciando carregamento de tipos de parada...")
       const tipos = await tiposParadaService.buscarTipos()
+      console.log("Tipos de parada carregados:", tipos)
       setTipos(tipos)
     } catch (error) {
       console.error("Erro ao carregar tipos de parada:", error)
       toast({
-        title: "Erro",
-        description: "Não foi possível carregar os tipos de parada",
+        title: "Erro ao carregar tipos de parada",
+        description: error instanceof Error ? error.message : "Não foi possível carregar os tipos de parada. Verifique o console para mais detalhes.",
         variant: "destructive",
       })
     } finally {
@@ -52,11 +54,11 @@ export function TiposParadaContent() {
   }
 
   useEffect(() => {
-    carregarTipos()
+    carregarTiposParada()
   }, [])
 
   const handleTipoUpdated = () => {
-    carregarTipos()
+    carregarTiposParada()
   }
 
   // Filter options for dropdown

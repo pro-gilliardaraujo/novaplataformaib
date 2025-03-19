@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus, Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react"
@@ -23,7 +23,7 @@ interface FilterState {
 }
 
 export function UnidadesContent() {
-  const { unidades, carregarUnidades } = useParadas()
+  const { unidades, isLoading, carregarUnidades } = useParadas()
   const [searchTerm, setSearchTerm] = useState("")
   const [editingUnidade, setEditingUnidade] = useState<any | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -34,17 +34,12 @@ export function UnidadesContent() {
   const rowsPerPage = 15
   const { toast } = useToast()
 
-  // Load unidades when component mounts
-  useEffect(() => {
-    carregarUnidades()
-  }, [carregarUnidades])
-
   const columns = [
     { key: "nome", title: "Nome", sortable: true },
   ] as const
 
-  const handleUnidadeUpdated = () => {
-    carregarUnidades()
+  const handleUnidadeUpdated = async () => {
+    await carregarUnidades()
   }
 
   const handleDelete = async () => {
@@ -56,7 +51,7 @@ export function UnidadesContent() {
         title: "Sucesso",
         description: "Unidade excluída com sucesso",
       })
-      carregarUnidades()
+      await carregarUnidades()
     } catch (error) {
       console.error("Erro ao excluir unidade:", error)
       toast({
@@ -254,7 +249,15 @@ export function UnidadesContent() {
           </TableHeader>
 
           <TableBody>
-            {paginatedData.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={2} className="text-center py-8">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : paginatedData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={2} className="text-center py-8">
                   {searchTerm ? (

@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react"
+import { Plus, Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, RefreshCw } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { frotasService } from "@/services/frotasService"
 import { Frota } from "@/types/paradas"
@@ -68,8 +68,15 @@ function FilterDropdown({
 }
 
 export function FrotasContent() {
-  const { unidades, isLoading: isLoadingUnidades, carregarUnidades } = useParadas()
-  const [frotas, setFrotas] = useState<Frota[]>([])
+  const { unidades } = useParadas()
+  const [frotas, setFrotas] = useState<Frota[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_frotas')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [selectedFrota, setSelectedFrota] = useState<Frota | null>(null)
@@ -87,18 +94,26 @@ export function FrotasContent() {
     { key: "unidade", title: "Unidade", sortable: true },
   ] as const
 
-  const carregarFrotas = async () => {
+  const memoizedUnidades = useMemo(() => unidades, [unidades])
+
+  const carregarFrotas = async (forceRefresh = false) => {
+    // Se temos dados em cache e não é forçado, não recarrega
+    if (!forceRefresh && frotas.length > 0) {
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
-      console.log("Iniciando carregamento de frotas...")
-      const frotas = await frotasService.buscarFrotas()
-      console.log("Frotas carregadas:", frotas)
-      setFrotas(frotas)
+      const novasFrotas = await frotasService.buscarFrotas()
+      setFrotas(novasFrotas)
+      // Atualiza o cache
+      localStorage.setItem('cached_frotas', JSON.stringify(novasFrotas))
     } catch (error) {
       console.error("Erro ao carregar frotas:", error)
       toast({
         title: "Erro ao carregar frotas",
-        description: error instanceof Error ? error.message : "Não foi possível carregar as frotas. Verifique o console para mais detalhes.",
+        description: error instanceof Error ? error.message : "Não foi possível carregar as frotas",
         variant: "destructive",
       })
     } finally {
@@ -106,22 +121,28 @@ export function FrotasContent() {
     }
   }
 
-  // Load unidades and frotas when component mounts
+  // Carrega dados apenas uma vez quando o componente montar
   useEffect(() => {
-    carregarUnidades()
-    carregarFrotas()
-  }, [carregarUnidades])
+    if (!initialLoadDone.current) {
+      carregarFrotas()
+      initialLoadDone.current = true
+    }
+  }, [])
 
-  const handleFrotaUpdated = () => {
-    carregarFrotas()
-  }
+  const handleFrotaUpdated = useCallback(() => {
+    carregarFrotas(true)
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    carregarFrotas(true)
+  }, [])
 
   // Filter options for dropdown
   const filterOptions = useMemo(() => {
     return columns.reduce(
       (acc, column) => {
         if (column.key === "unidade") {
-          acc[column.key] = unidades.map(u => u.nome)
+          acc[column.key] = memoizedUnidades.map(u => u.nome)
         } else {
           acc[column.key] = Array.from(
             new Set(
@@ -135,7 +156,7 @@ export function FrotasContent() {
       },
       {} as Record<string, string[]>,
     )
-  }, [frotas, unidades])
+  }, [frotas, memoizedUnidades])
 
   const handleFilterToggle = (columnKey: string, option: string) => {
     setFilters((prevFilters) => {
@@ -172,7 +193,7 @@ export function FrotasContent() {
       Object.entries(filters).every(([key, selectedOptions]) => {
         if (selectedOptions.size === 0) return true
         if (key === "unidade") {
-          const unidade = unidades.find(u => u.id === row.unidade_id)
+          const unidade = memoizedUnidades.find(u => u.id === row.unidade_id)
           return unidade && selectedOptions.has(unidade.nome)
         }
         const value = row[key as keyof Frota]
@@ -187,8 +208,8 @@ export function FrotasContent() {
     if (sortConfig.key) {
       filtered = [...filtered].sort((a, b) => {
         if (sortConfig.key === "unidade") {
-          const aUnidade = unidades.find(u => u.id === a.unidade_id)?.nome || ""
-          const bUnidade = unidades.find(u => u.id === b.unidade_id)?.nome || ""
+          const aUnidade = memoizedUnidades.find(u => u.id === a.unidade_id)?.nome || ""
+          const bUnidade = memoizedUnidades.find(u => u.id === b.unidade_id)?.nome || ""
           return sortConfig.direction === 'asc' 
             ? aUnidade.localeCompare(bUnidade)
             : bUnidade.localeCompare(aUnidade)
@@ -206,7 +227,7 @@ export function FrotasContent() {
     }
 
     return filtered;
-  }, [frotas, filters, search, sortConfig, unidades])
+  }, [frotas, filters, search, sortConfig, memoizedUnidades])
 
   // Pagination logic
   const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage)
@@ -217,13 +238,23 @@ export function FrotasContent() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <Input 
-          className="max-w-md" 
-          placeholder="Buscar frotas..." 
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <Input 
+            className="max-w-md" 
+            placeholder="Buscar frotas..." 
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
         <Button
           className="bg-black hover:bg-black/90 text-white"
           onClick={() => setShowNewDialog(true)}
@@ -268,7 +299,7 @@ export function FrotasContent() {
           </TableHeader>
 
           <TableBody>
-            {(loading || isLoadingUnidades) ? (
+            {(loading) ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-8">
                   Carregando dados...
@@ -283,7 +314,7 @@ export function FrotasContent() {
             ) : (
               <>
                 {paginatedData.map((frota) => {
-                  const unidade = unidades.find(u => u.id === frota.unidade_id)
+                  const unidade = memoizedUnidades.find(u => u.id === frota.unidade_id)
                   return (
                     <TableRow key={frota.id} className="h-[46px] hover:bg-gray-50 border-b border-gray-200">
                       <TableCell className="py-0 border-x border-gray-100">{frota.frota}</TableCell>

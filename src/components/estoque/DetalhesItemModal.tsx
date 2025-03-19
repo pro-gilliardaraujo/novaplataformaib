@@ -15,6 +15,12 @@ import { HistoricoMovimentacoes } from "./HistoricoMovimentacoes"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface DetalhesItemModalProps {
   open: boolean
@@ -263,42 +269,80 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
             <div className="flex-1 flex justify-end gap-2">
               {!isEditing && (
                 <>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setShowMovimentacao(true)}
-                  >
-                    <ArrowUpDown className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setShowMovimentacao(true)}
+                        >
+                          <ArrowUpDown className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Registrar Movimentação</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setIsEditing(true)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Editar Item</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </>
               )}
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={isLoading}
-                title="Excluir item"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-              <DialogClose asChild>
-                <Button 
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogClose>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setShowDeleteDialog(true)}
+                      disabled={isLoading}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Excluir Item</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogClose asChild>
+                      <Button 
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </DialogClose>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Fechar</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
 
@@ -457,28 +501,47 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
                       <div className="relative h-full px-2">
                         {imagens.length > 4 && (
                           <>
-                            <button
-                              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-1 shadow-md border border-gray-200"
-                              onClick={() => {
-                                const container = document.getElementById('thumbnails-container')
-                                if (container) {
-                                  container.scrollLeft -= 80
-                                }
-                              }}
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <button
-                              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-1 shadow-md border border-gray-200"
-                              onClick={() => {
-                                const container = document.getElementById('thumbnails-container')
-                                if (container) {
-                                  container.scrollLeft += 80
-                                }
-                              }}
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-1 shadow-md border border-gray-200"
+                                    onClick={() => {
+                                      const container = document.getElementById('thumbnails-container')
+                                      if (container) {
+                                        container.scrollLeft -= 80
+                                      }
+                                    }}
+                                  >
+                                    <ChevronLeft className="h-4 w-4" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Imagem anterior</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-1 shadow-md border border-gray-200"
+                                    onClick={() => {
+                                      const container = document.getElementById('thumbnails-container')
+                                      if (container) {
+                                        container.scrollLeft += 80
+                                      }
+                                    }}
+                                  >
+                                    <ChevronRight className="h-4 w-4" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Próxima imagem</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </>
                         )}
                         <div 
@@ -500,17 +563,26 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
                                 }`}
                               >
                                 {isEditing && (
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="absolute top-1 right-1 h-5 w-5 bg-white/80 hover:bg-white border-none p-0 z-10"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleDeleteImage(imagem)
-                                    }}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="icon"
+                                          className="absolute top-1 right-1 h-5 w-5 bg-white/80 hover:bg-white border-none p-0 z-10"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleDeleteImage(imagem)
+                                          }}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Excluir imagem</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 )}
                                 <div onClick={() => setSelectedImage(imageUrl)}>
                                   <Image

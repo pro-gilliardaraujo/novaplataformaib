@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,9 +8,17 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
-import { X, Upload, X as XIcon } from "lucide-react"
+import { X, Upload, X as XIcon, Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface CategoriaItem {
   id: string
@@ -31,13 +39,55 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
   const [codigoFabricante, setCodigoFabricante] = useState("")
   const [quantidadeAtual, setQuantidadeAtual] = useState("")
   const [observacoes, setObservacoes] = useState("")
-  const [categoryId, setCategoryId] = useState<string>("")
+  const [categoryInput, setCategoryInput] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<CategoriaItem | null>(null)
+  const [openCombobox, setOpenCombobox] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [nivelMinimo, setNivelMinimo] = useState<string>("")
   const [nivelCritico, setNivelCritico] = useState<string>("")
   const [alertasAtivos, setAlertasAtivos] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+
+  // Função para gerar uma cor aleatória em formato hexadecimal
+  const generateRandomColor = () => {
+    const letters = '0123456789ABCDEF'
+    let color = '#'
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)]
+    }
+    return color
+  }
+
+  // Função para criar uma nova categoria
+  const createCategory = async (nome: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias_item')
+        .insert([
+          {
+            nome,
+            cor: generateRandomColor()
+          }
+        ])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      const newCategory = data as CategoriaItem
+      setSelectedCategory(newCategory)
+      return newCategory
+    } catch (error) {
+      console.error('Erro ao criar categoria:', error)
+      throw error
+    }
+  }
+
+  // Filtra categorias baseado no input
+  const filteredCategories = categorias.filter(categoria =>
+    categoria.nome.toLowerCase().includes(categoryInput.toLowerCase())
+  )
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -59,11 +109,30 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
       return
     }
 
-    try {
-      setIsLoading(true)
+    setIsLoading(true)
 
+    try {
+      // Se temos um input de categoria mas não uma categoria selecionada, cria uma nova
+      let categoryId = selectedCategory?.id
+      if (categoryInput && !selectedCategory) {
+        try {
+          const newCategory = await createCategory(categoryInput)
+          categoryId = newCategory.id
+        } catch (error) {
+          console.error('Erro ao criar categoria:', error)
+          toast({
+            title: "Erro",
+            description: "Não foi possível criar a categoria",
+            variant: "destructive",
+          })
+          setIsLoading(false)
+          return
+        }
+      }
+
+      // 1. Inserir o item
       const { data: itemData, error: itemError } = await supabase
-        .from('items_estoque')
+        .from('itens_estoque')
         .insert([
           {
             descricao,
@@ -79,31 +148,53 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
         .select()
         .single()
 
-      if (itemError) throw itemError
+      if (itemError) {
+        console.error('Erro ao inserir item:', itemError)
+        toast({
+          title: "Erro",
+          description: "Não foi possível cadastrar o item: " + itemError.message,
+          variant: "destructive",
+        })
+        return
+      }
 
       // 2. Upload images if any
       if (selectedFiles.length > 0) {
-        for (const file of selectedFiles) {
-          const fileExt = file.name.split('.').pop()
-          const fileName = `${itemData.id}/${Date.now()}.${fileExt}`
-          
-          const { error: uploadError } = await supabase.storage
-            .from('itens-estoque')
-            .upload(fileName, file)
+        try {
+          for (const file of selectedFiles) {
+            const fileExt = file.name.split('.').pop()
+            const fileName = `${itemData.id}/${Date.now()}.${fileExt}`
+            
+            const { error: uploadError } = await supabase.storage
+              .from('itens-estoque')
+              .upload(fileName, file)
 
-          if (uploadError) throw uploadError
+            if (uploadError) {
+              throw uploadError
+            }
 
-          // 3. Save image reference
-          const { error: imageError } = await supabase
-            .from('imagens_item')
-            .insert([
-              {
+            // 3. Save image reference
+            const { error: imageError } = await supabase
+              .from('imagens_item')
+              .insert([{
                 item_id: itemData.id,
                 url_imagem: fileName
-              }
-            ])
+              }])
 
-          if (imageError) throw imageError
+            if (imageError) {
+              throw imageError
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao processar imagens:', error)
+          toast({
+            title: "Aviso",
+            description: "Item foi cadastrado, mas houve um erro ao salvar as imagens",
+            variant: "destructive",
+          })
+          handleOpenChange(false)
+          onSuccess()
+          return
         }
       }
       
@@ -118,7 +209,7 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
       console.error('Erro ao cadastrar item:', error)
       toast({
         title: "Erro",
-        description: "Não foi possível cadastrar o item",
+        description: error instanceof Error ? error.message : "Não foi possível cadastrar o item",
         variant: "destructive",
       })
     } finally {
@@ -132,7 +223,8 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
       setCodigoFabricante("")
       setQuantidadeAtual("")
       setObservacoes("")
-      setCategoryId("")
+      setCategoryInput("")
+      setSelectedCategory(null)
       setSelectedFiles([])
       setNivelMinimo("")
       setNivelCritico("")
@@ -150,12 +242,21 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
             <DialogTitle className="text-xl font-semibold flex-1 text-center">Cadastrar Novo Item</DialogTitle>
             <div className="flex-1 flex justify-end">
               <DialogClose asChild>
-                <Button 
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Fechar</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </DialogClose>
             </div>
           </div>
@@ -198,25 +299,80 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="categoria">Categoria</Label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categorias.map((categoria) => (
-                      <SelectItem key={categoria.id} value={categoria.id}>
+                <Label htmlFor="categoria">Categoria (opcional)</Label>
+                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openCombobox}
+                      className="w-full justify-between"
+                    >
+                      {selectedCategory ? (
                         <div className="flex items-center gap-2">
                           <div 
                             className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: categoria.cor || '#000' }}
+                            style={{ backgroundColor: selectedCategory.cor || '#000' }}
                           />
-                          {categoria.nome}
+                          {selectedCategory.nome}
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      ) : categoryInput || "Selecione ou digite para criar"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput
+                        placeholder="Busque ou crie uma categoria..."
+                        value={categoryInput}
+                        onValueChange={setCategoryInput}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && categoryInput && !filteredCategories.length) {
+                            e.preventDefault()
+                            createCategory(categoryInput).then(() => {
+                              setOpenCombobox(false)
+                            })
+                          }
+                        }}
+                      />
+                      <CommandEmpty>
+                        {categoryInput ? (
+                          <div className="px-2 py-3 text-sm">
+                            Pressione Enter para criar "{categoryInput}"
+                          </div>
+                        ) : (
+                          "Nenhuma categoria encontrada"
+                        )}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredCategories.map((categoria) => (
+                          <CommandItem
+                            key={categoria.id}
+                            value={categoria.nome}
+                            onSelect={() => {
+                              setSelectedCategory(categoria)
+                              setCategoryInput(categoria.nome)
+                              setOpenCombobox(false)
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: categoria.cor || '#000' }}
+                              />
+                              {categoria.nome}
+                            </div>
+                            <Check
+                              className={cn(
+                                "ml-auto h-4 w-4",
+                                selectedCategory?.id === categoria.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-4">
@@ -319,10 +475,7 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 mt-6">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-              Cancelar
-            </Button>
+          <div className="flex justify-end mt-6">
             <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
               {isLoading ? "Cadastrando..." : "Cadastrar Item"}
             </Button>
