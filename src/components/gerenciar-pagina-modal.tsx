@@ -33,6 +33,25 @@ const wrapIframeContent = (iframeTag: string) => {
 // Template padrão com um iframe vazio
 const defaultIframeContent = wrapIframeContent('<iframe src="" frameborder="0" allowFullScreen="true"></iframe>')
 
+// Função para converter o conteúdo para string
+const contentToString = (content: Tab['content']): string => {
+  if (typeof content === 'string') {
+    return content
+  }
+  return JSON.stringify(content)
+}
+
+// Função para extrair o conteúdo do iframe
+const extractIframeContent = (content: Tab['content']): string => {
+  if (typeof content === 'string') {
+    if (content.includes('style="width: 100%; height: 100vh;')) {
+      return content.split('\n')[1].trim() // Extrai apenas a tag iframe
+    }
+    return content
+  }
+  return JSON.stringify(content)
+}
+
 export function GerenciarPaginaModal({
   open,
   onOpenChange,
@@ -41,7 +60,7 @@ export function GerenciarPaginaModal({
 }: GerenciarPaginaModalProps) {
   const [tabs, setTabs] = useState<Array<{
     name: string
-    content: string
+    content: Tab['content']
     order_index: number
   }>>(
     page.tabs?.map(tab => ({
@@ -104,7 +123,8 @@ export function GerenciarPaginaModal({
       await pageService.updateTabs({
         page_id: page.id,
         tabs: tabs.map((tab, index) => ({
-          ...tab,
+          name: tab.name,
+          content: contentToString(tab.content),
           order_index: index
         }))
       })
@@ -178,9 +198,7 @@ export function GerenciarPaginaModal({
                     </Label>
                     <Textarea
                       id={`tab-content-${index}`}
-                      value={tab.content.includes('style="width: 100%; height: 100vh;') 
-                        ? tab.content.split('\n')[1].trim() // Extrai apenas a tag iframe
-                        : tab.content}
+                      value={extractIframeContent(tab.content)}
                       onChange={(e) => handleTabChange(index, 'content', e.target.value)}
                       placeholder="Cole aqui o código do iframe"
                       className="font-mono text-sm h-24 resize-none"

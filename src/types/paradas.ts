@@ -1,14 +1,5 @@
 import { Frota } from "./frotas"
 
-export interface Frota {
-  id: string
-  frota: string
-  descricao: string
-  unidade_id: string
-  created_at: string
-  updated_at: string
-}
-
 export interface Unidade {
   id: string
   nome: string
@@ -64,9 +55,10 @@ export interface HistoricoModalProps {
 
 // Props para o card de frota
 export interface FrotaCardProps {
+  frota: Frota
   status: FrotaStatus
   onParar: () => void
-  onLiberar: () => void
+  onLiberar: () => Promise<void>
   onHistorico: () => void
 }
 

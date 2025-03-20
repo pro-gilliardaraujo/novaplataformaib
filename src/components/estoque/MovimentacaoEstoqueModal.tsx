@@ -22,7 +22,7 @@ import { useAuth } from "@/contexts/AuthContext"
 interface MovimentacaoEstoqueModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  item: {
+  item?: {
     id: string
     descricao: string
     codigo_fabricante: string
@@ -76,6 +76,18 @@ export function MovimentacaoEstoqueModal({
   const [frotas, setFrotas] = useState<Frota[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+
+  // Não permitir abrir o modal sem um item selecionado
+  useEffect(() => {
+    if (open && !item) {
+      toast({
+        title: "Erro",
+        description: "Selecione um item para movimentar",
+        variant: "destructive",
+      })
+      onOpenChange(false)
+    }
+  }, [open, item])
 
   // Carregar unidades apenas quando selecionar saída
   useEffect(() => {
@@ -132,30 +144,19 @@ export function MovimentacaoEstoqueModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    if (!item) {
+      toast({
+        title: "Erro",
+        description: "Item não selecionado",
+        variant: "destructive",
+      })
+      return
+    }
+    
     if (!quantidade || !motivo) {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos obrigatórios",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Validação adicional para entradas
-    if (tipo === 'entrada' && !notaFiscal) {
-      toast({
-        title: "Campo obrigatório",
-        description: "Por favor, informe o número da nota fiscal",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Validação adicional para saídas
-    if (tipo === 'saida' && !unidadeId) {
-      toast({
-        title: "Campo obrigatório",
-        description: "Por favor, selecione a unidade de destino",
         variant: "destructive",
       })
       return
@@ -197,7 +198,6 @@ export function MovimentacaoEstoqueModal({
           motivo,
           observacoes: observacoes || null,
           responsavel: user?.profile?.nome || user?.email || 'Sistema',
-          // Só envia os campos específicos se for o tipo correto de movimentação
           ...(tipo === 'saida' ? {
             destino_movimentacao: unidadeSelecionada?.nome || null,
             frota_destino: frotaSelecionada?.frota || null,
@@ -251,7 +251,7 @@ export function MovimentacaoEstoqueModal({
       console.error('Erro ao registrar movimentação:', error)
       toast({
         title: "Erro",
-        description: "Não foi possível registrar a movimentação",
+        description: "Ocorreu um erro ao registrar a movimentação",
         variant: "destructive",
       })
     } finally {
@@ -293,7 +293,7 @@ export function MovimentacaoEstoqueModal({
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div className="text-center">
             <p className="text-sm text-gray-500">
-              {item.descricao} ({item.codigo_fabricante}) - Quantidade atual: {item.quantidade_atual}
+              {item?.descricao} ({item?.codigo_fabricante}) - Quantidade atual: {item?.quantidade_atual}
             </p>
           </div>
 

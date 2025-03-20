@@ -77,6 +77,8 @@ function FilterDropdown({
 interface EquipamentosTableProps {
   equipamentos: Equipamento[]
   onView: (equipamento: Equipamento) => void
+  onEdit: (equipamento: Equipamento) => void
+  onDelete: (codigoPatrimonio: string) => void
 }
 
 type ColumnType = {
@@ -88,7 +90,9 @@ type ColumnType = {
 
 export function EquipamentosTable({ 
   equipamentos, 
-  onView
+  onView,
+  onEdit,
+  onDelete
 }: EquipamentosTableProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<Record<string, Set<string>>>({})

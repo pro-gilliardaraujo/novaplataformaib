@@ -181,6 +181,12 @@ export default function EquipamentosPage() {
             open={isDetailsModalOpen}
             onOpenChange={setIsDetailsModalOpen}
             equipamento={selectedEquipamento}
+            onEdit={(equipamento) => {
+              setSelectedEquipamento(equipamento)
+              setIsEditModalOpen(true)
+              setIsDetailsModalOpen(false)
+            }}
+            onDelete={handleDeleteEquipamento}
           />
         </>
       )}

@@ -8,7 +8,8 @@ import { useParadas } from "@/contexts/ParadasContext"
 import { FrotaCard } from "./FrotaCard"
 import { ParadaModal } from "./ParadaModal"
 import { HistoricoModal } from "./HistoricoModal"
-import { Frota, FrotaCardProps } from "@/types/paradas"
+import { FrotaCardProps } from "@/types/paradas"
+import { Frota } from "@/types/frotas"
 import { RefreshCw } from "lucide-react"
 
 export function SeletorFrotas() {
@@ -29,7 +30,7 @@ export function SeletorFrotas() {
     setModalParada(true)
   }
 
-  const handleLiberar = (frota: Frota) => {
+  const handleLiberar = async (frota: Frota) => {
     setFrotaSelecionada(frota)
     setModalParada(true)
   }
@@ -39,9 +40,9 @@ export function SeletorFrotas() {
     setModalHistorico(true)
   }
 
-  const handleParadaRegistrada = () => {
+  const handleParadaRegistrada = async () => {
     setModalParada(false)
-    atualizarCenario()
+    await atualizarCenario()
   }
 
   return (
@@ -84,15 +85,16 @@ export function SeletorFrotas() {
             <ScrollArea className="h-[calc(100vh-200px)]">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
                 {frotasPorUnidade[unidade.id]?.map((frota) => {
-                  const status = statusFrotas.get(frota.id)
+                  const status = statusFrotas[frota.id]
                   if (!status) return null
 
                   return (
                     <FrotaCard
                       key={frota.id}
+                      frota={frota}
                       status={status}
                       onParar={() => handleParar(frota)}
-                      onLiberar={() => handleLiberar(frota)}
+                      onLiberar={async () => await handleLiberar(frota)}
                       onHistorico={() => handleHistorico(frota)}
                     />
                   )

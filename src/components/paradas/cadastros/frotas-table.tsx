@@ -425,7 +425,8 @@ export function FrotasTable() {
       <NovaFrotaModal
         open={showNewDialog}
         onOpenChange={setShowNewDialog}
-        onSuccess={fetchFrotas}
+        frota={null}
+        onFrotaUpdated={fetchFrotas}
       />
 
       {/* Modal de Edição */}

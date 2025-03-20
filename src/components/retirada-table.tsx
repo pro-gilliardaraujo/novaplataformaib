@@ -298,11 +298,11 @@ export function RetiradaTable({ retiradas, onRetiradaUpdated }: RetiradaTablePro
         <EditarRetiradaModal
           open={!!selectedRetiradaForEdit}
           onOpenChange={(open: boolean) => !open && setSelectedRetiradaForEdit(null)}
-          onRetiradaEdited={(updates) => {
-            onRetiradaUpdated(selectedRetiradaForEdit.id, updates)
+          onSubmit={async (id, updates) => {
+            await onRetiradaUpdated(id, updates)
             setSelectedRetiradaForEdit(null)
           }}
-          retiradaData={selectedRetiradaForEdit}
+          retirada={selectedRetiradaForEdit}
         />
       )}
     </div>

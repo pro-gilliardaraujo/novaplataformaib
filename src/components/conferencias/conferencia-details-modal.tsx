@@ -97,7 +97,7 @@ export function ConferenciaDetailsModal({ conferencia, open, onOpenChange }: Con
             </div>
             <div className="col-span-2">
               <p className="text-sm text-gray-500">Responsáveis</p>
-              <p className="font-medium">{conferencia.responsaveis.join(", ")}</p>
+              <p className="font-medium">{conferencia.responsaveis}</p>
             </div>
           </div>
 

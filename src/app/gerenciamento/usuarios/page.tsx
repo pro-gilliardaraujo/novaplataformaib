@@ -177,6 +177,7 @@ export default function UsuariosPage() {
               onView={handleViewUsuario}
               onEdit={handleEditClick}
               onDelete={handleDeleteUsuario}
+              onManagePermissions={handleManagePermissions}
             />
           )}
         </div>
@@ -194,6 +195,9 @@ export default function UsuariosPage() {
             usuario={selectedUsuario}
             open={isViewModalOpen}
             onOpenChange={setIsViewModalOpen}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteUsuario}
+            onManagePermissions={handleManagePermissions}
           />
 
           <EditarUsuarioModal

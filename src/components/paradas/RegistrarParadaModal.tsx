@@ -67,12 +67,12 @@ export function RegistrarParadaModal({
     setIsSubmitting(true)
 
     try {
-      await paradasService.registrarParada(
-        frota.id,
-        tipoId,
-        motivo || "",
-        previsao || undefined
-      )
+      await paradasService.registrarParada({
+        frota_id: frota.id,
+        tipo_parada_id: tipoId,
+        motivo: motivo || "",
+        previsao_horario: previsao || undefined
+      })
 
       toast({
         title: "Sucesso",

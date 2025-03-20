@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Unidade, Frota } from "@/types/paradas"
+import { Unidade } from "@/types/paradas"
+import { Frota } from "@/types/frotas"
 import { ChevronDown, ChevronRight, X, ChevronDownSquare, ChevronRightSquare, CheckSquare, Square } from "lucide-react"
 
 interface SeletorFrotasModalProps {

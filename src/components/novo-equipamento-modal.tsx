@@ -25,11 +25,12 @@ export function NovoEquipamentoModal({
     codigo_patrimonio: "",
     descricao: "",
     num_serie: "",
+    status: "ATIVO"
   })
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     if (name === "codigo_patrimonio") {
       // Remove caracteres não numéricos e limita a 6 dígitos
@@ -128,6 +129,22 @@ export function NovoEquipamentoModal({
               placeholder="Número de série do equipamento"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <select
+              id="status"
+              name="status"
+              value={formData.status}
+              onChange={handleInputChange}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              required
+            >
+              <option value="ATIVO">Ativo</option>
+              <option value="MANUTENCAO">Manutenção</option>
+              <option value="INATIVO">Inativo</option>
+            </select>
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">

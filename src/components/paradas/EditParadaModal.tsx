@@ -36,7 +36,7 @@ export function EditParadaModal({
 
   useEffect(() => {
     if (parada) {
-      setTipoParadaId(parada.tipo_id)
+      setTipoParadaId(parada.tipo_parada_id)
       setMotivo(parada.motivo || "")
       setPrevisaoHorario(parada.previsao_horario || "")
     }
@@ -77,7 +77,7 @@ export function EditParadaModal({
         parada.id,
         tipoParadaId,
         motivo,
-        previsaoHorario || null
+        previsaoHorario || undefined
       )
 
       toast({

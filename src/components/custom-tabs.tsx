@@ -7,12 +7,21 @@ interface CustomTabsProps {
   tabs: Tab[]
 }
 
-function TabContentRenderer({ content }: { content: string }) {
+function TabContentRenderer({ content }: { content: Tab['content'] }) {
+  if (typeof content === 'string') {
+    return (
+      <div 
+        className="h-full w-full [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:border-none" 
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    )
+  }
+
+  // Se for um objeto, por enquanto vamos apenas exibir o tipo
   return (
-    <div 
-      className="h-full w-full [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:border-none" 
-      dangerouslySetInnerHTML={{ __html: content }}
-    />
+    <div className="h-full w-full">
+      {content.type}
+    </div>
   )
 }
 

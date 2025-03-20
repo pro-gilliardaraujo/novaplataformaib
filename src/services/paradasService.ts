@@ -156,7 +156,7 @@ export const paradasService = {
     const { data, error } = await supabase
       .from("paradas")
       .update({
-        tipo_id: tipoParadaId,
+        tipo_parada_id: tipoParadaId,
         motivo,
         previsao_horario: previsaoHorario
       })

@@ -336,7 +336,8 @@ export function UnidadesTable() {
       <NovaUnidadeModal
         open={showNewDialog}
         onOpenChange={setShowNewDialog}
-        onSuccess={fetchUnidades}
+        unidade={null}
+        onUnidadeUpdated={fetchUnidades}
       />
 
       {/* Modal de Edição */}

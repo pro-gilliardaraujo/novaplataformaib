@@ -10,7 +10,7 @@ import { useParadas } from "@/contexts/ParadasContext"
 import { useToast } from "@/components/ui/use-toast"
 import { X, Trash2 } from "lucide-react"
 import { frotasService } from "@/services/frotasService"
-import { Frota } from "@/types/paradas"
+import { Frota } from "@/types/frotas"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 

@@ -13,9 +13,14 @@ interface InventoryReportProps {
     showExport?: boolean
     columns?: string[]
   }
+  categorias: Array<{
+    id: string
+    nome: string
+    cor?: string
+  }>
 }
 
-export function InventoryReport({ type, settings }: InventoryReportProps) {
+export function InventoryReport({ type, settings, categorias }: InventoryReportProps) {
   switch (type) {
     case 'inventory_overview':
       return (
@@ -30,6 +35,7 @@ export function InventoryReport({ type, settings }: InventoryReportProps) {
     case 'inventory_list':
       return (
         <InventoryList
+          categorias={categorias}
           settings={{
             showFilters: settings.showFilters ?? true,
             showExport: settings.showExport ?? true,

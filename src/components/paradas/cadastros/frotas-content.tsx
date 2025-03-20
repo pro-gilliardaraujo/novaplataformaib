@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, RefreshCw } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { frotasService } from "@/services/frotasService"
-import { Frota } from "@/types/paradas"
+import { Frota } from "@/types/frotas"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { NovaFrotaModal } from "./nova-frota-modal"

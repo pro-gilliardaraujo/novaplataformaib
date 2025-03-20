@@ -295,7 +295,7 @@ export default function Sidebar() {
                     />
                   </button>
                   <div className={`ml-7 space-y-1 ${expandedCategory === category.id ? 'block' : 'hidden'}`}>
-                    {category.pages?.map((page) => (
+                    {category.pages?.map((page: Page) => (
                       <Link
                         key={page.id}
                         href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}

@@ -1,8 +1,10 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import InventoryList from "@/components/reports/inventory/InventoryList"
+import { InventoryList } from "@/components/reports/inventory/InventoryList"
 import { InventoryOverview } from "@/components/reports/inventory/InventoryOverview"
+import { supabase } from "@/lib/supabase"
 
 interface InventorySettings {
   showFilters: boolean
@@ -10,7 +12,33 @@ interface InventorySettings {
   columns: string[]
 }
 
+interface CategoriaItem {
+  id: string
+  nome: string
+  cor?: string
+}
+
 export default function InventarioAtualPage() {
+  const [categorias, setCategorias] = useState<CategoriaItem[]>([])
+
+  useEffect(() => {
+    const loadCategorias = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('categorias_item')
+          .select('id, nome, cor')
+          .order('nome')
+
+        if (error) throw error
+        setCategorias(data || [])
+      } catch (error) {
+        console.error('Erro ao carregar categorias:', error)
+      }
+    }
+
+    loadCategorias()
+  }, [])
+
   const listSettings: InventorySettings = {
     showFilters: true,
     showExport: true,
@@ -46,7 +74,7 @@ export default function InventarioAtualPage() {
             <InventoryOverview settings={overviewSettings} />
           </TabsContent>
           <TabsContent value="list" className="h-full m-0">
-            <InventoryList settings={listSettings} />
+            <InventoryList settings={listSettings} categorias={categorias} />
           </TabsContent>
         </div>
       </Tabs>
