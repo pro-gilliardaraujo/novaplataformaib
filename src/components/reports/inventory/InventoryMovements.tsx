@@ -25,6 +25,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { DateRangePicker } from "@/components/date-range-picker"
+import { DateRange } from "react-day-picker"
 
 interface InventoryMovementsProps {
   settings: {
@@ -133,7 +135,7 @@ export function InventoryMovements({ settings }: InventoryMovementsProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'created_at', direction: 'desc' })
   const rowsPerPage = 15
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null)
 
   const columns = [
@@ -172,13 +174,14 @@ export function InventoryMovements({ settings }: InventoryMovementsProps) {
           )
         `)
 
-      if (selectedDate) {
-        const startOfDay = new Date(selectedDate + 'T00:00:00-03:00')
-        const endOfDay = new Date(selectedDate + 'T23:59:59.999-03:00')
-
-        query = query
-          .gte('created_at', startOfDay.toISOString())
-          .lte('created_at', endOfDay.toISOString())
+      if (dateRange && dateRange.from) {
+        query = query.gte('created_at', dateRange.from.toISOString())
+      }
+      if (dateRange && dateRange.to) {
+        // Add one day to include the end date fully
+        const endDate = new Date(dateRange.to)
+        endDate.setDate(endDate.getDate() + 1)
+        query = query.lt('created_at', endDate.toISOString())
       }
 
       query = query.order('created_at', { ascending: false })
@@ -209,7 +212,7 @@ export function InventoryMovements({ settings }: InventoryMovementsProps) {
 
   useEffect(() => {
     loadMovements()
-  }, [selectedDate])
+  }, [dateRange])
 
   const handleFilterToggle = (columnKey: string, option: string) => {
     setFilters((prevFilters) => {
@@ -497,12 +500,14 @@ export function InventoryMovements({ settings }: InventoryMovementsProps) {
             />
           </div>
 
-          <Input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-[180px]"
-          />
+          {settings.showDateRange && (
+            <div className="flex-shrink-0">
+              <DateRangePicker
+                date={dateRange}
+                onChange={setDateRange}
+              />
+            </div>
+          )}
 
           <Button
             variant="outline"

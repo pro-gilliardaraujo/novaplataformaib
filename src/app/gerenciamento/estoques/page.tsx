@@ -1,77 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { InventoryOverview } from "@/components/reports/inventory/InventoryOverview"
-import { InventoryList } from "@/components/reports/inventory/InventoryList"
-import { InventoryMovements } from "@/components/reports/inventory/InventoryMovements"
+import { InventoryOverview } from "@/components/inventory/inventory-overview"
+import { InventoryList } from "@/components/inventory/inventory-list"
+import { InventoryMovements } from "@/components/inventory/inventory-movements"
 import { ConferenciasTable } from "@/components/conferencias/conferencias-table"
-import { supabase } from "@/lib/supabase"
 
-interface CategoriaItem {
-  id: string
-  nome: string
-  cor?: string
-}
-
-export default function EstoquePage() {
-  const [categorias, setCategorias] = useState<CategoriaItem[]>([])
-
-  useEffect(() => {
-    const loadCategorias = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('categorias_item')
-          .select('id, nome, cor')
-          .order('nome')
-
-        if (error) throw error
-        setCategorias(data || [])
-      } catch (error) {
-        console.error('Erro ao carregar categorias:', error)
-      }
-    }
-
-    loadCategorias()
-  }, [])
-
-  const listSettings = {
-    showFilters: true,
-    showExport: true,
-    columns: [
-      'codigo_fabricante',
-      'descricao',
-      'categoria',
-      'quantidade_atual',
-      'ultima_movimentacao'
-    ]
-  }
-
-  const overviewSettings = {
-    showCategories: true,
-    showLowStock: true,
-    showCharts: true
-  }
-
-  const movementsSettings = {
-    showFilters: true,
-    showExport: true,
-    showDateRange: true,
-    columns: [
-      'data',
-      'item',
-      'codigo',
-      'tipo',
-      'motivo',
-      'origem',
-      'quantidade',
-      'responsavel'
-    ]
-  }
+export default function EstoquesPage() {
+  const [activeTab, setActiveTab] = useState("overview")
 
   return (
     <div className="h-full flex flex-col">
-      <Tabs defaultValue="overview" className="flex-1">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
         <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-2">
           <TabsTrigger 
             value="overview" 
@@ -101,14 +42,49 @@ export default function EstoquePage() {
 
         <div className="flex-1 p-2">
           <TabsContent value="overview" className="h-full m-0">
-            <InventoryOverview settings={overviewSettings} />
+            <InventoryOverview 
+              settings={{
+                showCategories: true,
+                showLowStock: true,
+                showCharts: true
+              }} 
+            />
           </TabsContent>
+
           <TabsContent value="list" className="h-full m-0">
-            <InventoryList settings={listSettings} categorias={categorias} />
+            <InventoryList 
+              settings={{
+                showFilters: true,
+                showExport: true,
+                columns: [
+                  'codigo_fabricante',
+                  'descricao',
+                  'categoria',
+                  'quantidade_atual',
+                  'ultima_movimentacao'
+                ]
+              }} 
+            />
           </TabsContent>
+
           <TabsContent value="movements" className="h-full m-0">
-            <InventoryMovements settings={movementsSettings} />
+            <InventoryMovements 
+              settings={{
+                showFilters: true,
+                showExport: true,
+                showDateRange: true,
+                columns: [
+                  'data',
+                  'tipo',
+                  'motivo',
+                  'quantidade',
+                  'item',
+                  'responsavel'
+                ]
+              }} 
+            />
           </TabsContent>
+
           <TabsContent value="conferences" className="h-full m-0">
             <ConferenciasTable />
           </TabsContent>
