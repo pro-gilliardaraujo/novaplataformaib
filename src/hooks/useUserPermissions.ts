@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/contexts/AuthContext"
 import { supabase } from "@/lib/supabase"
 import { UserPermissions, ResourcePermission, PermissionType } from "@/types/user"
 

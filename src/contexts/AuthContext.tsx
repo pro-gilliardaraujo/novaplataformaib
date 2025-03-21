@@ -140,8 +140,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await supabase.auth.signOut()
       setUser(null)
-      sessionStorage.removeItem('user_profile')
-      router.push('/login')
+      sessionStorage.clear()
+      window.location.href = '/login'
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
     }

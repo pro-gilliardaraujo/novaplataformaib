@@ -6,7 +6,7 @@ import { usePermissions } from "@/hooks/usePermissions"
 import { PermissionType } from "@/types/user"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface ResourceGuardProps {
   resourceId: string

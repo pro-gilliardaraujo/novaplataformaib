@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+node_modules
+.next
+README.md
+.gitignore
+.eslintrc.json
+.prettierrc
+*.log 

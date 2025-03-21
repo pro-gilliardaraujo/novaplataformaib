@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/contexts/AuthContext"
 import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import {
@@ -74,14 +74,6 @@ export default function Sidebar() {
 
         // Transform categories to handle special cases
         const transformedCategories = categories?.map(category => {
-          // Make "Controle de Paradas" a single page
-          if (category.slug === 'paradas') {
-            return {
-              ...category,
-              pages: []
-            }
-          }
-
           // Sort pages by name
           const sortedPages = [...(category.pages || [])].sort((a, b) => 
             a.name.localeCompare(b.name)
