@@ -276,52 +276,65 @@ export function EquipamentosTable({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      <div className="border rounded-lg">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-black">
             <TableRow>
               {columns.map((column) => (
-                <TableHead key={column.key} className="whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <span>{column.title}</span>
-                    {column.sortable && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleSort(column.key)}
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {filterOptions[column.key]?.length > 0 && (
-                      <FilterDropdown
-                        title={column.title}
-                        options={filterOptions[column.key]}
-                        selectedOptions={filters[column.key] || new Set()}
-                        onOptionToggle={(option) => handleFilterToggle(column.key, option)}
-                        onClear={() => handleClearFilter(column.key)}
-                      />
-                    )}
+                <TableHead key={column.key} className="text-white font-medium h-[49px]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1">
+                        <span>{column.title}</span>
+                        <div className="flex items-center">
+                          {column.sortable && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-transparent"
+                              onClick={() => handleSort(column.key)}
+                            >
+                              <ArrowUpDown className={`h-4 w-4 ${
+                                sortConfig?.key === column.key
+                                  ? sortConfig.direction === 'asc'
+                                    ? 'text-white'
+                                    : 'text-white rotate-180'
+                                  : 'text-white/50'
+                              }`} />
+                            </Button>
+                          )}
+                          {filterOptions[column.key]?.length > 0 && (
+                            <FilterDropdown
+                              title={column.title}
+                              options={filterOptions[column.key]}
+                              selectedOptions={filters[column.key] || new Set()}
+                              onOptionToggle={(option) => handleFilterToggle(column.key, option)}
+                              onClear={() => handleClearFilter(column.key)}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </TableHead>
               ))}
-              <TableHead>Ações</TableHead>
+              <TableHead className="text-white font-medium h-[49px] text-center">Detalhes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.map((equipamento) => (
-              <TableRow key={equipamento.codigo_patrimonio}>
+              <TableRow key={equipamento.codigo_patrimonio} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
                 {columns.map((column) => (
-                  <TableCell key={column.key}>
-                    {column.getValue ? column.getValue(equipamento) : String(equipamento[column.key])}
+                  <TableCell key={column.key} className="py-0 border-x border-gray-100">
+                    {column.getValue ? column.getValue(equipamento) : equipamento[column.key]}
                   </TableCell>
                 ))}
-                <TableCell>
-                  <div className="flex items-center gap-2">
+                <TableCell className="py-0 border-x border-gray-100">
+                  <div className="flex justify-center">
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-8 w-8 p-0"
                       onClick={() => onView(equipamento)}
                     >
                       <Eye className="h-4 w-4" />
@@ -330,31 +343,43 @@ export function EquipamentosTable({
                 </TableCell>
               </TableRow>
             ))}
+            {/* Fill empty rows to maintain consistent height */}
+            {paginatedData.length < rowsPerPage && (
+              Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
+                <TableRow key={`empty-${index}`} className="h-[49px] border-b border-gray-200">
+                  {Array(columns.length + 1).fill(0).map((_, colIndex) => (
+                    <TableCell key={`empty-cell-${colIndex}`} className="py-0 border-x border-gray-100">&nbsp;</TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
 
       {/* Paginação */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Mostrando {paginatedData.length} de {filteredData.length} resultados
+      <div className="border-t flex items-center justify-between bg-white px-4 h-10">
+        <div className="text-sm text-gray-500">
+          Mostrando {(currentPage - 1) * rowsPerPage + 1} a {Math.min(currentPage * rowsPerPage, filteredData.length)} de {filteredData.length} resultados
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            className="h-8 w-8 p-0"
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="text-sm">
+          <span className="text-sm text-gray-600">
             Página {currentPage} de {totalPages}
-          </div>
+          </span>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            className="h-8 w-8 p-0"
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
           >
             <ChevronRight className="h-4 w-4" />
