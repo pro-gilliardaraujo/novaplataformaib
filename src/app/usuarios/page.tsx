@@ -97,6 +97,9 @@ export default function UsuariosPage() {
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onManagePermissions={(usuario) => {
+          // You can add state management for permissions modal here if needed
+        }}
       />
 
       {showNovoUsuarioModal && (
@@ -123,6 +126,9 @@ export default function UsuariosPage() {
           usuario={selectedUsuario}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onManagePermissions={(usuario) => {
+            // You can add state management for permissions modal here if needed
+          }}
         />
       )}
     </div>

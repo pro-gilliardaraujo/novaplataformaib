@@ -170,6 +170,10 @@ export default function UsuariosPage() {
               onView={handleViewUsuario}
               onEdit={handleEditClick}
               onDelete={handleDeleteUsuario}
+              onManagePermissions={(usuario) => {
+                setSelectedUsuario(usuario)
+                // You can add state management for permissions modal here if needed
+              }}
             />
           )}
         </div>
@@ -189,6 +193,10 @@ export default function UsuariosPage() {
             onOpenChange={setIsViewModalOpen}
             onEdit={handleEditClick}
             onDelete={handleDeleteUsuario}
+            onManagePermissions={(usuario) => {
+              setSelectedUsuario(usuario)
+              // You can add state management for permissions modal here if needed
+            }}
           />
 
           <EditarUsuarioModal

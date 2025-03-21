@@ -8,7 +8,7 @@ interface EquipamentosDashboardProps {
 
 export function EquipamentosDashboard({ equipamentos }: EquipamentosDashboardProps) {
   const totalEquipamentos = equipamentos.length
-  const equipamentosAtivos = equipamentos.filter(e => e.status === "ATIVO").length
+  const equipamentosAtivos = equipamentos.filter(e => e.status === "ATIVO" || !e.status).length
   const equipamentosManutencao = equipamentos.filter(e => e.status === "MANUTENCAO").length
 
   return (

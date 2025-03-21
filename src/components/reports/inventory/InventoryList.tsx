@@ -43,6 +43,7 @@ interface InventoryListProps {
     showExport: boolean
     columns: string[]
   }
+  onCategoriaCreated?: () => void
 }
 
 interface CategoriaItem {
@@ -114,7 +115,7 @@ function FilterDropdown({
   )
 }
 
-export function InventoryList({ categorias, settings }: InventoryListProps) {
+export function InventoryList({ categorias, settings, onCategoriaCreated }: InventoryListProps) {
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")

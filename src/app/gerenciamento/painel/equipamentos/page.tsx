@@ -13,6 +13,8 @@ import { AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Equipamento, NovoEquipamentoData, UpdateEquipamentoData } from "@/types/equipamento"
 import { equipamentoService } from "@/services/equipamentoService"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 export default function EquipamentosPage() {
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([])
@@ -158,6 +160,39 @@ export default function EquipamentosPage() {
               setIsEditModalOpen(true)
             }}
             onDelete={handleDeleteEquipamento}
+            searchTerm={searchTerm}
+            onExport={() => {
+              const BOM = '\uFEFF'
+              const headers = {
+                codigo_patrimonio: 'Código',
+                descricao: 'Descrição',
+                num_serie: 'Número de Série',
+                created_at: 'Data de Cadastro'
+              }
+              
+              const escapeCsvCell = (cell: string | number) => {
+                cell = String(cell).replace(/"/g, '""')
+                return /[;\n"]/.test(cell) ? `"${cell}"` : cell
+              }
+
+              const csvRows = [
+                Object.values(headers).join(';'),
+                ...filteredEquipamentos.map(equipamento => [
+                  escapeCsvCell(equipamento.codigo_patrimonio),
+                  escapeCsvCell(equipamento.descricao),
+                  escapeCsvCell(equipamento.num_serie || 'N/A'),
+                  escapeCsvCell(format(new Date(equipamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }))
+                ].join(';'))
+              ].join('\r\n')
+
+              const blob = new Blob([BOM + csvRows], { type: 'text/csv;charset=utf-8' })
+              const link = document.createElement('a')
+              link.href = URL.createObjectURL(blob)
+              link.download = `equipamentos_${format(new Date(), 'dd-MM-yyyy_HH-mm')}.csv`
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+            }}
           />
         </div>
       </div>
