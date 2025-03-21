@@ -21,18 +21,29 @@ export interface UserProfile {
   adminProfile: boolean
   firstLogin: boolean
   ultimo_acesso?: string | null
+  base_profile?: "global_admin" | "global_viewer" | "regional_admin" | "regional_viewer" | "custom"
+  unit_id?: string
+  permissions?: string[]
 }
 
 export interface NovoUsuarioData {
   nome: string
   cargo?: string
   tipo_usuario: boolean
+  permissions?: Array<{
+    page_id: string
+    can_access: boolean
+  }>
 }
 
 export interface UpdateUsuarioData {
   nome?: string
   cargo?: string
   tipo_usuario?: boolean
+  permissions?: Array<{
+    page_id: string
+    can_access: boolean
+  }>
 }
 
 export type PermissionType = "view" | "edit" | "admin"
