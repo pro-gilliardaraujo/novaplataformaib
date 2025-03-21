@@ -47,11 +47,27 @@ export default function Sidebar() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  const { data: menuData = { reports: [], management: [] }, isLoading, error } = useQuery({
+  const { data: menuData = { reports: [], management: [] }, isLoading, error, refetch } = useQuery({
     queryKey: ['menu-data'],
     queryFn: async () => {
       try {
-        console.log('Fetching menu data...')
+        console.log('Starting menu data fetch, user:', user?.id)
+        console.log('Supabase client:', supabase)
+
+        // Primeiro tenta buscar apenas categorias para testar a conexão
+        const testQuery = await supabase
+          .from('categories')
+          .select('id')
+          .limit(1)
+
+        console.log('Test query result:', testQuery)
+
+        if (testQuery.error) {
+          console.error('Test query failed:', testQuery.error)
+          throw new Error(`Connection test failed: ${testQuery.error.message}`)
+        }
+
+        // Se o teste passou, faz a query completa
         const { data: categories, error: categoriesError } = await supabase
           .from('categories')
           .select(`
@@ -61,7 +77,7 @@ export default function Sidebar() {
             section,
             icon,
             order_index,
-            pages (
+            pages!inner (
               id,
               name,
               slug,
@@ -74,14 +90,19 @@ export default function Sidebar() {
           .order('order_index')
 
         if (categoriesError) {
-          console.error('Error fetching categories:', categoriesError)
-          throw categoriesError
+          console.error('Categories query failed:', categoriesError)
+          throw new Error(`Failed to fetch categories: ${categoriesError.message}`)
         }
 
-        console.log('Categories with pages:', categories)
+        if (!categories || categories.length === 0) {
+          console.warn('No categories found')
+          return { reports: [], management: [] }
+        }
+
+        console.log('Raw categories data:', categories)
 
         // Transform categories to handle special cases
-        const transformedCategories = categories?.map(category => {
+        const transformedCategories = categories.map(category => {
           // Make "Controle de Paradas" a single page
           if (category.slug === 'paradas') {
             return {
@@ -99,16 +120,16 @@ export default function Sidebar() {
             ...category,
             pages: sortedPages
           }
-        }) || []
+        })
 
         const reports = transformedCategories.filter(cat => cat.section === 'reports')
         const management = transformedCategories.filter(cat => cat.section === 'management')
 
-        console.log('Transformed menu data:', { reports, management })
+        console.log('Final menu data:', { reports, management })
 
         return { reports, management }
       } catch (error) {
-        console.error('Error in menu data query:', error)
+        console.error('Menu data query failed:', error)
         throw error
       }
     },
@@ -381,10 +402,10 @@ export default function Sidebar() {
       ) : error ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center px-4">
-            <p className="text-red-500 mb-2">Erro ao carregar o menu</p>
+            <p className="text-red-500 mb-2">Erro ao carregar o menu: {error instanceof Error ? error.message : 'Erro desconhecido'}</p>
             <Button 
               variant="outline" 
-              onClick={() => router.refresh()}
+              onClick={() => refetch()}
               className="text-sm"
             >
               Tentar novamente
