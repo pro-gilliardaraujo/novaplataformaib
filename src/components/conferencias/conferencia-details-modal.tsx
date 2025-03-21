@@ -6,17 +6,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { Badge } from "@/components/ui/badge"
 import { Conferencia, ItemConferencia } from "@/types/conferencias"
 import { Button } from "@/components/ui/button"
-import { X, Download } from "lucide-react"
+import { X, Pencil, Trash2 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import html2canvas from "html2canvas"
-import jsPDF from "jspdf"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { cn } from "@/lib/utils"
 
 interface ConferenciaDetailsModalProps {
   conferencia: Conferencia
   open: boolean
   onOpenChange: (open: boolean) => void
   onEdit: (conferencia: Conferencia) => void
-  onMovimentacao: (conferencia: Conferencia) => void
+  onDelete: (conferencia: Conferencia) => Promise<void>
 }
 
 const columns = [
@@ -61,9 +61,10 @@ export function ConferenciaDetailsModal({
   open, 
   onOpenChange,
   onEdit,
-  onMovimentacao
+  onDelete
 }: ConferenciaDetailsModalProps) {
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -96,7 +97,7 @@ export function ConferenciaDetailsModal({
 
   const getRowBackground = (item: ItemConferencia) => {
     // Se não foi conferido (quantidade_conferida é "--"), retorna branco
-    if (typeof item.quantidade_conferida === 'string' && item.quantidade_conferida === "--") return ""
+    if (item.quantidade_conferida === "--") return ""
     
     // Se tem diferença, retorna vermelho para negativo e azul para positivo
     if (item.diferenca !== 0) {
@@ -108,190 +109,188 @@ export function ConferenciaDetailsModal({
   }
 
   const getDiferencaColor = (diferenca: number) => {
-    if (diferenca === 0) return ""
+    if (diferenca === 0) return "text-green-600"
     return diferenca < 0 ? "text-red-600" : "text-blue-600"
   }
 
-  const handleDownloadPDF = async () => {
-    setIsGeneratingPDF(true)
+  const handleDelete = async () => {
     try {
-      const modalContent = document.getElementById('conferencia-details-content')
-      if (!modalContent) return
-
-      const canvas = await html2canvas(modalContent, {
-        useCORS: true,
-        logging: false
-      })
-
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (pdfWidth * canvas.height) / canvas.width
-
-      // Adiciona o título centralizado
-      pdf.setFontSize(16)
-      pdf.text('Relatório de Conferência', pdfWidth / 2, 15, { align: 'center' })
-      pdf.setFontSize(12)
-      pdf.text(`Data: ${formatDate(conferencia.data_conferencia)}`, pdfWidth / 2, 25, { align: 'center' })
-
-      // Adiciona a imagem do conteúdo abaixo do título
-      pdf.addImage(imgData, 'PNG', 0, 35, pdfWidth, pdfHeight)
-
-      // Download direto do PDF
-      pdf.save(`conferencia_${conferencia.id}.pdf`)
+      setIsDeleting(true)
+      await onDelete(conferencia)
+      setShowDeleteDialog(false)
+      onOpenChange(false)
     } catch (error) {
-      console.error('Erro ao gerar PDF:', error)
+      console.error("Erro ao excluir conferência:", error)
     } finally {
-      setIsGeneratingPDF(false)
+      setIsDeleting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl p-0 flex flex-col h-[90vh]">
-        <DialogHeader className="h-12 border-b relative px-4">
-          <DialogTitle className="text-base font-medium absolute inset-0 flex items-center justify-center">
-            Detalhes da Conferência - {formatDate(conferencia.data_conferencia)}
-          </DialogTitle>
-          <div className="absolute right-4 flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={handleDownloadPDF}
-              disabled={isGeneratingPDF}
-            >
-              <Download className="h-4 w-4" />
-            </Button>
-            <DialogClose asChild>
-              <Button 
-                variant="outline"
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-7xl p-0 flex flex-col h-[90vh]">
+          <DialogHeader className="h-12 border-b relative px-4">
+            <DialogTitle className="text-base font-medium absolute inset-0 flex items-center justify-center">
+              Detalhes da Conferência - {formatDate(conferencia.data_conferencia)}
+            </DialogTitle>
+            <div className="absolute right-4 flex items-center gap-2">
+              <Button
+                variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
+                onClick={() => onEdit(conferencia)}
               >
-                <X className="h-4 w-4" />
+                <Pencil className="h-4 w-4" />
               </Button>
-            </DialogClose>
-          </div>
-        </DialogHeader>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <DialogClose asChild>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+          </DialogHeader>
 
-        <div id="conferencia-details-content" className="flex-1 flex flex-col min-h-0">
-          {/* Resumo */}
-          <div className="px-6 py-2 border-b">
-            <div className="grid grid-cols-7 gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-500">Total de Itens</p>
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Resumo */}
+            <div className="px-6 py-4 border-b">
+              <div className="grid grid-cols-7 gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-500">Total de Itens</p>
+                  </div>
+                  <p className="font-medium">{conferencia.total_itens}</p>
                 </div>
-                <p className="font-medium">{conferencia.total_itens}</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-500">Conferidos</p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-500">Conferidos</p>
+                  </div>
+                  <p className="font-medium">
+                    {conferencia.itens?.filter(item => 
+                      item.quantidade_conferida !== "--"
+                    ).length || 0}/{conferencia.total_itens}
+                  </p>
                 </div>
-                <p className="font-medium">
-                  {conferencia.itens?.filter(item => 
-                    typeof item.quantidade_conferida === 'number'
-                  ).length || 0}/{conferencia.total_itens}
-                </p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-500">Não Conferidos</p>
-                  <div className="h-3 w-3 rounded bg-white border border-gray-300" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-500">Não Conferidos</p>
+                    <div className="h-3 w-3 rounded bg-white border border-gray-300" />
+                  </div>
+                  <p className="font-medium">
+                    {conferencia.itens?.filter(item => 
+                      item.quantidade_conferida === "--"
+                    ).length || 0}
+                  </p>
                 </div>
-                <p className="font-medium">
-                  {conferencia.itens?.filter(item => 
-                    typeof item.quantidade_conferida === 'string' && item.quantidade_conferida === "--"
-                  ).length || 0}
-                </p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-500">Sem Alteração</p>
-                  <div className="h-3 w-3 rounded bg-green-50 border border-green-600" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-500">Divergentes</p>
+                    <div className="h-3 w-3 rounded bg-red-500" />
+                  </div>
+                  <p className="font-medium">
+                    {conferencia.itens?.filter(item => 
+                      item.quantidade_conferida !== "--" &&
+                      item.diferenca !== 0
+                    ).length || 0}
+                  </p>
                 </div>
-                <p className="font-medium">
-                  {conferencia.itens?.filter(item => 
-                    typeof item.quantidade_conferida === 'number' &&
-                    item.diferenca === 0
-                  ).length || 0}
-                </p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-500">Divergência Negativa</p>
-                  <div className="h-3 w-3 rounded bg-red-50 border border-red-600" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-500">Responsáveis</p>
+                  </div>
+                  <p className="font-medium truncate">
+                    {conferencia.responsaveis}
+                  </p>
                 </div>
-                <p className="font-medium">
-                  {conferencia.itens?.filter(item => 
-                    item.diferenca < 0
-                  ).length || 0}
-                </p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-500">Divergência Positiva</p>
-                  <div className="h-3 w-3 rounded bg-blue-50 border border-blue-600" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-500">Status</p>
+                  </div>
+                  <Badge className={getStatusColor(conferencia.status)}>
+                    {getStatusText(conferencia.status)}
+                  </Badge>
                 </div>
-                <p className="font-medium">
-                  {conferencia.itens?.filter(item => 
-                    item.diferenca > 0
-                  ).length || 0}
-                </p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-500">Status</p>
-                </div>
-                <Badge className={getStatusColor(conferencia.status)}>
-                  {getStatusText(conferencia.status)}
-                </Badge>
               </div>
             </div>
-          </div>
 
-          {/* Tabela de Itens */}
-          <div className="flex-1 min-h-0">
-            <ScrollArea className="h-full">
-              <div className="p-6">
-                <div className="border rounded-lg">
-                  <Table>
-                    <TableHeader className="bg-black">
-                      <TableRow>
-                        {columns.map((column) => (
-                          <TableHead key={column.key} className={`text-white font-medium h-10 ${column.className}`}>
-                            {column.title}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {conferencia.itens?.map((item) => (
-                        <TableRow 
-                          key={item.id} 
-                          className={`h-[44px] hover:bg-gray-50/50 border-b border-gray-200 ${getRowBackground(item)}`}
-                        >
+            {/* Tabela de Itens */}
+            <div className="flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <div className="p-6">
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader className="bg-black">
+                        <TableRow>
                           {columns.map((column) => (
-                            <TableCell 
-                              key={column.key} 
-                              className={`py-0 ${column.className} ${
-                                column.key === "diferenca" ? getDiferencaColor(item.diferenca) : ""
-                              }`}
-                            >
-                              {column.getValue(item)}
-                            </TableCell>
+                            <TableHead key={column.key} className={`text-white font-medium h-10 ${column.className}`}>
+                              {column.title}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {conferencia.itens?.map((item) => (
+                          <TableRow 
+                            key={item.id} 
+                            className={cn(
+                              "h-12 hover:bg-gray-50/50",
+                              getRowBackground(item)
+                            )}
+                          >
+                            {columns.map((column) => (
+                              <TableCell 
+                                key={column.key} 
+                                className={`py-1 ${column.className} ${
+                                  column.key === "diferenca" ? getDiferencaColor(item.diferenca) : ""
+                                }`}
+                              >
+                                {column.getValue(item)}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              </div>
-            </ScrollArea>
+              </ScrollArea>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Conferência</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta conferência? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 } 

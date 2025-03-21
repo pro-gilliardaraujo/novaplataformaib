@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Eye, Plus, Search, ArrowUpDown } from "lucid
 import { FilterDropdown } from "@/components/filter-dropdown"
 import { ConferenciaDetailsModal } from "./conferencia-details-modal"
 import { NovaConferenciaModal } from "./nova-conferencia-modal"
+import { EditarConferenciaModal } from "./editar-conferencia-modal"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useToast } from "@/components/ui/use-toast"
 import { Conferencia } from "@/types/conferencias"
@@ -69,6 +70,7 @@ export function ConferenciasTable() {
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<FilterState>({})
   const [selectedConferencia, setSelectedConferencia] = useState<Conferencia | null>(null)
+  const [selectedConferenciaForEdit, setSelectedConferenciaForEdit] = useState<Conferencia | null>(null)
   const [conferencias, setConferencias] = useState<Conferencia[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -117,7 +119,8 @@ export function ConferenciasTable() {
           quantidade_sistema,
           quantidade_conferida,
           diferenca,
-          item:item_id (
+          observacoes,
+          item:itens_estoque!inner (
             codigo_fabricante,
             descricao
           )
@@ -126,26 +129,28 @@ export function ConferenciasTable() {
 
       if (error) throw error
 
-      interface ItemConferenciaResponse {
+      type ItemResponse = {
         id: string
         item_id: string
         quantidade_sistema: number
-        quantidade_conferida: number
-        diferenca: number
+        quantidade_conferida: number | null
+        diferenca: number | null
+        observacoes: string | null
         item: {
           codigo_fabricante: string
           descricao: string
         }
       }
 
-      const itens = (itensData as unknown as ItemConferenciaResponse[]).map(item => ({
+      const itens = (itensData as unknown as ItemResponse[]).map(item => ({
         id: item.id,
         item_id: item.item_id,
         codigo_patrimonio: item.item.codigo_fabricante,
         descricao: item.item.descricao,
         quantidade_sistema: item.quantidade_sistema,
-        quantidade_conferida: item.quantidade_conferida,
-        diferenca: item.diferenca
+        quantidade_conferida: item.quantidade_conferida === null ? ("--" as const) : item.quantidade_conferida,
+        diferenca: item.diferenca || 0,
+        observacoes: item.observacoes
       }))
 
       setSelectedConferencia({
@@ -271,37 +276,146 @@ export function ConferenciasTable() {
     loadConferenciaDetails(conferencia)
   }
 
+  const handleEditConferencia = (conferencia: Conferencia) => {
+    setSelectedConferenciaForEdit(conferencia)
+  }
+
+  const handleDeleteConferencia = async (conferencia: Conferencia) => {
+    try {
+      const { error } = await supabase
+        .from("conferencias_estoque")
+        .delete()
+        .eq("id", conferencia.id)
+
+      if (error) throw error
+
+      await loadConferencias()
+      toast({
+        title: "Sucesso",
+        description: "Conferência excluída com sucesso!"
+      })
+    } catch (error) {
+      console.error("Erro ao excluir conferência:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao excluir conferência",
+        description: "Não foi possível excluir a conferência."
+      })
+      throw error
+    }
+  }
+
+  const handleConferenciaEdited = async (conferencia: Conferencia) => {
+    try {
+      const { error } = await supabase
+        .from("conferencias_estoque")
+        .update({
+          responsaveis: conferencia.responsaveis,
+          observacoes: conferencia.observacoes,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", conferencia.id)
+
+      if (error) throw error
+
+      await loadConferencias()
+      setSelectedConferenciaForEdit(null)
+      toast({
+        title: "Sucesso",
+        description: "Conferência atualizada com sucesso!"
+      })
+    } catch (error) {
+      console.error("Erro ao atualizar conferência:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar conferência",
+        description: "Não foi possível atualizar a conferência."
+      })
+      throw error
+    }
+  }
+
+  const testarAlteracoes = async () => {
+    try {
+      // 1. Criar uma nova conferência
+      const { data: conferencia, error: confError } = await supabase
+        .from('conferencias_estoque')
+        .insert({
+          status: 'concluida',
+          responsaveis: 'Teste',
+          total_itens: 3,
+          itens_conferidos: 2,
+          itens_divergentes: 1
+        })
+        .select()
+        .single();
+
+      if (confError) throw confError;
+
+      // 2. Buscar alguns itens do estoque para usar no teste
+      const { data: itensEstoque, error: itensError } = await supabase
+        .from('itens_estoque')
+        .select('id')
+        .limit(3);
+
+      if (itensError) throw itensError;
+
+      // 3. Inserir itens de teste
+      const itensConferencia = itensEstoque.map((item, index) => ({
+        conferencia_id: conferencia.id,
+        item_id: item.id,
+        quantidade_sistema: 10,
+        quantidade_conferida: index === 2 ? null : index === 1 ? 8 : 12, // null, menor, maior
+        observacoes: `Teste ${index + 1}`
+      }));
+
+      const { data: itensInseridos, error: insertError } = await supabase
+        .from('itens_conferencia')
+        .insert(itensConferencia)
+        .select('quantidade_sistema, quantidade_conferida, diferenca, observacoes');
+
+      if (insertError) throw insertError;
+
+      console.log('Teste concluído com sucesso!');
+      console.log('Itens inseridos:', itensInseridos);
+
+      // 4. Carregar a conferência para ver como aparece na interface
+      await loadConferenciaDetails(conferencia);
+
+    } catch (error) {
+      console.error('Erro no teste:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro no teste",
+        description: "Verifique o console para mais detalhes."
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar conferências..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 max-w-[400px]"
-            />
-          </div>
-        </div>
-        <Button 
+      <div className="flex justify-between items-center bg-white">
+        <Input 
+          className="max-w-md" 
+          placeholder="Buscar conferências..." 
+          type="search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Button
+          className="bg-black hover:bg-black/90 text-white"
           onClick={() => setIsNewConferenciaModalOpen(true)}
-          className="flex items-center gap-2"
         >
-          <Plus className="h-4 w-4" />
-          Nova Conferência
+          <Plus className="mr-2 h-4 w-4" /> Nova Conferência
         </Button>
       </div>
 
-      {/* Table */}
       <div className="border rounded-lg">
         <Table>
           <TableHeader className="bg-black">
             <TableRow>
               {columns.map((column) => (
-                <TableHead key={column.key} className="text-white font-medium h-[49px]">
+                <TableHead key={column.key} className="text-white font-medium h-[47px]">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-1">
@@ -310,12 +424,16 @@ export function ConferenciasTable() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={`h-7 w-7 p-0 hover:bg-white/20 ${
-                              sortConfig.key === column.key ? 'text-white' : 'text-white/70'
-                            }`}
+                            className="h-8 w-8 p-0 hover:bg-transparent"
                             onClick={() => handleSort(column.key)}
                           >
-                            <ArrowUpDown className="h-3.5 w-3.5" />
+                            <ArrowUpDown className={`h-4 w-4 ${
+                              sortConfig.key === column.key
+                                ? sortConfig.direction === 'asc'
+                                  ? 'text-white'
+                                  : 'text-white rotate-180'
+                                : 'text-white/50'
+                            }`} />
                           </Button>
                         )}
                         <FilterDropdown
@@ -330,108 +448,105 @@ export function ConferenciasTable() {
                   </div>
                 </TableHead>
               ))}
-              <TableHead className="text-white font-medium h-[49px]">Ações</TableHead>
+              <TableHead className="text-white font-medium h-[47px] text-center">Detalhes</TableHead>
             </TableRow>
           </TableHeader>
-
           <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} className="h-[49px] text-center">
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div>
+            {paginatedData.map((conferencia) => (
+              <TableRow key={conferencia.id} className="h-[47px] hover:bg-gray-50 border-b border-gray-200">
+                {columns.map((column) => (
+                  <TableCell key={column.key} className="py-0 border-x border-gray-100">
+                    {column.getValue(conferencia)}
+                  </TableCell>
+                ))}
+                <TableCell className="py-0 border-x border-gray-100">
+                  <div className="flex justify-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleViewConferencia(conferencia)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
-            ) : paginatedData.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} className="h-[49px] text-center">
-                  Nenhuma conferência encontrada
-                </TableCell>
-              </TableRow>
-            ) : (
-              <>
-                {paginatedData.map((conferencia) => (
-                  <TableRow key={conferencia.id} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
-                    {columns.map((column) => (
-                      <TableCell key={column.key} className="py-0">
-                        {column.getValue(conferencia)}
-                      </TableCell>
-                    ))}
-                    <TableCell className="py-0">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleViewConferencia(conferencia)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {paginatedData.length < rowsPerPage && (
-                  Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-                    <TableRow key={`empty-${index}`} className="h-[49px] border-b border-gray-200">
-                      {Array(columns.length + 1).fill(0).map((_, colIndex) => (
-                        <TableCell key={`empty-cell-${colIndex}`} className="py-0">&nbsp;</TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                )}
-              </>
+            ))}
+            {/* Fill empty rows to maintain consistent height */}
+            {paginatedData.length < rowsPerPage && (
+              Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
+                <TableRow key={`empty-${index}`} className="h-[47px] border-b border-gray-200">
+                  {Array(columns.length + 1).fill(0).map((_, colIndex) => (
+                    <TableCell key={`empty-cell-${colIndex}`} className="py-0 border-x border-gray-100">&nbsp;</TableCell>
+                  ))}
+                </TableRow>
+              ))
             )}
           </TableBody>
+          {/* Paginação como parte da tabela */}
+          <tfoot>
+            <tr>
+              <td colSpan={columns.length + 1} className="px-4 h-[47px] border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-500">
+                    Mostrando {(currentPage - 1) * rowsPerPage + 1} a {Math.min(currentPage * rowsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} resultados
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-gray-600">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </Table>
-
-        {/* Pagination */}
-        <div className="border-t flex items-center justify-between bg-white px-4 h-10">
-          <div className="text-sm text-gray-500">
-            Mostrando {startIndex + 1} a {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} resultados
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-gray-600">
-              Página {currentPage} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
       </div>
 
       {/* Modals */}
-      <NovaConferenciaModal
-        open={isNewConferenciaModalOpen}
-        onOpenChange={setIsNewConferenciaModalOpen}
-        onConferenciaCreated={handleConferenciaCreated}
-      />
-
       {selectedConferencia && (
         <ConferenciaDetailsModal
           open={!!selectedConferencia}
           onOpenChange={(open) => !open && setSelectedConferencia(null)}
           conferencia={selectedConferencia}
-          onEdit={() => {}}
-          onMovimentacao={() => {}}
+          onEdit={handleEditConferencia}
+          onDelete={handleDeleteConferencia}
         />
       )}
+
+      {selectedConferenciaForEdit && (
+        <EditarConferenciaModal
+          open={!!selectedConferenciaForEdit}
+          onOpenChange={(open) => !open && setSelectedConferenciaForEdit(null)}
+          conferencia={selectedConferenciaForEdit}
+          onConferenciaEdited={handleConferenciaEdited}
+        />
+      )}
+
+      <NovaConferenciaModal
+        open={isNewConferenciaModalOpen}
+        onOpenChange={setIsNewConferenciaModalOpen}
+        onConferenciaCreated={handleConferenciaCreated}
+      />
     </div>
   )
 } 

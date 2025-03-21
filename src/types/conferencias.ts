@@ -11,12 +11,14 @@ export interface ItemConferencia {
 export interface Conferencia {
   id: string
   data_conferencia: string
+  data_fim?: string
   status: "em_andamento" | "concluida" | "cancelada"
+  responsaveis: string
   total_itens: number
   itens_conferidos: number
   itens_divergentes: number
-  responsaveis: string
+  observacoes?: string
+  itens?: ItemConferencia[]
   created_at: string
   updated_at: string
-  itens?: ItemConferencia[]
 } 

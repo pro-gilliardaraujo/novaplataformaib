@@ -281,7 +281,7 @@ export function EquipamentosTable({
           <TableHeader className="bg-black">
             <TableRow>
               {columns.map((column) => (
-                <TableHead key={column.key} className="text-white font-medium h-[49px]">
+                <TableHead key={column.key} className="text-white font-medium h-[48px]">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-1">
@@ -318,12 +318,12 @@ export function EquipamentosTable({
                   </div>
                 </TableHead>
               ))}
-              <TableHead className="text-white font-medium h-[49px] text-center">Detalhes</TableHead>
+              <TableHead className="text-white font-medium h-[48px] text-center">Detalhes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.map((equipamento) => (
-              <TableRow key={equipamento.codigo_patrimonio} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
+              <TableRow key={equipamento.codigo_patrimonio} className="h-[48px] hover:bg-gray-50 border-b border-gray-200">
                 {columns.map((column) => (
                   <TableCell key={column.key} className="py-0 border-x border-gray-100">
                     {column.getValue ? column.getValue(equipamento) : equipamento[column.key]}
@@ -354,37 +354,42 @@ export function EquipamentosTable({
               ))
             )}
           </TableBody>
+          {/* Paginação como parte da tabela */}
+          <tfoot>
+            <tr>
+              <td colSpan={columns.length + 1} className="px-4 h-[48px] border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-500">
+                    Mostrando {(currentPage - 1) * rowsPerPage + 1} a {Math.min(currentPage * rowsPerPage, filteredData.length)} de {filteredData.length} resultados
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-gray-600">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </Table>
-      </div>
-
-      {/* Paginação */}
-      <div className="border-t flex items-center justify-between bg-white px-4 h-10">
-        <div className="text-sm text-gray-500">
-          Mostrando {(currentPage - 1) * rowsPerPage + 1} a {Math.min(currentPage * rowsPerPage, filteredData.length)} de {filteredData.length} resultados
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-gray-600">
-            Página {currentPage} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
       </div>
     </div>
   )

@@ -192,7 +192,7 @@ export default function LoginPage() {
           {step === "email" ? (
             <form onSubmit={handleEmailSubmit} className="space-y-6">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 text-center">
                   Email Corporativo
                 </label>
                 <Input
@@ -206,9 +206,9 @@ export default function LoginPage() {
                   pattern="[a-z0-9._%+-]+@ib\.logistica$"
                   title="Use seu email corporativo (@ib.logistica)"
                 />
-                <p className="mt-1 text-sm text-gray-500">
-                  Use seu email corporativo (nome@ib.logistica) ou (nome.sobrenome@ib.logistica)
-                </p>
+                <p className="mt-1 text-sm text-gray-500 text-center">
+                  Use seu email corporativo</p>
+                <p className="mt-1 text-sm text-gray-500 text-center">(nome@ib.logistica) ou (nome.sobrenome@ib.logistica)</p>
               </div>
 
               <Button

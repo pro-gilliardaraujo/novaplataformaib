@@ -105,6 +105,7 @@ export function NovaConferenciaModal({ open, onOpenChange, onConferenciaCreated 
       loadItens()
       loadProfiles()
       setSelectedProfiles([])
+      setSearchTerm("")
     }
   }, [open])
 
@@ -127,9 +128,13 @@ export function NovaConferenciaModal({ open, onOpenChange, onConferenciaCreated 
       if (error) throw error
 
       setItens(itensEstoque.map(item => ({
-        ...item,
+        id: item.id,
+        codigo_fabricante: item.codigo_fabricante,
+        descricao: item.descricao,
         quantidade: item.quantidade_atual,
-        quantidade_conferida: undefined
+        quantidade_conferida: undefined,
+        diferenca: undefined,
+        observacoes: ""
       })))
     } catch (error) {
       console.error("Erro ao carregar itens:", error)
@@ -211,59 +216,44 @@ export function NovaConferenciaModal({ open, onOpenChange, onConferenciaCreated 
   }
 
   const handleConfirmarConferencia = async () => {
-    setIsLoading(true)
-    console.log("Iniciando criação da conferência...")
-
-    // Add timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      setIsLoading(false)
-      setShowConfirmacao(false)
+    if (selectedProfiles.length === 0) {
       toast({
         variant: "destructive",
-        title: "Tempo excedido",
-        description: "A operação demorou muito tempo. Por favor, tente novamente.",
-        duration: 5000
+        title: "Selecione os responsáveis",
+        description: "É necessário selecionar pelo menos um responsável para a conferência."
       })
-    }, 30000) // 30 seconds timeout
+      return
+    }
+
+    setIsLoading(true)
 
     try {
-      // Get responsible users' names
-      const responsaveisNomes = selectedProfiles
-        .map(id => profiles.find(p => p.id === id)?.nome)
-        .filter(Boolean)
-        .join(", ")
+      // Preparar dados da conferência
+      const itensConferidos = itens.filter(item => 
+        item.quantidade_conferida !== undefined && 
+        item.quantidade_conferida !== "--" && 
+        typeof item.quantidade_conferida === 'number'
+      )
 
-      const itensDivergentes = itens.filter(item => 
-        typeof item.quantidade_conferida === 'number' && 
+      const itensDivergentes = itensConferidos.filter(item => 
         item.quantidade_conferida !== item.quantidade
-      ).length
+      )
 
-      const dadosConferencia = {
-        data_conferencia: dataInicio.toISOString(),
-        status: "concluida",
-        responsaveis: responsaveisNomes,
-        total_itens: itens.length,
-        itens_conferidos: itens.filter(item => 
-          typeof item.quantidade_conferida === 'number'
-        ).length,
-        itens_divergentes: itensDivergentes
-      }
-
-      console.log("Dados da conferência:", dadosConferencia)
-
-      // Create conference and items in a single transaction
+      // Chamar a função RPC
       const { data, error } = await supabase.rpc('criar_conferencia', {
-        p_data_conferencia: dadosConferencia.data_conferencia,
-        p_status: dadosConferencia.status,
-        p_responsaveis: responsaveisNomes,
-        p_total_itens: dadosConferencia.total_itens,
-        p_itens_conferidos: dadosConferencia.itens_conferidos,
-        p_itens_divergentes: dadosConferencia.itens_divergentes,
+        p_data_conferencia: dataInicio.toISOString(),
+        p_status: 'concluida',
+        p_responsaveis: selectedProfiles.map(id => {
+          const profile = profiles.find(p => p.id === id)
+          return profile?.nome || id
+        }).join(', '),
+        p_total_itens: itens.length,
+        p_itens_conferidos: itensConferidos.length,
+        p_itens_divergentes: itensDivergentes.length,
         p_itens: itens.map(item => ({
           item_id: item.id,
           quantidade_sistema: item.quantidade,
-          quantidade_conferida: item.quantidade_conferida === "--" ? item.quantidade : item.quantidade_conferida!,
-          diferenca: item.quantidade_conferida === "--" ? 0 : (item.diferenca || 0),
+          quantidade_conferida: typeof item.quantidade_conferida === 'number' ? item.quantidade_conferida : null,
           observacoes: item.observacoes || null
         }))
       })
@@ -279,9 +269,6 @@ export function NovaConferenciaModal({ open, onOpenChange, onConferenciaCreated 
       }
 
       console.log("Conferência criada com sucesso:", data)
-
-      // Clear timeout on success
-      clearTimeout(timeoutId)
       
       toast({
         title: "Conferência finalizada",
@@ -290,32 +277,14 @@ export function NovaConferenciaModal({ open, onOpenChange, onConferenciaCreated 
 
       onConferenciaCreated()
       onOpenChange(false)
-    } catch (error: any) {
-      // Clear timeout on error
-      clearTimeout(timeoutId)
-
-      console.error("Erro detalhado ao finalizar conferência:", error)
-      let errorMessage = "Não foi possível salvar a conferência."
-      
-      if (error?.code) {
-        errorMessage += ` Código: ${error.code}`
-      }
-      if (error?.message) {
-        errorMessage += ` Detalhes: ${error.message}`
-      }
-      if (error?.details) {
-        errorMessage += ` Info: ${error.details}`
-      }
-
+    } catch (error) {
+      console.error("Erro ao finalizar conferência:", error)
       toast({
         variant: "destructive",
         title: "Erro ao finalizar conferência",
-        description: errorMessage,
-        duration: 5000
+        description: "Não foi possível finalizar a conferência. Por favor, tente novamente."
       })
     } finally {
-      // Clear timeout in finally block just in case
-      clearTimeout(timeoutId)
       setIsLoading(false)
       setShowConfirmacao(false)
     }
@@ -488,20 +457,21 @@ export function NovaConferenciaModal({ open, onOpenChange, onConferenciaCreated 
       {showConfirmacao && (
         <Dialog open={showConfirmacao} onOpenChange={setShowConfirmacao}>
           <DialogContent className="max-w-7xl p-0 flex flex-col h-[90vh]">
-            <DialogHeader className="h-12 border-b relative px-4">
-              <DialogTitle className="text-base font-medium text-center">
+            <div className="h-12 border-b flex items-center justify-between px-4">
+              <div className="w-8" /> {/* Spacer */}
+              <div className="text-base font-medium">
                 Confirmar Conferência - {dataInicio.toLocaleDateString()} às {dataInicio.toLocaleTimeString()}
-              </DialogTitle>
+              </div>
               <DialogClose asChild>
                 <Button 
                   variant="outline"
                   size="sm"
-                  className="h-8 w-8 p-0 absolute right-4"
+                  className="h-8 w-8 p-0"
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </DialogClose>
-            </DialogHeader>
+            </div>
 
             <div className="flex-1 flex flex-col min-h-0">
               {/* Resumo */}
@@ -519,6 +489,8 @@ export function NovaConferenciaModal({ open, onOpenChange, onConferenciaCreated 
                     </div>
                     <p className="font-medium">
                       {itens.filter(item => 
+                        item.quantidade_conferida !== undefined && 
+                        item.quantidade_conferida !== "--" && 
                         typeof item.quantidade_conferida === 'number'
                       ).length}/{itens.length}
                     </p>
@@ -530,45 +502,23 @@ export function NovaConferenciaModal({ open, onOpenChange, onConferenciaCreated 
                     </div>
                     <p className="font-medium">
                       {itens.filter(item => 
-                        typeof item.quantidade_conferida === 'string' && item.quantidade_conferida === "--"
+                        item.quantidade_conferida === undefined || 
+                        item.quantidade_conferida === "--" || 
+                        typeof item.quantidade_conferida !== 'number'
                       ).length}
                     </p>
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm text-gray-500">Sem Alteração</p>
-                      <div className="h-3 w-3 rounded bg-green-50 border border-green-600" />
+                      <p className="text-sm text-gray-500">Divergentes</p>
+                      <div className="h-3 w-3 rounded bg-red-500" />
                     </div>
                     <p className="font-medium">
                       {itens.filter(item => 
+                        item.quantidade_conferida !== undefined && 
+                        item.quantidade_conferida !== "--" && 
                         typeof item.quantidade_conferida === 'number' && 
-                        item.quantidade_conferida === item.quantidade
-                      ).length}
-                    </p>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-gray-500">Divergência Positiva</p>
-                      <div className="h-3 w-3 rounded bg-blue-50 border border-blue-600" />
-                    </div>
-                    <p className="font-medium">
-                      {itens.filter(item => 
-                        typeof item.quantidade_conferida === 'number' && 
-                        item.diferenca !== undefined && 
-                        item.diferenca > 0
-                      ).length}
-                    </p>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-gray-500">Divergência Negativa</p>
-                      <div className="h-3 w-3 rounded bg-red-50 border border-red-600" />
-                    </div>
-                    <p className="font-medium">
-                      {itens.filter(item => 
-                        typeof item.quantidade_conferida === 'number' && 
-                        item.diferenca !== undefined && 
-                        item.diferenca < 0
+                        item.quantidade_conferida !== item.quantidade
                       ).length}
                     </p>
                   </div>
