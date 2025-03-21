@@ -25,20 +25,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
-  const [isHydrated, setIsHydrated] = useState(false)
 
   console.log('[Auth] Estado inicial:', {
     hasUser: !!user,
     loading,
-    isHydrated,
     pathname
   })
-
-  // Efeito para hidratação inicial
-  useEffect(() => {
-    console.log('[Auth] Hidratação completa')
-    setIsHydrated(true)
-  }, [])
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -75,35 +67,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(userData)
-      
-      // Só armazena no sessionStorage após a hidratação
-      if (typeof window !== 'undefined' && isHydrated) {
-        console.log('[Auth] Salvando usuário no sessionStorage')
-        sessionStorage.setItem('user_profile', JSON.stringify(userData))
-      }
+      sessionStorage.setItem('user_profile', JSON.stringify(userData))
     } catch (error) {
       console.error('[Auth] Erro ao buscar perfil do usuário:', error)
-      // Só tenta recuperar do cache após a hidratação
-      if (typeof window !== 'undefined' && isHydrated) {
-        const cachedUser = sessionStorage.getItem('user_profile')
-        if (cachedUser) {
-          console.log('[Auth] Usando dados do cache')
-          setUser(JSON.parse(cachedUser))
-        }
+      const cachedUser = sessionStorage.getItem('user_profile')
+      if (cachedUser) {
+        console.log('[Auth] Usando dados do cache')
+        setUser(JSON.parse(cachedUser))
       }
     } finally {
       setLoading(false)
-    }
-  }
-
-  const refreshUser = async () => {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    if (error) {
-      console.error('Erro ao obter sessão:', error)
-      return
-    }
-    if (session?.user) {
-      await fetchUserProfile(session.user.id)
     }
   }
 
@@ -114,16 +87,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('[Auth] Iniciando autenticação...')
         
-        // Só tenta usar o cache após a hidratação
-        if (typeof window !== 'undefined' && isHydrated) {
-          const cachedUser = sessionStorage.getItem('user_profile')
-          if (cachedUser && mounted) {
-            console.log('[Auth] Usando dados do cache')
-            setUser(JSON.parse(cachedUser))
-          }
+        const cachedUser = sessionStorage.getItem('user_profile')
+        if (cachedUser && mounted) {
+          console.log('[Auth] Usando dados do cache')
+          setUser(JSON.parse(cachedUser))
+          setLoading(false)
+          return
         }
 
-        // Verifica a sessão no Supabase
         console.log('[Auth] Verificando sessão...')
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         if (sessionError) {
@@ -140,9 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('[Auth] Nenhuma sessão ativa')
           if (mounted) {
             setUser(null)
-            if (typeof window !== 'undefined' && isHydrated) {
-              sessionStorage.removeItem('user_profile')
-            }
+            sessionStorage.removeItem('user_profile')
             if (pathname !== '/login') {
               router.push('/login')
             }
@@ -152,9 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('[Auth] Erro na inicialização da autenticação:', error)
         if (mounted) {
           setUser(null)
-          if (typeof window !== 'undefined' && isHydrated) {
-            sessionStorage.removeItem('user_profile')
-          }
+          sessionStorage.removeItem('user_profile')
           setLoading(false)
           if (pathname !== '/login') {
             router.push('/login')
@@ -167,23 +134,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Só inicia a autenticação após a hidratação
-    if (isHydrated) {
-      initAuth()
-    }
+    initAuth()
 
-    // Configura o listener para mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Mudança de estado de autenticação:', event)
+      console.log('[Auth] Mudança de estado:', event)
       if (!mounted) return
 
       if (session?.user) {
         await fetchUserProfile(session.user.id)
       } else {
         setUser(null)
-        if (typeof window !== 'undefined' && isHydrated) {
-          sessionStorage.removeItem('user_profile')
-        }
+        sessionStorage.removeItem('user_profile')
         setLoading(false)
         if (pathname !== '/login') {
           router.push('/login')
@@ -191,54 +152,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // Adiciona listener para fechamento da página/navegador
-    const handleBeforeUnload = async () => {
-      if (typeof window !== 'undefined' && isHydrated) {
-        try {
-          await supabase.auth.signOut()
-          sessionStorage.removeItem('user_profile')
-        } catch (error) {
-          console.error('Erro ao fazer logout no fechamento:', error)
-        }
-      }
-    }
-
-    if (typeof window !== 'undefined' && isHydrated) {
-      window.addEventListener('beforeunload', handleBeforeUnload)
-    }
-
     return () => {
       mounted = false
       subscription.unsubscribe()
-      if (typeof window !== 'undefined' && isHydrated) {
-        window.removeEventListener('beforeunload', handleBeforeUnload)
-      }
     }
-  }, [pathname, router, isHydrated])
-
-  // Não renderiza nada até a hidratação estar completa
-  if (!isHydrated) {
-    return null
-  }
+  }, [pathname, router])
 
   const signOut = async () => {
     try {
-      console.log('Starting signOut process...')
+      console.log('[Auth] Iniciando logout...')
       const { error } = await supabase.auth.signOut()
       if (error) {
-        console.error('Error during signOut:', error)
+        console.error('[Auth] Erro durante logout:', error)
         throw error
       }
-      console.log('Successfully signed out from Supabase')
+      console.log('[Auth] Logout realizado com sucesso')
       setUser(null)
-      if (typeof window !== 'undefined' && isHydrated) {
-        sessionStorage.removeItem('user_profile')
-      }
-      console.log('Cleared user data from state and session storage')
+      sessionStorage.removeItem('user_profile')
       router.push('/login')
-      console.log('Redirecting to login page...')
     } catch (error) {
-      console.error('Error in signOut function:', error)
+      console.error('[Auth] Erro na função de logout:', error)
+    }
+  }
+
+  const refreshUser = async () => {
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) {
+      console.error('Erro ao obter sessão:', error)
+      return
+    }
+    if (session?.user) {
+      await fetchUserProfile(session.user.id)
     }
   }
 

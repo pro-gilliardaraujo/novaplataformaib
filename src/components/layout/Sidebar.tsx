@@ -44,86 +44,18 @@ export default function Sidebar() {
   const { user, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [isHydrated, setIsHydrated] = useState(false)
-  const [expandedCategories, setExpandedCategories] = useState<string[]>([])
-  const [showSettings, setShowSettings] = useState(false)
 
   console.log('[Sidebar] Estado inicial:', {
     hasUser: !!user,
     authLoading,
-    isHydrated,
-    expandedCategories,
-    showSettings
+    pathname
   })
 
-  useEffect(() => {
-    console.log('[Sidebar] Hidratação completa')
-    setIsHydrated(true)
-  }, [])
-
-  useEffect(() => {
-    console.log('[Sidebar] Usuário mudou:', {
-      hasUser: !!user,
-      authLoading
-    })
-  }, [user, authLoading])
-
-  const { data: categories, isLoading: isLoadingCategories, error } = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      console.log('[Sidebar] Buscando categorias...')
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session) {
-        console.log('[Sidebar] Sem sessão ativa')
-        return []
-      }
-
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('id')
-
-      if (error) {
-        console.error('[Sidebar] Erro ao buscar categorias:', error)
-        throw error
-      }
-
-      console.log('[Sidebar] Categorias encontradas:', data?.length || 0)
-      return data || []
-    },
-    enabled: !!user && !authLoading && isHydrated,
-    staleTime: 1000 * 60 * 5, // 5 minutos
-    retry: 3,
-    retryDelay: 1000
-  })
-
-  if (error) {
-    console.error('[Sidebar] Erro na query:', error)
-  }
-
-  const loading = authLoading || isLoadingCategories || !isHydrated
-
-  if (loading) {
-    console.log('[Sidebar] Carregando...', {
-      authLoading,
-      isLoadingCategories,
-      isHydrated
-    })
-    return <div>Carregando...</div>
-  }
-
-  if (!user) {
-    console.log('[Sidebar] Sem usuário')
-    return null
-  }
-
-  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error: menuError } = useQuery({
+  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading } = useQuery({
     queryKey: ['menu-data'],
     queryFn: async () => {
       console.log('[Sidebar] Iniciando busca dos dados do menu...')
       try {
-        // Verifica se tem sessão ativa antes de fazer a query
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
           console.log('[Sidebar] Sem sessão ativa, não buscando menu')
@@ -157,29 +89,8 @@ export default function Sidebar() {
 
         console.log('[Sidebar] Categorias encontradas:', categories?.length || 0)
 
-        // Transform categories to handle special cases
-        const transformedCategories = categories?.map(category => {
-          // Make "Controle de Paradas" a single page
-          if (category.slug === 'paradas') {
-            return {
-              ...category,
-              pages: []
-            }
-          }
-
-          // Sort pages by name
-          const sortedPages = [...(category.pages || [])].sort((a, b) => 
-            a.name.localeCompare(b.name)
-          )
-
-          return {
-            ...category,
-            pages: sortedPages
-          }
-        }) || []
-
-        const reports = transformedCategories.filter(cat => cat.section === 'reports')
-        const management = transformedCategories.filter(cat => cat.section === 'management')
+        const reports = categories?.filter(cat => cat.section === 'reports') || []
+        const management = categories?.filter(cat => cat.section === 'management') || []
 
         console.log('[Sidebar] Menu processado:', {
           reportsCount: reports.length,
@@ -192,21 +103,13 @@ export default function Sidebar() {
         throw error
       }
     },
-    enabled: !!user && !authLoading && isHydrated,
+    enabled: !!user && !authLoading,
     staleTime: 1000 * 60 * 5, // 5 minutos
     retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retryDelay: 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     refetchOnMount: true
-  })
-
-  console.log('[Sidebar] Estado da query:', {
-    isMenuLoading,
-    hasError: !!menuError,
-    hasData: !!menuData,
-    reportsCount: menuData.reports.length,
-    managementCount: menuData.management.length
   })
 
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
@@ -448,11 +351,6 @@ export default function Sidebar() {
     )
   }
 
-  // Não renderiza nada até a hidratação estar completa
-  if (!isHydrated) {
-    return null
-  }
-
   return (
     <div className="flex flex-col h-screen bg-white border-r w-64">
       {/* Logo - 10% */}
@@ -472,22 +370,9 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {isLoadingCategories ? (
+      {isMenuLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-        </div>
-      ) : menuError ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center px-4">
-            <p className="text-red-500 mb-2">Erro ao carregar o menu</p>
-            <Button 
-              variant="outline" 
-              onClick={() => router.refresh()}
-              className="text-sm"
-            >
-              Tentar novamente
-            </Button>
-          </div>
         </div>
       ) : (
         <div className="flex flex-col h-[90%]">
@@ -502,58 +387,14 @@ export default function Sidebar() {
             <div className="px-3 py-4">
               <div className="space-y-1">
                 <button
-                  onClick={() => setShowSettings(!showSettings)}
+                  onClick={handleSignOut}
                   className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
                 >
                   <div className="flex items-center gap-2">
-                    <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
-                    <span>Configurações</span>
+                    <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
+                    <span>Sair</span>
                   </div>
-                  <ChevronDownIcon 
-                    className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                      showSettings ? 'transform rotate-180' : ''
-                    }`}
-                  />
                 </button>
-                {showSettings && (
-                  <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
-                    <div className="p-4 border-b bg-gray-50">
-                      <div className="flex flex-col space-y-1">
-                        <span className="font-medium">{user?.profile?.nome}</span>
-                        <Badge variant={user?.profile?.adminProfile ? "default" : "secondary"} className="w-fit">
-                          {user?.profile?.adminProfile ? "Administrador" : "Usuário"}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="mx-2 my-1">
-                      <Link
-                        href="/gerenciamento/paginas"
-                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
-                          pathname === '/gerenciamento/paginas' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Páginas</span>
-                      </Link>
-                      <Link
-                        href="/gerenciamento/usuarios"
-                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
-                          pathname === '/gerenciamento/usuarios' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        <KeyIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Usuários</span>
-                      </Link>
-                      <button
-                        onClick={handleSignOut}
-                        className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
-                      >
-                        <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Sair</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
