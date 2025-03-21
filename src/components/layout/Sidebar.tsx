@@ -44,13 +44,32 @@ export default function Sidebar() {
   const { user, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isAuthLoading, setIsAuthLoading] = useState(true)
+  const [isHydrated, setIsHydrated] = useState(false)
+  
+  // Efeito para hidratação inicial
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
-  const { data: menuData = { reports: [], management: [] }, isLoading, error } = useQuery({
+  useEffect(() => {
+    if (user !== null) {
+      setIsAuthLoading(false)
+    }
+  }, [user])
+
+  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error } = useQuery({
     queryKey: ['menu-data'],
     queryFn: async () => {
+      console.log('Iniciando busca dos dados do menu...')
       try {
+        // Verifica se tem sessão ativa antes de fazer a query
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          console.log('Sem sessão ativa, não buscando menu')
+          throw new Error('No active session')
+        }
+
         const { data: categories, error: categoriesError } = await supabase
           .from('categories')
           .select(`
@@ -70,42 +89,31 @@ export default function Sidebar() {
           `)
           .order('order_index')
 
-        if (categoriesError) throw categoriesError
+        if (categoriesError) {
+          console.error('Erro ao buscar categorias:', categoriesError)
+          throw categoriesError
+        }
 
-        // Transform categories to handle special cases
-        const transformedCategories = categories?.map(category => {
-          // Make "Controle de Paradas" a single page
-          if (category.slug === 'paradas') {
-            return {
-              ...category,
-              pages: []
-            }
-          }
-
-          // Sort pages by name
-          const sortedPages = [...(category.pages || [])].sort((a, b) => 
-            a.name.localeCompare(b.name)
-          )
-
-          return {
-            ...category,
-            pages: sortedPages
-          }
-        }) || []
-
-        const reports = transformedCategories.filter(cat => cat.section === 'reports')
-        const management = transformedCategories.filter(cat => cat.section === 'management')
-
-        return { reports, management }
+        console.log('Categorias encontradas:', categories?.length || 0)
+        return {
+          reports: categories?.filter(cat => cat.section === 'reports') || [],
+          management: categories?.filter(cat => cat.section === 'management') || []
+        }
       } catch (error) {
         console.error('Error fetching menu data:', error)
         throw error
       }
     },
-    enabled: !!user,
+    enabled: !!user && !isAuthLoading && isHydrated,
     staleTime: 1000 * 60 * 5, // 5 minutos
-    retry: 3
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true
   })
+
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(prev =>
@@ -344,6 +352,11 @@ export default function Sidebar() {
     )
   }
 
+  // Não renderiza nada até a hidratação estar completa
+  if (!isHydrated) {
+    return null
+  }
+
   return (
     <div className="flex flex-col h-screen bg-white border-r w-64">
       {/* Logo - 10% */}
@@ -363,7 +376,7 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {isLoading ? (
+      {isAuthLoading || isMenuLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
         </div>
