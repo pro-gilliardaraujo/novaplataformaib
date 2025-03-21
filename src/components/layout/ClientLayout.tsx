@@ -13,11 +13,11 @@ export default function ClientLayout({
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        retry: 3,
-        refetchOnWindowFocus: true,
+        retry: 5,
+        refetchOnWindowFocus: false,
         refetchOnMount: true,
-        staleTime: 1000 * 60 * 5, // 5 minutos
-        gcTime: 1000 * 60 * 30, // 30 minutos
+        staleTime: Infinity,
+        gcTime: Infinity,
       },
     },
   }))

@@ -50,64 +50,68 @@ export default function Sidebar() {
   const { data: menuData = { reports: [], management: [] }, isLoading, error } = useQuery({
     queryKey: ['menu-data'],
     queryFn: async () => {
-      console.log('Fetching menu data...')
-      const { data: categories, error: categoriesError } = await supabase
-        .from('categories')
-        .select(`
-          id,
-          name,
-          slug,
-          section,
-          icon,
-          order_index,
-          pages (
-            id,
-            name,
-            slug,
-            icon,
-            order_index
-          )
-        `)
-        .order('order_index')
+      try {
+        console.log('Fetching menu data...')
+        const { data: categories, error: categoriesError } = await supabase
+          .from('categories')
+          .select('*')
+          .order('order_index')
 
-      if (categoriesError) {
-        console.error('Error fetching categories:', categoriesError)
-        throw categoriesError
-      }
-
-      console.log('Categories fetched:', categories)
-
-      // Transform categories to handle special cases
-      const transformedCategories = categories?.map(category => {
-        // Make "Controle de Paradas" a single page
-        if (category.slug === 'paradas') {
-          return {
-            ...category,
-            pages: []
-          }
+        if (categoriesError) {
+          console.error('Error fetching categories:', categoriesError)
+          throw categoriesError
         }
 
-        // Ensure pages are sorted by order_index
-        const sortedPages = [...(category.pages || [])].sort((a, b) => 
-          (a.order_index || 0) - (b.order_index || 0)
+        console.log('Categories fetched:', categories)
+
+        // Fetch pages for each category
+        const categoriesWithPages = await Promise.all(
+          categories.map(async (category) => {
+            const { data: pages, error: pagesError } = await supabase
+              .from('pages')
+              .select('*')
+              .eq('category_id', category.id)
+              .order('order_index')
+
+            if (pagesError) {
+              console.error('Error fetching pages for category:', category.id, pagesError)
+              return { ...category, pages: [] }
+            }
+
+            return { ...category, pages: pages || [] }
+          })
         )
 
-        return {
-          ...category,
-          pages: sortedPages
-        }
-      }) || []
+        console.log('Categories with pages:', categoriesWithPages)
 
-      const reports = transformedCategories.filter(cat => cat.section === 'reports')
-      const management = transformedCategories.filter(cat => cat.section === 'management')
+        // Transform categories to handle special cases
+        const transformedCategories = categoriesWithPages.map(category => {
+          // Make "Controle de Paradas" a single page
+          if (category.slug === 'paradas') {
+            return {
+              ...category,
+              pages: []
+            }
+          }
 
-      console.log('Transformed menu data:', { reports, management })
+          return category
+        })
 
-      return { reports, management }
+        const reports = transformedCategories.filter(cat => cat.section === 'reports')
+        const management = transformedCategories.filter(cat => cat.section === 'management')
+
+        console.log('Transformed menu data:', { reports, management })
+
+        return { reports, management }
+      } catch (error) {
+        console.error('Error in menu data query:', error)
+        throw error
+      }
     },
-    enabled: !!user, // Only fetch when user is available
-    staleTime: 1000 * 60 * 5, // 5 minutos
-    retry: 3
+    enabled: !!user,
+    staleTime: Infinity,
+    retry: 5,
+    retryDelay: 1000
   })
 
   const toggleCategory = (categoryId: string) => {
