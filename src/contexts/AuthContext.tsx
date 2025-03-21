@@ -27,21 +27,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [isHydrated, setIsHydrated] = useState(false)
 
+  console.log('[Auth] Estado inicial:', {
+    hasUser: !!user,
+    loading,
+    isHydrated,
+    pathname
+  })
+
   // Efeito para hidratação inicial
   useEffect(() => {
+    console.log('[Auth] Hidratação completa')
     setIsHydrated(true)
   }, [])
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('[Auth] Buscando perfil do usuário:', userId)
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("user_id", userId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('[Auth] Erro ao buscar perfil:', error)
+        throw error
+      }
 
+      console.log('[Auth] Perfil encontrado:', profile)
       const userData: CustomUser = {
         id: userId,
         email: profile.user_email,
@@ -65,14 +78,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Só armazena no sessionStorage após a hidratação
       if (typeof window !== 'undefined' && isHydrated) {
+        console.log('[Auth] Salvando usuário no sessionStorage')
         sessionStorage.setItem('user_profile', JSON.stringify(userData))
       }
     } catch (error) {
-      console.error('Erro ao buscar perfil do usuário:', error)
+      console.error('[Auth] Erro ao buscar perfil do usuário:', error)
       // Só tenta recuperar do cache após a hidratação
       if (typeof window !== 'undefined' && isHydrated) {
         const cachedUser = sessionStorage.getItem('user_profile')
         if (cachedUser) {
+          console.log('[Auth] Usando dados do cache')
           setUser(JSON.parse(cachedUser))
         }
       }
@@ -97,31 +112,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        console.log('Iniciando autenticação...')
+        console.log('[Auth] Iniciando autenticação...')
         
         // Só tenta usar o cache após a hidratação
         if (typeof window !== 'undefined' && isHydrated) {
           const cachedUser = sessionStorage.getItem('user_profile')
           if (cachedUser && mounted) {
-            console.log('Usando dados do cache')
+            console.log('[Auth] Usando dados do cache')
             setUser(JSON.parse(cachedUser))
           }
         }
 
         // Verifica a sessão no Supabase
+        console.log('[Auth] Verificando sessão...')
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         if (sessionError) {
-          console.error('Erro ao verificar sessão:', sessionError)
+          console.error('[Auth] Erro ao verificar sessão:', sessionError)
           throw sessionError
         }
 
         if (session?.user) {
-          console.log('Sessão ativa encontrada')
+          console.log('[Auth] Sessão ativa encontrada:', session.user.id)
           if (mounted) {
             await fetchUserProfile(session.user.id)
           }
         } else {
-          console.log('Nenhuma sessão ativa')
+          console.log('[Auth] Nenhuma sessão ativa')
           if (mounted) {
             setUser(null)
             if (typeof window !== 'undefined' && isHydrated) {
@@ -133,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
-        console.error('Erro na inicialização da autenticação:', error)
+        console.error('[Auth] Erro na inicialização da autenticação:', error)
         if (mounted) {
           setUser(null)
           if (typeof window !== 'undefined' && isHydrated) {

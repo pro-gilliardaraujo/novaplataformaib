@@ -41,35 +41,96 @@ const OleosIcon = DocumentDuplicateIcon
 const BonificacoesIcon = DocumentDuplicateIcon
 
 export default function Sidebar() {
-  const { user, signOut } = useAuth()
+  const { user, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [isAuthLoading, setIsAuthLoading] = useState(true)
   const [isHydrated, setIsHydrated] = useState(false)
-  
-  // Efeito para hidratação inicial
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([])
+  const [showSettings, setShowSettings] = useState(false)
+
+  console.log('[Sidebar] Estado inicial:', {
+    hasUser: !!user,
+    authLoading,
+    isHydrated,
+    expandedCategories,
+    showSettings
+  })
+
   useEffect(() => {
+    console.log('[Sidebar] Hidratação completa')
     setIsHydrated(true)
   }, [])
 
   useEffect(() => {
-    if (user !== null) {
-      setIsAuthLoading(false)
-    }
-  }, [user])
+    console.log('[Sidebar] Usuário mudou:', {
+      hasUser: !!user,
+      authLoading
+    })
+  }, [user, authLoading])
 
-  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error } = useQuery({
+  const { data: categories, isLoading: isLoadingCategories, error } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      console.log('[Sidebar] Buscando categorias...')
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        console.log('[Sidebar] Sem sessão ativa')
+        return []
+      }
+
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('id')
+
+      if (error) {
+        console.error('[Sidebar] Erro ao buscar categorias:', error)
+        throw error
+      }
+
+      console.log('[Sidebar] Categorias encontradas:', data?.length || 0)
+      return data || []
+    },
+    enabled: !!user && !authLoading && isHydrated,
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    retry: 3,
+    retryDelay: 1000
+  })
+
+  if (error) {
+    console.error('[Sidebar] Erro na query:', error)
+  }
+
+  const loading = authLoading || isLoadingCategories || !isHydrated
+
+  if (loading) {
+    console.log('[Sidebar] Carregando...', {
+      authLoading,
+      isLoadingCategories,
+      isHydrated
+    })
+    return <div>Carregando...</div>
+  }
+
+  if (!user) {
+    console.log('[Sidebar] Sem usuário')
+    return null
+  }
+
+  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error: menuError } = useQuery({
     queryKey: ['menu-data'],
     queryFn: async () => {
-      console.log('Iniciando busca dos dados do menu...')
+      console.log('[Sidebar] Iniciando busca dos dados do menu...')
       try {
         // Verifica se tem sessão ativa antes de fazer a query
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
-          console.log('Sem sessão ativa, não buscando menu')
+          console.log('[Sidebar] Sem sessão ativa, não buscando menu')
           throw new Error('No active session')
         }
 
+        console.log('[Sidebar] Sessão ativa, buscando categorias...')
         const { data: categories, error: categoriesError } = await supabase
           .from('categories')
           .select(`
@@ -90,30 +151,65 @@ export default function Sidebar() {
           .order('order_index')
 
         if (categoriesError) {
-          console.error('Erro ao buscar categorias:', categoriesError)
+          console.error('[Sidebar] Erro ao buscar categorias:', categoriesError)
           throw categoriesError
         }
 
-        console.log('Categorias encontradas:', categories?.length || 0)
-        return {
-          reports: categories?.filter(cat => cat.section === 'reports') || [],
-          management: categories?.filter(cat => cat.section === 'management') || []
-        }
+        console.log('[Sidebar] Categorias encontradas:', categories?.length || 0)
+
+        // Transform categories to handle special cases
+        const transformedCategories = categories?.map(category => {
+          // Make "Controle de Paradas" a single page
+          if (category.slug === 'paradas') {
+            return {
+              ...category,
+              pages: []
+            }
+          }
+
+          // Sort pages by name
+          const sortedPages = [...(category.pages || [])].sort((a, b) => 
+            a.name.localeCompare(b.name)
+          )
+
+          return {
+            ...category,
+            pages: sortedPages
+          }
+        }) || []
+
+        const reports = transformedCategories.filter(cat => cat.section === 'reports')
+        const management = transformedCategories.filter(cat => cat.section === 'management')
+
+        console.log('[Sidebar] Menu processado:', {
+          reportsCount: reports.length,
+          managementCount: management.length
+        })
+
+        return { reports, management }
       } catch (error) {
-        console.error('Error fetching menu data:', error)
+        console.error('[Sidebar] Error fetching menu data:', error)
         throw error
       }
     },
-    enabled: !!user && !isAuthLoading && isHydrated,
+    enabled: !!user && !authLoading && isHydrated,
     staleTime: 1000 * 60 * 5, // 5 minutos
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
     refetchOnWindowFocus: false,
-    refetchOnReconnect: true
+    refetchOnReconnect: true,
+    refetchOnMount: true
+  })
+
+  console.log('[Sidebar] Estado da query:', {
+    isMenuLoading,
+    hasError: !!menuError,
+    hasData: !!menuData,
+    reportsCount: menuData.reports.length,
+    managementCount: menuData.management.length
   })
 
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(prev =>
@@ -376,11 +472,11 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {isAuthLoading || isMenuLoading ? (
+      {isLoadingCategories ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
         </div>
-      ) : error ? (
+      ) : menuError ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center px-4">
             <p className="text-red-500 mb-2">Erro ao carregar o menu</p>
@@ -406,7 +502,7 @@ export default function Sidebar() {
             <div className="px-3 py-4">
               <div className="space-y-1">
                 <button
-                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  onClick={() => setShowSettings(!showSettings)}
                   className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
                 >
                   <div className="flex items-center gap-2">
@@ -415,11 +511,11 @@ export default function Sidebar() {
                   </div>
                   <ChevronDownIcon 
                     className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                      isSettingsOpen ? 'transform rotate-180' : ''
+                      showSettings ? 'transform rotate-180' : ''
                     }`}
                   />
                 </button>
-                {isSettingsOpen && (
+                {showSettings && (
                   <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
                     <div className="p-4 border-b bg-gray-50">
                       <div className="flex flex-col space-y-1">
