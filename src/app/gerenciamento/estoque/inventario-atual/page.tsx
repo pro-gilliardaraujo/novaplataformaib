@@ -12,30 +12,24 @@ interface InventorySettings {
   columns: string[]
 }
 
-interface CategoriaItem {
-  id: string
-  nome: string
-  cor?: string
-}
-
 export default function InventarioAtualPage() {
-  const [categorias, setCategorias] = useState<CategoriaItem[]>([])
+  const [categorias, setCategorias] = useState<{ id: string; nome: string; cor?: string }[]>([])
+
+  const loadCategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias_item')
+        .select('id, nome, cor')
+        .order('nome')
+
+      if (error) throw error
+      setCategorias(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error)
+    }
+  }
 
   useEffect(() => {
-    const loadCategorias = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('categorias_item')
-          .select('id, nome, cor')
-          .order('nome')
-
-        if (error) throw error
-        setCategorias(data || [])
-      } catch (error) {
-        console.error('Erro ao carregar categorias:', error)
-      }
-    }
-
     loadCategorias()
   }, [])
 
@@ -74,7 +68,11 @@ export default function InventarioAtualPage() {
             <InventoryOverview settings={overviewSettings} />
           </TabsContent>
           <TabsContent value="list" className="h-full m-0">
-            <InventoryList settings={listSettings} categorias={categorias} />
+            <InventoryList 
+              settings={listSettings} 
+              categorias={categorias}
+              onCategoriaCreated={loadCategorias}
+            />
           </TabsContent>
         </div>
       </Tabs>

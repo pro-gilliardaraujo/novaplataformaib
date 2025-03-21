@@ -149,7 +149,7 @@ export default function EquipamentosPage() {
             <EquipamentosTable
               equipamentos={filteredEquipamentos}
               onView={(equipamento) => setSelectedEquipamento(equipamento)}
-              onEdit={(equipamento) => setSelectedEquipamentoForEdit(equipamento)}
+              onEdit={setSelectedEquipamentoForEdit}
               onDelete={handleDeleteEquipamento}
             />
           )}

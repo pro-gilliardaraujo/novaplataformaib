@@ -8,7 +8,6 @@ import { UsuariosTable } from "@/components/usuarios-table"
 import { NovoUsuarioModal } from "@/components/novo-usuario-modal"
 import { EditarUsuarioModal } from "@/components/editar-usuario-modal"
 import { UsuarioDetailsModal } from "@/components/usuario-details-modal"
-import { GerenciarPermissoesModal } from "@/components/gerenciar-permissoes-modal"
 import { userService } from "@/services/userService"
 import { useAuth } from "@/hooks/useAuth"
 
@@ -18,7 +17,6 @@ export default function UsuariosPage() {
   const [showNovoUsuarioModal, setShowNovoUsuarioModal] = useState(false)
   const [showEditarUsuarioModal, setShowEditarUsuarioModal] = useState(false)
   const [showUsuarioDetailsModal, setShowUsuarioDetailsModal] = useState(false)
-  const [showPermissoesModal, setShowPermissoesModal] = useState(false)
   const [selectedUsuario, setSelectedUsuario] = useState<User | null>(null)
   const { toast } = useToast()
   const { user } = useAuth()
@@ -83,11 +81,6 @@ export default function UsuariosPage() {
     }
   }
 
-  const handleManagePermissions = (usuario: User) => {
-    setSelectedUsuario(usuario)
-    setShowPermissoesModal(true)
-  }
-
   return (
     <div className="space-y-4 p-4 md:p-8">
       <div className="flex items-center justify-between">
@@ -104,7 +97,6 @@ export default function UsuariosPage() {
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onManagePermissions={handleManagePermissions}
       />
 
       {showNovoUsuarioModal && (
@@ -131,16 +123,6 @@ export default function UsuariosPage() {
           usuario={selectedUsuario}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          onManagePermissions={handleManagePermissions}
-        />
-      )}
-
-      {showPermissoesModal && selectedUsuario && (
-        <GerenciarPermissoesModal
-          open={showPermissoesModal}
-          onOpenChange={setShowPermissoesModal}
-          user={selectedUsuario}
-          mode="edit"
         />
       )}
     </div>

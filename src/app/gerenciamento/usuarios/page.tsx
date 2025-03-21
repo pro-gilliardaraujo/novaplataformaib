@@ -6,7 +6,6 @@ import { DataTable } from "@/components/data-table"
 import { NovoUsuarioModal } from "@/components/novo-usuario-modal"
 import { EditarUsuarioModal } from "@/components/editar-usuario-modal"
 import { UsuarioDetailsModal } from "@/components/usuario-details-modal"
-import { GerenciarPermissoesModal } from "@/components/gerenciar-permissoes-modal"
 import { Button } from "@/components/ui/button"
 import { Eye, Pencil, Trash2, Plus, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
@@ -29,7 +28,6 @@ export default function UsuariosPage() {
   const [isNovoUsuarioModalOpen, setIsNovoUsuarioModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isPermissoesModalOpen, setIsPermissoesModalOpen] = useState(false)
   const { toast } = useToast()
 
   const fetchUsuarios = useCallback(async () => {
@@ -123,11 +121,6 @@ export default function UsuariosPage() {
     setIsEditModalOpen(true)
   }
 
-  const handleManagePermissions = (usuario: User) => {
-    setSelectedUsuario(usuario)
-    setIsPermissoesModalOpen(true)
-  }
-
   const filteredUsuarios = usuarios.filter(usuario => {
     const searchFields = [
       usuario.profile.nome,
@@ -177,7 +170,6 @@ export default function UsuariosPage() {
               onView={handleViewUsuario}
               onEdit={handleEditClick}
               onDelete={handleDeleteUsuario}
-              onManagePermissions={handleManagePermissions}
             />
           )}
         </div>
@@ -197,7 +189,6 @@ export default function UsuariosPage() {
             onOpenChange={setIsViewModalOpen}
             onEdit={handleEditClick}
             onDelete={handleDeleteUsuario}
-            onManagePermissions={handleManagePermissions}
           />
 
           <EditarUsuarioModal
@@ -205,13 +196,6 @@ export default function UsuariosPage() {
             onOpenChange={setIsEditModalOpen}
             usuario={selectedUsuario}
             onSuccess={fetchUsuarios}
-          />
-
-          <GerenciarPermissoesModal
-            open={isPermissoesModalOpen}
-            onOpenChange={setIsPermissoesModalOpen}
-            user={selectedUsuario}
-            mode="edit"
           />
         </>
       )}

@@ -30,9 +30,10 @@ export function SeletorFrotas() {
     setModalParada(true)
   }
 
-  const handleLiberar = async (frota: Frota) => {
+  const handleLiberar = (frota: Frota) => {
     setFrotaSelecionada(frota)
     setModalParada(true)
+    return Promise.resolve()
   }
 
   const handleHistorico = (frota: Frota) => {
@@ -40,9 +41,9 @@ export function SeletorFrotas() {
     setModalHistorico(true)
   }
 
-  const handleParadaRegistrada = async () => {
+  const handleParadaRegistrada = () => {
     setModalParada(false)
-    await atualizarCenario()
+    atualizarCenario()
   }
 
   return (
@@ -85,7 +86,7 @@ export function SeletorFrotas() {
             <ScrollArea className="h-[calc(100vh-200px)]">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
                 {frotasPorUnidade[unidade.id]?.map((frota) => {
-                  const status = statusFrotas[frota.id]
+                  const status = statusFrotas.get(frota.id)
                   if (!status) return null
 
                   return (
@@ -94,7 +95,7 @@ export function SeletorFrotas() {
                       frota={frota}
                       status={status}
                       onParar={() => handleParar(frota)}
-                      onLiberar={async () => await handleLiberar(frota)}
+                      onLiberar={() => handleLiberar(frota)}
                       onHistorico={() => handleHistorico(frota)}
                     />
                   )

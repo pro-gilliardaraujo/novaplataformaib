@@ -78,7 +78,7 @@ interface EquipamentosTableProps {
   equipamentos: Equipamento[]
   onView: (equipamento: Equipamento) => void
   onEdit: (equipamento: Equipamento) => void
-  onDelete: (codigoPatrimonio: string) => void
+  onDelete: (codigoPatrimonio: string) => Promise<void>
 }
 
 type ColumnType = {

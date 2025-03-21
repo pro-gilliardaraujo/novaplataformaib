@@ -184,7 +184,6 @@ export default function EquipamentosPage() {
             onEdit={(equipamento) => {
               setSelectedEquipamento(equipamento)
               setIsEditModalOpen(true)
-              setIsDetailsModalOpen(false)
             }}
             onDelete={handleDeleteEquipamento}
           />

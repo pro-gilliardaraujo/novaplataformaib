@@ -1,23 +1,22 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react"
-import { Unidade, FrotaStatus, Parada } from "@/types/paradas"
+import { Unidade, FrotaStatus } from "@/types/paradas"
 import { Frota } from "@/types/frotas"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "@/components/ui/use-toast"
-import { paradasService } from "@/services/paradasService"
 
 interface ParadasContextType {
   unidades: Unidade[]
   isLoading: boolean
   error: string | null
   selectedUnidade: string
-  data: string
-  statusFrotas: Record<string, FrotaStatus>
   setSelectedUnidade: (unidade: string) => void
   carregarUnidades: () => Promise<void>
   reloadUnidades: () => Promise<void>
+  data: string
+  statusFrotas: Map<string, FrotaStatus>
   atualizarCenario: () => Promise<void>
 }
 
@@ -29,8 +28,8 @@ export function ParadasProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedUnidade, setSelectedUnidade] = useState("todas")
-  const [data, setData] = useState("")
-  const [statusFrotas, setStatusFrotas] = useState<Record<string, FrotaStatus>>({})
+  const [data, setData] = useState(new Date().toISOString().split('T')[0])
+  const [statusFrotas, setStatusFrotas] = useState<Map<string, FrotaStatus>>(new Map())
 
   const carregarUnidades = async () => {
     if (!user) return
@@ -69,53 +68,13 @@ export function ParadasProvider({ children }: { children: ReactNode }) {
   }
 
   const atualizarCenario = async () => {
-    if (!user) return
-    
-    try {
-      setIsLoading(true)
-      setError(null)
-      
-      // Get today's date in America/Sao_Paulo timezone
-      const hoje = new Date()
-      hoje.setHours(hoje.getHours() - 3)
-      const hojeISO = hoje.toISOString().split('T')[0]
-      setData(hojeISO)
-
-      // Get all paradas for today
-      const paradas = await paradasService.buscarParadasDia(hojeISO)
-
-      // Update status for each frota
-      const newStatusFrotas: Record<string, FrotaStatus> = {}
-      unidades.forEach(unidade => {
-        unidade.frotas?.forEach(frota => {
-          const frotaParadas = paradas.filter((p: Parada) => p.frota_id === frota.id)
-          const parada_atual = frotaParadas.find((p: Parada) => !p.fim)
-          newStatusFrotas[frota.id] = {
-            frota,
-            parada_atual: parada_atual || null,
-            historico_count: frotaParadas.length
-          }
-        })
-      })
-
-      setStatusFrotas(newStatusFrotas)
-    } catch (error) {
-      console.error('Error updating scenario:', error)
-      setError("Não foi possível atualizar o cenário")
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o cenário",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+    // Implementation will be added later
+    await carregarUnidades()
   }
 
   useEffect(() => {
     if (user) {
       carregarUnidades()
-      atualizarCenario()
     }
   }, [user])
 
@@ -128,11 +87,11 @@ export function ParadasProvider({ children }: { children: ReactNode }) {
     isLoading,
     error,
     selectedUnidade,
-    data,
-    statusFrotas,
     setSelectedUnidade,
     carregarUnidades,
     reloadUnidades,
+    data,
+    statusFrotas,
     atualizarCenario
   }
 

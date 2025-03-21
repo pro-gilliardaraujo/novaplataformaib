@@ -1,9 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { InventoryReport } from "./reports/inventory/InventoryReport"
 import { InventoryMovements } from "./reports/inventory/InventoryMovements"
-import { supabase } from "@/lib/supabase"
 
 interface DynamicContentRendererProps {
   content: {
@@ -12,39 +10,12 @@ interface DynamicContentRendererProps {
   }
 }
 
-interface CategoriaItem {
-  id: string
-  nome: string
-  cor?: string
-}
-
 export function DynamicContentRenderer({ content }: DynamicContentRendererProps) {
   const { type, settings = {} } = content
-  const [categorias, setCategorias] = useState<CategoriaItem[]>([])
-
-  useEffect(() => {
-    const loadCategorias = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('categorias_item')
-          .select('id, nome, cor')
-          .order('nome')
-
-        if (error) throw error
-        setCategorias(data || [])
-      } catch (error) {
-        console.error('Erro ao carregar categorias:', error)
-      }
-    }
-
-    if (type === 'inventory_overview' || type === 'inventory_list') {
-      loadCategorias()
-    }
-  }, [type])
 
   // Inventory reports
   if (type === 'inventory_overview' || type === 'inventory_list') {
-    return <InventoryReport type={type} settings={settings} categorias={categorias} />
+    return <InventoryReport type={type} settings={settings} />
   }
 
   // Inventory movements

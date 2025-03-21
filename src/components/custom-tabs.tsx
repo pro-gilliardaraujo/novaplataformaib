@@ -1,14 +1,55 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Tab } from "@/types/pages"
 import { Tabs as TabsRoot, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { InventoryList } from "@/components/reports/inventory/InventoryList"
+import { InventoryOverview } from "@/components/reports/inventory/InventoryOverview"
+import { InventoryMovements } from "@/components/reports/inventory/InventoryMovements"
+import { supabase } from "@/lib/supabase"
 
 interface CustomTabsProps {
   tabs: Tab[]
 }
 
-function TabContentRenderer({ content }: { content: Tab['content'] }) {
-  if (typeof content === 'string') {
+interface TabContent {
+  type?: string;
+  settings?: {
+    showCategories?: boolean;
+    showLowStock?: boolean;
+    showCharts?: boolean;
+    showFilters?: boolean;
+    showExport?: boolean;
+    showDateRange?: boolean;
+    columns?: string[];
+    [key: string]: any;
+  };
+}
+
+function TabContentRenderer({ content }: { content: string | TabContent }) {
+  const [categorias, setCategorias] = useState<{ id: string; nome: string; cor?: string }[]>([])
+
+  const loadCategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias_item')
+        .select('id, nome, cor')
+        .order('nome')
+
+      if (error) throw error
+      setCategorias(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (typeof content === "object" && content.type === "inventory-list") {
+      loadCategorias()
+    }
+  }, [content])
+
+  if (typeof content === "string") {
     return (
       <div 
         className="h-full w-full [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:border-none" 
@@ -17,12 +58,34 @@ function TabContentRenderer({ content }: { content: Tab['content'] }) {
     )
   }
 
-  // Se for um objeto, por enquanto vamos apenas exibir o tipo
-  return (
-    <div className="h-full w-full">
-      {content.type}
-    </div>
-  )
+  // Renderizar componentes baseado no tipo
+  switch (content.type) {
+    case "inventory-list":
+      return <InventoryList 
+        settings={{
+          showFilters: content.settings?.showFilters ?? true,
+          showExport: content.settings?.showExport ?? true,
+          columns: content.settings?.columns ?? []
+        }}
+        categorias={categorias}
+        onCategoriaCreated={loadCategorias}
+      />
+    case "inventory-overview":
+      return <InventoryOverview settings={{
+        showCategories: content.settings?.showCategories ?? true,
+        showLowStock: content.settings?.showLowStock ?? true,
+        showCharts: content.settings?.showCharts ?? true
+      }} />
+    case "inventory-movements":
+      return <InventoryMovements settings={{
+        showFilters: content.settings?.showFilters ?? true,
+        showExport: content.settings?.showExport ?? true,
+        showDateRange: content.settings?.showDateRange ?? true,
+        columns: content.settings?.columns ?? []
+      }} />
+    default:
+      return <div>Tipo de conteúdo não suportado: {content.type || 'desconhecido'}</div>
+  }
 }
 
 export function CustomTabs({ tabs }: CustomTabsProps) {

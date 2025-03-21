@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Clock, History, PlayCircle } from "lucide-react"
 import { FrotaStatus } from "@/types/paradas"
@@ -31,9 +30,9 @@ export function FrotaCard({ frota, status, onParar, onLiberar, onHistorico }: Fr
   
   const parada = status?.parada_atual
 
-  const handleLiberar = async () => {
-    await reloadUnidades()
-    await onLiberar()
+  const handleLiberar = () => {
+    reloadUnidades()
+    onLiberar()
   }
 
   // If no parada, show the "Em operação" state

@@ -1,14 +1,18 @@
 "use client"
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Conferencia, ItemConferencia } from "@/types/conferencias"
+import { Button } from "@/components/ui/button"
+import { X, Edit, ArrowUpDown } from "lucide-react"
 
 interface ConferenciaDetailsModalProps {
   conferencia: Conferencia
   open: boolean
   onOpenChange: (open: boolean) => void
+  onEdit: (conferencia: Conferencia) => void
+  onMovimentacao: (conferencia: Conferencia) => void
 }
 
 const columns = [
@@ -43,7 +47,13 @@ const columns = [
   }
 ]
 
-export function ConferenciaDetailsModal({ conferencia, open, onOpenChange }: ConferenciaDetailsModalProps) {
+export function ConferenciaDetailsModal({ 
+  conferencia, 
+  open, 
+  onOpenChange,
+  onEdit,
+  onMovimentacao
+}: ConferenciaDetailsModalProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString("pt-BR")
@@ -69,12 +79,26 @@ export function ConferenciaDetailsModal({ conferencia, open, onOpenChange }: Con
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Detalhes da Conferência</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-4xl p-0 flex flex-col">
+        <div className="flex items-center px-4 h-12 border-b relative">
+          <div className="w-8" /> {/* Spacer */}
+          <DialogTitle className="text-base font-medium text-center flex-1">
+            Detalhes da Conferência
+          </DialogTitle>
+          <div className="absolute right-2 top-2">
+            <DialogClose asChild>
+              <Button 
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
+        </div>
 
-        <div className="space-y-6">
+        <div className="p-6 space-y-6">
           {/* Cabeçalho com informações gerais */}
           <div className="grid grid-cols-2 gap-4">
             <div>

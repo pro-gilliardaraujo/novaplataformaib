@@ -55,10 +55,9 @@ export interface HistoricoModalProps {
 
 // Props para o card de frota
 export interface FrotaCardProps {
-  frota: Frota
   status: FrotaStatus
   onParar: () => void
-  onLiberar: () => Promise<void>
+  onLiberar: () => void
   onHistorico: () => void
 }
 

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Eye, Filter, Pencil, ChevronLeft, ChevronRight } from "lucide-react"
-import { Retirada } from "@/types/retirada"
+import { Retirada, NovaRetiradaData } from "@/types/retirada"
 import RetiradaDetailsModal from "./retirada-details-modal"
 import { EditarRetiradaModal } from "./editar-retirada-modal"
 
@@ -298,7 +298,7 @@ export function RetiradaTable({ retiradas, onRetiradaUpdated }: RetiradaTablePro
         <EditarRetiradaModal
           open={!!selectedRetiradaForEdit}
           onOpenChange={(open: boolean) => !open && setSelectedRetiradaForEdit(null)}
-          onSubmit={async (id, updates) => {
+          onSubmit={async (id: string, updates: Partial<NovaRetiradaData>) => {
             await onRetiradaUpdated(id, updates)
             setSelectedRetiradaForEdit(null)
           }}

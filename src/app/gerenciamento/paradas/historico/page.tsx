@@ -25,7 +25,7 @@ function HistoricoParadasContent() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [filterStatus, setFilterStatus] = useState<'all' | 'ontime' | 'delayed'>('all')
   const [selectedUnidade, setSelectedUnidade] = useState<string>("todas")
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString())
   const { unidades } = useParadas()
   const { toast } = useToast()
   const queryClient = useQueryClient()

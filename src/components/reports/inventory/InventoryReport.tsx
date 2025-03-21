@@ -1,7 +1,9 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { InventoryOverview } from "./InventoryOverview"
 import { InventoryList } from "./InventoryList"
+import { supabase } from "@/lib/supabase"
 
 interface InventoryReportProps {
   type: string
@@ -13,14 +15,29 @@ interface InventoryReportProps {
     showExport?: boolean
     columns?: string[]
   }
-  categorias: Array<{
-    id: string
-    nome: string
-    cor?: string
-  }>
 }
 
-export function InventoryReport({ type, settings, categorias }: InventoryReportProps) {
+export function InventoryReport({ type, settings }: InventoryReportProps) {
+  const [categorias, setCategorias] = useState<{ id: string; nome: string; cor?: string }[]>([])
+
+  const loadCategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias_item')
+        .select('id, nome, cor')
+        .order('nome')
+
+      if (error) throw error
+      setCategorias(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error)
+    }
+  }
+
+  useEffect(() => {
+    loadCategorias()
+  }, [])
+
   switch (type) {
     case 'inventory_overview':
       return (
@@ -35,7 +52,6 @@ export function InventoryReport({ type, settings, categorias }: InventoryReportP
     case 'inventory_list':
       return (
         <InventoryList
-          categorias={categorias}
           settings={{
             showFilters: settings.showFilters ?? true,
             showExport: settings.showExport ?? true,
@@ -47,6 +63,8 @@ export function InventoryReport({ type, settings, categorias }: InventoryReportP
               'ultima_movimentacao'
             ]
           }}
+          categorias={categorias}
+          onCategoriaCreated={loadCategorias}
         />
       )
     default:

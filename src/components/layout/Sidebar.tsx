@@ -47,27 +47,38 @@ export default function Sidebar() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  // Queries com configurações otimizadas
-  const { data: menuData = { reports: [], management: [] }, isLoading } = useQuery({
+  const { data: menuData = { reports: [], management: [] }, isLoading, error } = useQuery({
     queryKey: ['menu-data'],
     queryFn: async () => {
+      console.log('Fetching menu data...')
       const { data: categories, error: categoriesError } = await supabase
         .from('categories')
         .select(`
-          *,
+          id,
+          name,
+          slug,
+          section,
+          icon,
+          order_index,
           pages (
             id,
             name,
             slug,
-            icon
+            icon,
+            order_index
           )
         `)
         .order('order_index')
 
-      if (categoriesError) throw categoriesError
+      if (categoriesError) {
+        console.error('Error fetching categories:', categoriesError)
+        throw categoriesError
+      }
+
+      console.log('Categories fetched:', categories)
 
       // Transform categories to handle special cases
-      const transformedCategories = categories.map(category => {
+      const transformedCategories = categories?.map(category => {
         // Make "Controle de Paradas" a single page
         if (category.slug === 'paradas') {
           return {
@@ -75,15 +86,28 @@ export default function Sidebar() {
             pages: []
           }
         }
-        return category
-      })
+
+        // Ensure pages are sorted by order_index
+        const sortedPages = [...(category.pages || [])].sort((a, b) => 
+          (a.order_index || 0) - (b.order_index || 0)
+        )
+
+        return {
+          ...category,
+          pages: sortedPages
+        }
+      }) || []
 
       const reports = transformedCategories.filter(cat => cat.section === 'reports')
       const management = transformedCategories.filter(cat => cat.section === 'management')
 
+      console.log('Transformed menu data:', { reports, management })
+
       return { reports, management }
     },
+    enabled: !!user, // Only fetch when user is available
     staleTime: 1000 * 60 * 5, // 5 minutos
+    retry: 3
   })
 
   const toggleCategory = (categoryId: string) => {
@@ -267,7 +291,9 @@ export default function Sidebar() {
                   <Link
                     key={category.id}
                     href={`/gerenciamento/${category.slug}`}
-                    className="flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                    className={`flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 ${
+                      pathname === `/gerenciamento/${category.slug}` ? 'bg-gray-100' : ''
+                    }`}
                   >
                     <div className="flex items-center gap-2">
                       {getIconForCategory(category)}
@@ -282,7 +308,9 @@ export default function Sidebar() {
                 <div key={category.id}>
                   <button
                     onClick={() => toggleCategory(category.id)}
-                    className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+                    className={`w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 ${
+                      expandedCategory === category.id ? 'bg-gray-50' : ''
+                    }`}
                   >
                     <div className="flex items-center gap-2">
                       {getIconForCategory(category)}
@@ -295,16 +323,18 @@ export default function Sidebar() {
                     />
                   </button>
                   <div className={`ml-7 space-y-1 ${expandedCategory === category.id ? 'block' : 'hidden'}`}>
-                    {category.pages?.map((page: Page) => (
+                    {(category.pages || []).map((page: Page) => (
                       <Link
                         key={page.id}
                         href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}
-                        className="flex items-center px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                        className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                          pathname?.includes(`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`)
+                            ? 'bg-gray-100 text-gray-900'
+                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                        }`}
                       >
-                        <div className="flex items-center gap-2">
-                          {getIconForPage(page)}
-                          <span>{page.name}</span>
-                        </div>
+                        {getIconForPage(page)}
+                        <span>{page.name}</span>
                       </Link>
                     ))}
                   </div>
@@ -339,6 +369,19 @@ export default function Sidebar() {
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+        </div>
+      ) : error ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center px-4">
+            <p className="text-red-500 mb-2">Erro ao carregar o menu</p>
+            <Button 
+              variant="outline" 
+              onClick={() => router.refresh()}
+              className="text-sm"
+            >
+              Tentar novamente
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col h-[90%]">

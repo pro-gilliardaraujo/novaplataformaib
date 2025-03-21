@@ -22,7 +22,7 @@ import { useAuth } from "@/contexts/AuthContext"
 interface MovimentacaoEstoqueModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  item?: {
+  item: {
     id: string
     descricao: string
     codigo_fabricante: string
@@ -55,7 +55,8 @@ const MOTIVOS: Motivo[] = [
   { id: 'compra', descricao: 'Compra', tipo: 'entrada' },
   { id: 'devolucao', descricao: 'Devolução', tipo: 'entrada' },
   { id: 'uso', descricao: 'Uso em Operação', tipo: 'saida' },
-  { id: 'perda', descricao: 'Perda/Avaria', tipo: 'saida' }
+  { id: 'perda', descricao: 'Perda/Avaria', tipo: 'saida' },
+  { id: 'transferencia', descricao: 'Transferência entre Unidades', tipo: 'saida' }
 ]
 
 export function MovimentacaoEstoqueModal({
@@ -70,24 +71,12 @@ export function MovimentacaoEstoqueModal({
   const [motivo, setMotivo] = useState("")
   const [observacoes, setObservacoes] = useState("")
   const [unidadeId, setUnidadeId] = useState("")
-  const [frotaId, setFrotaId] = useState("")
+  const [frotaId, setFrotaId] = useState("none")
   const [notaFiscal, setNotaFiscal] = useState("")
   const [unidades, setUnidades] = useState<Unidade[]>([])
   const [frotas, setFrotas] = useState<Frota[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-
-  // Não permitir abrir o modal sem um item selecionado
-  useEffect(() => {
-    if (open && !item) {
-      toast({
-        title: "Erro",
-        description: "Selecione um item para movimentar",
-        variant: "destructive",
-      })
-      onOpenChange(false)
-    }
-  }, [open, item])
 
   // Carregar unidades apenas quando selecionar saída
   useEffect(() => {
@@ -144,19 +133,30 @@ export function MovimentacaoEstoqueModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!item) {
-      toast({
-        title: "Erro",
-        description: "Item não selecionado",
-        variant: "destructive",
-      })
-      return
-    }
-    
     if (!quantidade || !motivo) {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos obrigatórios",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validação adicional para entradas
+    if (tipo === 'entrada' && !notaFiscal) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, informe o número da nota fiscal",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validação adicional para saídas
+    if (tipo === 'saida' && !unidadeId) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Por favor, selecione a unidade de destino",
         variant: "destructive",
       })
       return
@@ -186,49 +186,39 @@ export function MovimentacaoEstoqueModal({
 
     try {
       const unidadeSelecionada = unidades.find(u => u.id === unidadeId)
-      const frotaSelecionada = frotas.find(f => f.id === frotaId)
+      const frotaSelecionada = frotaId !== "none" ? frotas.find(f => f.id === frotaId) : null
 
-      // 1. Registra a movimentação
+      const movimentacaoData = {
+        item_id: item.id,
+        tipo_movimentacao: tipo,
+        quantidade: quantidadeNum,
+        motivo,
+        observacoes: observacoes || null,
+        responsavel: user?.profile?.nome || user?.email || 'Sistema',
+        ...(tipo === 'saida' ? {
+          destino_movimentacao: unidadeSelecionada?.nome || null,
+          frota_destino: frotaSelecionada?.frota || null,
+          nota_fiscal: null
+        } : {
+          destino_movimentacao: null,
+          frota_destino: null,
+          nota_fiscal: notaFiscal || null
+        })
+      }
+
+      console.log('Dados da movimentação:', movimentacaoData)
+
+      // Registra a movimentação
       const { error: movimentacaoError } = await supabase
         .from('movimentacoes_estoque')
-        .insert([{
-          item_id: item.id,
-          tipo_movimentacao: tipo,
-          quantidade: quantidadeNum,
-          motivo,
-          observacoes: observacoes || null,
-          responsavel: user?.profile?.nome || user?.email || 'Sistema',
-          ...(tipo === 'saida' ? {
-            destino_movimentacao: unidadeSelecionada?.nome || null,
-            frota_destino: frotaSelecionada?.frota || null,
-            nota_fiscal: null
-          } : {
-            destino_movimentacao: null,
-            frota_destino: null,
-            nota_fiscal: notaFiscal || null
-          })
-        }])
+        .insert([movimentacaoData])
 
-      if (movimentacaoError) throw movimentacaoError
+      if (movimentacaoError) {
+        console.error('Erro ao registrar movimentação:', movimentacaoError)
+        throw movimentacaoError
+      }
 
-      // 2. Registra no histórico
-      const { error: historicoError } = await supabase
-        .from('historico_estoque')
-        .insert([{
-          item_id: item.id,
-          tipo_movimentacao: tipo,
-          quantidade: quantidadeNum,
-          motivo,
-          observacoes: observacoes || null,
-          responsavel: user?.profile?.nome || user?.email || 'Sistema',
-          destino_movimentacao: tipo === 'saida' ? unidadeSelecionada?.nome || null : null,
-          frota_destino: tipo === 'saida' ? frotaSelecionada?.frota || null : null,
-          nota_fiscal: tipo === 'entrada' ? notaFiscal || null : null
-        }])
-
-      if (historicoError) throw historicoError
-
-      // 3. Atualiza a quantidade do item
+      // Atualiza a quantidade do item
       const novaQuantidade = tipo === 'entrada'
         ? item.quantidade_atual + quantidadeNum
         : item.quantidade_atual - quantidadeNum
@@ -238,7 +228,10 @@ export function MovimentacaoEstoqueModal({
         .update({ quantidade_atual: novaQuantidade })
         .eq('id', item.id)
 
-      if (itemError) throw itemError
+      if (itemError) {
+        console.error('Erro ao atualizar quantidade:', itemError)
+        throw itemError
+      }
       
       toast({
         title: "Sucesso",
@@ -251,7 +244,9 @@ export function MovimentacaoEstoqueModal({
       console.error('Erro ao registrar movimentação:', error)
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao registrar a movimentação",
+        description: error instanceof Error 
+          ? `Não foi possível registrar a movimentação: ${error.message}`
+          : "Não foi possível registrar a movimentação",
         variant: "destructive",
       })
     } finally {
@@ -275,8 +270,10 @@ export function MovimentacaoEstoqueModal({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button 
+                      type="button"
                       variant="outline"
                       className="h-8 w-8 p-0"
+                      onClick={() => onOpenChange(false)}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -290,146 +287,149 @@ export function MovimentacaoEstoqueModal({
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div className="text-center">
-            <p className="text-sm text-gray-500">
-              {item?.descricao} ({item?.codigo_fabricante}) - Quantidade atual: {item?.quantidade_atual}
-            </p>
-          </div>
+        <div className="p-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="text-center">
+              <p className="text-sm text-gray-500">
+                {item.descricao} ({item.codigo_fabricante}) - Quantidade atual: {item.quantidade_atual}
+              </p>
+            </div>
 
-          <div className="space-y-2">
-            <Label>Tipo de Movimentação *</Label>
-            <RadioGroup
-              value={tipo}
-              onValueChange={(value: TipoMovimentacao) => {
-                setTipo(value)
-                if (value !== 'saida') {
-                  setUnidadeId("")
-                  setFrotaId("")
-                }
-              }}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="entrada" id="entrada" />
-                <Label htmlFor="entrada" className="flex items-center gap-2 cursor-pointer">
-                  <ArrowDownSquare className="h-4 w-4" />
-                  Entrada
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="saida" id="saida" />
-                <Label htmlFor="saida" className="flex items-center gap-2 cursor-pointer">
-                  <ArrowUpSquare className="h-4 w-4" />
-                  Saída
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="quantidade">Quantidade *</Label>
-            <Input
-              id="quantidade"
-              type="number"
-              min="1"
-              value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value)}
-              placeholder="Digite a quantidade"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="motivo">Motivo *</Label>
-            <Select value={motivo} onValueChange={setMotivo}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o motivo" />
-              </SelectTrigger>
-              <SelectContent>
-                {motivosFiltrados.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.descricao}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
-            {tipo === 'entrada' ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="notaFiscal">
-                    Nota Fiscal {motivo === 'compra' ? '*' : ''}
+            <div className="space-y-2">
+              <Label>Tipo de Movimentação *</Label>
+              <RadioGroup
+                value={tipo}
+                onValueChange={(value: TipoMovimentacao) => {
+                  setTipo(value)
+                  if (value !== 'saida') {
+                    setUnidadeId("")
+                    setFrotaId("none")
+                  }
+                }}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="entrada" id="entrada" />
+                  <Label htmlFor="entrada" className="flex items-center gap-2 cursor-pointer">
+                    <ArrowDownSquare className="h-4 w-4" />
+                    Entrada
                   </Label>
-                  <Input
-                    id="notaFiscal"
-                    value={notaFiscal}
-                    onChange={(e) => setNotaFiscal(e.target.value)}
-                    placeholder="Digite o número da nota fiscal"
-                  />
                 </div>
-                {/* Placeholder divs to maintain consistent height */}
-                <div className="h-[76px]" />
-              </>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="unidade">Unidade *</Label>
-                  <Select value={unidadeId} onValueChange={(value) => {
-                    console.log('Unidade selecionada:', value)
-                    setUnidadeId(value)
-                    setFrotaId("")
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a unidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unidades.map((unidade) => (
-                        <SelectItem key={unidade.id} value={unidade.id}>
-                          {unidade.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="saida" id="saida" />
+                  <Label htmlFor="saida" className="flex items-center gap-2 cursor-pointer">
+                    <ArrowUpSquare className="h-4 w-4" />
+                    Saída
+                  </Label>
                 </div>
+              </RadioGroup>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="frota">Frota</Label>
-                  <Select value={frotaId} onValueChange={setFrotaId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a frota" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {frotas.map((frota) => (
-                        <SelectItem key={frota.id} value={frota.id}>
-                          {frota.frota} - {frota.descricao}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="quantidade">Quantidade *</Label>
+              <Input
+                id="quantidade"
+                type="number"
+                min="1"
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+                placeholder="Digite a quantidade"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="observacoes">Observações</Label>
-            <Textarea
-              id="observacoes"
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-              placeholder="Digite observações sobre a movimentação"
-              className="resize-none h-[100px]"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="motivo">Motivo *</Label>
+              <Select value={motivo} onValueChange={setMotivo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {motivosFiltrados.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.descricao}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="flex justify-end mt-6">
-            <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
-              {isLoading ? "Registrando..." : "Registrar Movimentação"}
-            </Button>
-          </div>
-        </form>
+            <div className="grid grid-cols-1 gap-4">
+              {tipo === 'entrada' ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="notaFiscal">
+                      Nota Fiscal {motivo === 'compra' ? '*' : ''}
+                    </Label>
+                    <Input
+                      id="notaFiscal"
+                      value={notaFiscal}
+                      onChange={(e) => setNotaFiscal(e.target.value)}
+                      placeholder="Digite o número da nota fiscal"
+                    />
+                  </div>
+                  {/* Placeholder divs to maintain consistent height */}
+                  <div className="h-[76px]" />
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="unidade">Unidade *</Label>
+                    <Select value={unidadeId} onValueChange={(value) => {
+                      console.log('Unidade selecionada:', value)
+                      setUnidadeId(value)
+                      setFrotaId("none")
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unidades.map((unidade) => (
+                          <SelectItem key={unidade.id} value={unidade.id}>
+                            {unidade.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="frota">Frota</Label>
+                    <Select value={frotaId} onValueChange={setFrotaId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a frota" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma</SelectItem>
+                        {frotas.map((frota) => (
+                          <SelectItem key={frota.id} value={frota.id}>
+                            {frota.frota} - {frota.descricao}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="observacoes">Observações</Label>
+              <Textarea
+                id="observacoes"
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                placeholder="Digite observações sobre a movimentação"
+                className="resize-none h-[100px]"
+              />
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
+                {isLoading ? "Registrando..." : "Registrar Movimentação"}
+              </Button>
+            </div>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   )
