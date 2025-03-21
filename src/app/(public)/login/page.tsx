@@ -86,16 +86,34 @@ export default function LoginPage() {
         return
       }
 
+      // Fetch user profile after successful login
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", data.user.id)
+        .single()
+
+      if (profileError) {
+        setGeneralError("Erro ao carregar perfil do usuário.")
+        return
+      }
+
+      // Update last access
+      await supabase
+        .from("profiles")
+        .update({ ultimo_acesso: new Date().toISOString() })
+        .eq("user_id", data.user.id)
+
       toast({
         title: "Login realizado com sucesso",
         description: "Redirecionando para o sistema...",
       })
 
-      // Aguarda a sessão ser estabelecida e o toast ser exibido
+      // Wait for the toast to be displayed
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // Força um refresh da página
-      window.location.href = "/"
+      // Use Next.js router to navigate
+      router.push("/")
     } catch (error) {
       console.error("Erro ao fazer login:", error)
       setGeneralError("Erro inesperado. Por favor, tente novamente.")
@@ -150,16 +168,37 @@ export default function LoginPage() {
         return
       }
 
+      // Fetch user profile after successful login
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", data.user.id)
+        .single()
+
+      if (profileError) {
+        setGeneralError("Erro ao carregar perfil do usuário.")
+        return
+      }
+
+      // Update last access and firstLogin flag
+      await supabase
+        .from("profiles")
+        .update({ 
+          ultimo_acesso: new Date().toISOString(),
+          firstLogin: false
+        })
+        .eq("user_id", data.user.id)
+
       toast({
         title: "Senha criada com sucesso",
         description: "Redirecionando para o sistema...",
       })
 
-      // Aguarda a sessão ser estabelecida
+      // Wait for the toast to be displayed
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // Força um refresh da página
-      window.location.href = "/"
+      // Use Next.js router to navigate
+      router.push("/")
     } catch (error) {
       console.error("Erro ao atualizar senha:", error)
       setGeneralError("Não foi possível criar a senha. Por favor, tente novamente.")

@@ -2,6 +2,12 @@
 DROP FUNCTION IF EXISTS criar_conferencia;
 DROP TYPE IF EXISTS item_conferencia_input;
 
+-- Remove base_profile and permissions from profiles table
+ALTER TABLE profiles
+    DROP COLUMN IF EXISTS base_profile,
+    DROP COLUMN IF EXISTS permissions,
+    DROP COLUMN IF EXISTS unit_id;
+
 -- Alter the itens_conferencia table to allow NULL in quantidade_conferida
 ALTER TABLE itens_conferencia 
     ALTER COLUMN quantidade_conferida DROP NOT NULL,

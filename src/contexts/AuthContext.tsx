@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           adminProfile: profile.adminProfile,
           firstLogin: profile.firstLogin,
           user_email: profile.user_email,
-          ultimo_acesso: profile.ultimo_acesso,
+          ultimo_acesso: profile.ultimo_acesso
         },
       }
 
