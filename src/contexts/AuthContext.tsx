@@ -28,7 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Usar cache do Supabase para otimizar chamadas repetidas
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
@@ -57,12 +56,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(userData)
-      // Armazenar em localStorage para acesso rápido
-      localStorage.setItem('user_profile', JSON.stringify(userData))
+      sessionStorage.setItem('user_profile', JSON.stringify(userData))
     } catch (error) {
       console.error('Erro ao buscar perfil do usuário:', error)
-      // Tentar recuperar do cache em caso de erro
-      const cachedUser = localStorage.getItem('user_profile')
+      const cachedUser = sessionStorage.getItem('user_profile')
       if (cachedUser) {
         setUser(JSON.parse(cachedUser))
       }
@@ -72,59 +69,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const refreshUser = async () => {
-    const session = await supabase.auth.getSession()
-    if (session.data.session?.user) {
-      await fetchUserProfile(session.data.session.user.id)
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) {
+      console.error('Erro ao obter sessão:', error)
+      return
+    }
+    if (session?.user) {
+      await fetchUserProfile(session.user.id)
     }
   }
 
   useEffect(() => {
-    // Tentar recuperar do cache primeiro
-    const cachedUser = localStorage.getItem('user_profile')
-    if (cachedUser) {
-      setUser(JSON.parse(cachedUser))
-      setLoading(false)
-    }
+    let mounted = true
 
-    // Verificar autenticação atual
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchUserProfile(session.user.id)
-      } else {
-        setUser(null)
-        localStorage.removeItem('user_profile')
-        setLoading(false)
-        if (pathname !== '/login') {
-          window.location.href = '/login'
+    const initAuth = async () => {
+      try {
+        const cachedUser = sessionStorage.getItem('user_profile')
+        if (cachedUser && mounted) {
+          setUser(JSON.parse(cachedUser))
+          setLoading(false)
+        }
+
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) throw error
+
+        if (session?.user && mounted) {
+          await fetchUserProfile(session.user.id)
+        } else {
+          if (mounted) {
+            setUser(null)
+            sessionStorage.removeItem('user_profile')
+            setLoading(false)
+            if (pathname !== '/login') {
+              router.push('/login')
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro na inicialização da autenticação:', error)
+        if (mounted) {
+          setLoading(false)
         }
       }
-    })
+    }
 
-    // Escutar mudanças na autenticação
+    initAuth()
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
+
       if (session?.user) {
         await fetchUserProfile(session.user.id)
       } else {
         setUser(null)
-        localStorage.removeItem('user_profile')
+        sessionStorage.removeItem('user_profile')
         setLoading(false)
         if (pathname !== '/login') {
-          window.location.href = '/login'
+          router.push('/login')
         }
       }
     })
 
     return () => {
+      mounted = false
       subscription.unsubscribe()
     }
-  }, [pathname])
+  }, [pathname, router])
 
   const signOut = async () => {
     try {
       await supabase.auth.signOut()
       setUser(null)
-      localStorage.removeItem('user_profile')
-      window.location.href = '/login'
+      sessionStorage.removeItem('user_profile')
+      router.push('/login')
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
     }
