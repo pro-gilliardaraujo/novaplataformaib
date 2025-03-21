@@ -68,14 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(userData)
       sessionStorage.setItem('user_profile', JSON.stringify(userData))
+      setLoading(false)
     } catch (error) {
       console.error('[Auth] Erro ao buscar perfil do usuário:', error)
-      const cachedUser = sessionStorage.getItem('user_profile')
-      if (cachedUser) {
-        console.log('[Auth] Usando dados do cache')
-        setUser(JSON.parse(cachedUser))
-      }
-    } finally {
       setLoading(false)
     }
   }
@@ -87,14 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('[Auth] Iniciando autenticação...')
         
-        const cachedUser = sessionStorage.getItem('user_profile')
-        if (cachedUser && mounted) {
-          console.log('[Auth] Usando dados do cache')
-          setUser(JSON.parse(cachedUser))
-          setLoading(false)
-        }
-
-        console.log('[Auth] Verificando sessão...')
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         if (sessionError) {
           console.error('[Auth] Erro ao verificar sessão:', sessionError)
@@ -111,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (mounted) {
             setUser(null)
             sessionStorage.removeItem('user_profile')
+            setLoading(false)
             if (pathname !== '/login') {
               router.push('/login')
             }
@@ -125,10 +113,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (pathname !== '/login') {
             router.push('/login')
           }
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false)
         }
       }
     }
@@ -171,8 +155,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[Auth] Logout realizado com sucesso')
       setUser(null)
       sessionStorage.removeItem('user_profile')
-      
-      // Força a limpeza do cache do React Query
       window.location.href = '/login'
     } catch (error) {
       console.error('[Auth] Erro na função de logout:', error)

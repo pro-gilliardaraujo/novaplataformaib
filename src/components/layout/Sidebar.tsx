@@ -1,475 +1,160 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import Link from "next/link"
-import { useAuth } from "@/hooks/useAuth"
-import { useQuery } from "@tanstack/react-query"
-import { supabase } from "@/lib/supabase"
-import {
-  Cog6ToothIcon,
-  KeyIcon,
-  ArrowRightOnRectangleIcon,
-  ChevronDownIcon,
-  DocumentDuplicateIcon,
-  ClipboardDocumentListIcon,
-  ChevronRightIcon,
-  FolderIcon,
-  FolderOpenIcon
-} from "@heroicons/react/24/outline"
-import { Badge } from "@/components/ui/badge"
-import Image from 'next/image'
-import { Category, Page, Tab } from "@/types/pages"
-import { Button } from "@/components/ui/button"
-import * as HeroIconsOutline from "@heroicons/react/24/outline"
-import * as HeroIconsSolid from "@heroicons/react/24/solid"
-import * as HeroIconsMini from "@heroicons/react/20/solid"
-import * as Pi from "phosphor-react"
-import * as Fa from "react-icons/fa"
-import * as Md from "react-icons/md"
-import * as Io from "react-icons/io"
-import * as Ri from "react-icons/ri"
-import * as Bi from "react-icons/bi"
-import { IconContext as PhosphorIconContext } from "phosphor-react"
-import { Plus } from "lucide-react"
+import { useState } from 'react'
+import Link from 'next/link'
+import { ChevronDownIcon } from '@heroicons/react/24/outline'
+import { useAuth } from '@/hooks/useAuth'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 
-// Ícones personalizados como alias
-const TruckIcon = DocumentDuplicateIcon
-const CavIcon = DocumentDuplicateIcon
-const PlantioIcon = DocumentDuplicateIcon
-const OleosIcon = DocumentDuplicateIcon
-const BonificacoesIcon = DocumentDuplicateIcon
+interface MenuItem {
+  id: string
+  name: string
+  url: string
+}
+
+interface Category {
+  id: string
+  name: string
+  menu_items: MenuItem[]
+}
 
 export default function Sidebar() {
-  const { user, loading: authLoading, signOut } = useAuth()
-  const router = useRouter()
-  const pathname = usePathname()
+  const { user, signOut } = useAuth()
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [showSettings, setShowSettings] = useState(false)
 
   console.log('[Sidebar] Estado inicial:', {
     hasUser: !!user,
-    authLoading,
-    pathname
+    expandedCategories,
+    showSettings
   })
 
-  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading } = useQuery({
-    queryKey: ['menu-data'],
+  const { data: categories, isLoading } = useQuery({
+    queryKey: ['menu-categories'],
     queryFn: async () => {
-      console.log('[Sidebar] Iniciando busca dos dados do menu...')
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
-          console.log('[Sidebar] Sem sessão ativa, não buscando menu')
-          return { reports: [], management: [] }
-        }
+      console.log('[Sidebar] Buscando categorias...')
+      const { data, error } = await supabase
+        .from('menu_categories')
+        .select('*, menu_items(*)')
+        .order('order', { ascending: true })
+        .order('order', { ascending: true, foreignTable: 'menu_items' })
 
-        console.log('[Sidebar] Sessão ativa, buscando categorias...')
-        const { data: categories, error: categoriesError } = await supabase
-          .from('categories')
-          .select(`
-            id,
-            name,
-            slug,
-            section,
-            icon,
-            order_index,
-            pages (
-              id,
-              name,
-              slug,
-              icon,
-              category_id
-            )
-          `)
-          .order('order_index')
-
-        if (categoriesError) {
-          console.error('[Sidebar] Erro ao buscar categorias:', categoriesError)
-          throw categoriesError
-        }
-
-        console.log('[Sidebar] Categorias encontradas:', categories?.length || 0)
-
-        // Transform categories to handle special cases
-        const transformedCategories = categories?.map(category => {
-          // Make "Controle de Paradas" a single page
-          if (category.slug === 'paradas') {
-            return {
-              ...category,
-              pages: []
-            }
-          }
-
-          // Sort pages by name
-          const sortedPages = [...(category.pages || [])].sort((a, b) => 
-            a.name.localeCompare(b.name)
-          )
-
-          return {
-            ...category,
-            pages: sortedPages
-          }
-        }) || []
-
-        const reports = transformedCategories.filter(cat => cat.section === 'reports')
-        const management = transformedCategories.filter(cat => cat.section === 'management')
-
-        console.log('[Sidebar] Menu processado:', {
-          reportsCount: reports.length,
-          managementCount: management.length
-        })
-
-        return { reports, management }
-      } catch (error) {
-        console.error('[Sidebar] Error fetching menu data:', error)
-        return { reports: [], management: [] }
+      if (error) {
+        console.error('[Sidebar] Erro ao buscar categorias:', error)
+        throw error
       }
-    },
-    enabled: !!user && !authLoading,
-    staleTime: 1000 * 60 * 5, // 5 minutos
-    retry: 3,
-    retryDelay: 1000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    refetchOnMount: true
-  })
 
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+      console.log('[Sidebar] Categorias encontradas:', data.length)
+      return data as Category[]
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true
+  })
 
   const toggleCategory = (categoryId: string) => {
-    setExpandedCategory(prev =>
-      prev === categoryId ? null : categoryId
+    setExpandedCategories(current =>
+      current.includes(categoryId)
+        ? current.filter(id => id !== categoryId)
+        : [...current, categoryId]
     )
   }
 
-  const getIconForCategory = (category: Category) => {
-    // Se tiver um ícone personalizado, usa ele
-    if (category.icon) {
-      const [library, style, name] = category.icon.split('/')
-      let iconSet: Record<string, any>
-
-      // Função auxiliar para renderizar ícone do Phosphor
-      const renderPhosphorIcon = (Icon: any) => {
-        return (
-          <PhosphorIconContext.Provider
-            value={{
-              size: 20,
-              weight: style as any,
-              mirrored: false,
-            }}
-          >
-            <Icon />
-          </PhosphorIconContext.Provider>
-        )
-      }
-
-      switch (library) {
-        case 'heroicons':
-          switch (style) {
-            case 'solid':
-              iconSet = HeroIconsSolid
-              break
-            case 'mini':
-              iconSet = HeroIconsMini
-              break
-            default:
-              iconSet = HeroIconsOutline
-          }
-          break
-        case 'remixicon':
-          iconSet = Ri
-          break
-        case 'boxicons':
-          iconSet = Bi
-          break
-        case 'phosphor':
-          const PhosphorIcon = Pi[name as keyof typeof Pi]
-          if (PhosphorIcon) {
-            return renderPhosphorIcon(PhosphorIcon)
-          }
-          return <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
-        case 'fontawesome':
-          iconSet = Fa
-          break
-        case 'material':
-          iconSet = Md
-          break
-        case 'ionicons':
-          iconSet = Io
-          break
-        default:
-          iconSet = HeroIconsOutline
-      }
-
-      const IconComponent = iconSet[name]
-      if (IconComponent) {
-        return <IconComponent className="h-5 w-5 text-gray-500" />
-      }
-    }
-
-    // Se não tiver ícone personalizado, usa os ícones padrão baseados no slug
-    switch (category.slug) {
-      case 'colheita':
-        return <TruckIcon className="h-5 w-5 text-gray-500" />
-      case 'cav':
-        return <CavIcon className="h-5 w-5 text-gray-500" />
-      case 'plantio':
-        return <PlantioIcon className="h-5 w-5 text-gray-500" />
-      case 'operacional':
-        return <ClipboardDocumentListIcon className="h-5 w-5 text-gray-500" />
-      case 'oleos':
-        return <OleosIcon className="h-5 w-5 text-gray-500" />
-      case 'bonificacoes':
-        return <BonificacoesIcon className="h-5 w-5 text-gray-500" />
-      default:
-        return <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
-    }
+  const toggleSettings = () => {
+    setShowSettings(!showSettings)
   }
 
-  const getIconForPage = (page: Page) => {
-    // Se tiver um ícone personalizado, usa ele
-    if (page.icon) {
-      const [library, style, name] = page.icon.split('/')
-      let iconSet: Record<string, any>
-
-      // Função auxiliar para renderizar ícone do Phosphor
-      const renderPhosphorIcon = (Icon: any) => {
-        return (
-          <PhosphorIconContext.Provider
-            value={{
-              size: 16,
-              weight: style as any,
-              mirrored: false,
-            }}
-          >
-            <Icon />
-          </PhosphorIconContext.Provider>
-        )
-      }
-
-      switch (library) {
-        case 'heroicons':
-          switch (style) {
-            case 'solid':
-              iconSet = HeroIconsSolid
-              break
-            case 'mini':
-              iconSet = HeroIconsMini
-              break
-            default:
-              iconSet = HeroIconsOutline
-          }
-          break
-        case 'remixicon':
-          iconSet = Ri
-          break
-        case 'boxicons':
-          iconSet = Bi
-          break
-        case 'phosphor':
-          const PhosphorIcon = Pi[name as keyof typeof Pi]
-          if (PhosphorIcon) {
-            return renderPhosphorIcon(PhosphorIcon)
-          }
-          return <DocumentDuplicateIcon className="h-4 w-4 text-gray-500" />
-        case 'fontawesome':
-          iconSet = Fa
-          break
-        case 'material':
-          iconSet = Md
-          break
-        case 'ionicons':
-          iconSet = Io
-          break
-        default:
-          iconSet = HeroIconsOutline
-      }
-
-      const IconComponent = iconSet[name]
-      if (IconComponent) {
-        return <IconComponent className="h-4 w-4 text-gray-500" />
-      }
-    }
-
-    // Ícone padrão
-    return <DocumentDuplicateIcon className="h-4 w-4 text-gray-500" />
-  }
-
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-      router.push("/login")
-    } catch (error) {
-      console.error('[Sidebar] Erro ao fazer logout:', error)
-    }
-  }
-
-  const renderSection = (section: 'reports' | 'management') => {
-    const categories = menuData[section]
-
+  if (isLoading) {
     return (
-      <div className="h-[45%] overflow-y-auto border-t">
-        <div className="px-3 py-4">
-          <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
-            {section === 'reports' ? 'Visualizações' : 'Gerenciamento'}
-          </h2>
-          <nav className="space-y-1">
-            {categories?.map((category) => {
-              // Link direto para categorias que são páginas únicas no gerenciamento
-              if (section === 'management' && (!category.pages || category.pages.length === 0 || (category.pages.length === 1 && category.pages[0].slug === category.slug))) {
-                return (
-                  <Link
-                    key={category.id}
-                    href={`/gerenciamento/${category.slug}`}
-                    className={`flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 ${
-                      pathname === `/gerenciamento/${category.slug}` ? 'bg-gray-100' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {getIconForCategory(category)}
-                      <span>{category.name}</span>
-                    </div>
-                  </Link>
-                )
-              }
-              
-              // Dropdown para categorias com múltiplas páginas
-              return (
-                <div key={category.id}>
-                  <button
-                    onClick={() => toggleCategory(category.id)}
-                    className={`w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 ${
-                      expandedCategory === category.id ? 'bg-gray-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {getIconForCategory(category)}
-                      <span>{category.name}</span>
-                    </div>
-                    <ChevronDownIcon 
-                      className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                        expandedCategory === category.id ? 'transform rotate-180' : ''
-                      }`} 
-                    />
-                  </button>
-                  <div className={`ml-7 space-y-1 ${expandedCategory === category.id ? 'block' : 'hidden'}`}>
-                    {(category.pages || []).map((page: Page) => (
-                      <Link
-                        key={page.id}
-                        href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}
-                        className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                          pathname?.includes(`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`)
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                      >
-                        {getIconForPage(page)}
-                        <span>{page.name}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </nav>
+      <div className="flex h-full w-80 flex-col border-r bg-white">
+        <div className="flex h-14 items-center border-b px-4">
+          <span className="font-semibold">Menu</span>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <div className="space-y-4">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-gray-200" />
+            <div className="h-4 w-2/3 animate-pulse rounded bg-gray-200" />
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white border-r w-64">
-      {/* Logo - 10% */}
-      <div className="flex items-center px-3 py-4 border-b h-[10%]">
-        <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-          <Image
-            src="https://kjlwqezxzqjfhacmjhbh.supabase.co/storage/v1/object/public/sourcefiles//logo.png"
-            alt="IB Logística"
-            width={36}
-            height={36}
-            className="rounded"
-            style={{ width: 'auto', height: 'auto' }}
-          />
-          <span className="ml-3 text-base font-medium text-gray-900">
-            IB Logística
-          </span>
-        </Link>
+    <div className="flex h-full w-80 flex-col border-r bg-white">
+      <div className="flex h-14 items-center border-b px-4">
+        <span className="font-semibold">Menu</span>
       </div>
-
-      {isMenuLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-        </div>
-      ) : (
-        <div className="flex flex-col h-[90%]">
-          {/* Relatórios - 45% */}
-          {renderSection('reports')}
-
-          {/* Gerenciamento - 45% */}
-          {renderSection('management')}
-
-          {/* Configurações - 10% */}
-          <div className="h-[10%] border-t mt-auto relative">
-            <div className="px-3 py-4">
-              <div className="space-y-1">
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                >
-                  <div className="flex items-center gap-2">
-                    <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
-                    <span>Configurações</span>
-                  </div>
-                  <ChevronDownIcon 
-                    className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                      showSettings ? 'transform rotate-180' : ''
-                    }`}
-                  />
-                </button>
-                {showSettings && (
-                  <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
-                    <div className="p-4 border-b bg-gray-50">
-                      <div className="flex flex-col space-y-1">
-                        <span className="font-medium">{user?.profile?.nome}</span>
-                        <Badge variant={user?.profile?.adminProfile ? "default" : "secondary"} className="w-fit">
-                          {user?.profile?.adminProfile ? "Administrador" : "Usuário"}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="mx-2 my-1">
-                      <Link
-                        href="/gerenciamento/paginas"
-                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
-                          pathname === '/gerenciamento/paginas' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Páginas</span>
-                      </Link>
-                      <Link
-                        href="/gerenciamento/usuarios"
-                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
-                          pathname === '/gerenciamento/usuarios' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        <KeyIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Usuários</span>
-                      </Link>
-                      <button
-                        onClick={handleSignOut}
-                        className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
-                      >
-                        <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Sair</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+      <div className="flex-1 overflow-auto py-2">
+        <nav className="grid items-start px-4 text-sm font-medium">
+          {categories?.map((category) => (
+            <div key={category.id} className="pb-4">
+              <button
+                onClick={() => toggleCategory(category.id)}
+                className="flex w-full items-center justify-between rounded-md p-2 hover:bg-gray-100"
+              >
+                <span>{category.name}</span>
+                <ChevronDownIcon
+                  className={`h-4 w-4 transition-transform ${
+                    expandedCategories.includes(category.id) ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+              {expandedCategories.includes(category.id) && (
+                <div className="mt-1 pl-4">
+                  {category.menu_items?.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={item.url}
+                      className="block rounded-md p-2 hover:bg-gray-100"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
+          ))}
+          <div className="relative">
+            <button
+              onClick={toggleSettings}
+              className="flex w-full items-center justify-between rounded-md p-2 hover:bg-gray-100"
+            >
+              <span>Configurações</span>
+              <ChevronDownIcon
+                className={`h-4 w-4 transition-transform ${
+                  showSettings ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            {showSettings && (
+              <div className="mt-1 pl-4">
+                <Link
+                  href="/admin/pages"
+                  className="block rounded-md p-2 hover:bg-gray-100"
+                >
+                  Páginas
+                </Link>
+                <Link
+                  href="/admin/users"
+                  className="block rounded-md p-2 hover:bg-gray-100"
+                >
+                  Usuários
+                </Link>
+                <button
+                  onClick={() => signOut()}
+                  className="w-full text-left rounded-md p-2 hover:bg-gray-100"
+                >
+                  Sair
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        </nav>
+      </div>
     </div>
   )
 } 
