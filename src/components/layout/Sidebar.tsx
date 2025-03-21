@@ -44,6 +44,7 @@ export default function Sidebar() {
   const { user, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const [showSettings, setShowSettings] = useState(false)
 
   console.log('[Sidebar] Estado inicial:', {
     hasUser: !!user,
@@ -59,7 +60,7 @@ export default function Sidebar() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
           console.log('[Sidebar] Sem sessão ativa, não buscando menu')
-          throw new Error('No active session')
+          return { reports: [], management: [] }
         }
 
         console.log('[Sidebar] Sessão ativa, buscando categorias...')
@@ -89,8 +90,29 @@ export default function Sidebar() {
 
         console.log('[Sidebar] Categorias encontradas:', categories?.length || 0)
 
-        const reports = categories?.filter(cat => cat.section === 'reports') || []
-        const management = categories?.filter(cat => cat.section === 'management') || []
+        // Transform categories to handle special cases
+        const transformedCategories = categories?.map(category => {
+          // Make "Controle de Paradas" a single page
+          if (category.slug === 'paradas') {
+            return {
+              ...category,
+              pages: []
+            }
+          }
+
+          // Sort pages by name
+          const sortedPages = [...(category.pages || [])].sort((a, b) => 
+            a.name.localeCompare(b.name)
+          )
+
+          return {
+            ...category,
+            pages: sortedPages
+          }
+        }) || []
+
+        const reports = transformedCategories.filter(cat => cat.section === 'reports')
+        const management = transformedCategories.filter(cat => cat.section === 'management')
 
         console.log('[Sidebar] Menu processado:', {
           reportsCount: reports.length,
@@ -100,7 +122,7 @@ export default function Sidebar() {
         return { reports, management }
       } catch (error) {
         console.error('[Sidebar] Error fetching menu data:', error)
-        throw error
+        return { reports: [], management: [] }
       }
     },
     enabled: !!user && !authLoading,
@@ -274,8 +296,12 @@ export default function Sidebar() {
   }
 
   const handleSignOut = async () => {
-    await signOut()
-    router.push("/login")
+    try {
+      await signOut()
+      router.push("/login")
+    } catch (error) {
+      console.error('[Sidebar] Erro ao fazer logout:', error)
+    }
   }
 
   const renderSection = (section: 'reports' | 'management') => {
@@ -387,14 +413,58 @@ export default function Sidebar() {
             <div className="px-3 py-4">
               <div className="space-y-1">
                 <button
-                  onClick={handleSignOut}
+                  onClick={() => setShowSettings(!showSettings)}
                   className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
                 >
                   <div className="flex items-center gap-2">
-                    <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
-                    <span>Sair</span>
+                    <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
+                    <span>Configurações</span>
                   </div>
+                  <ChevronDownIcon 
+                    className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                      showSettings ? 'transform rotate-180' : ''
+                    }`}
+                  />
                 </button>
+                {showSettings && (
+                  <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
+                    <div className="p-4 border-b bg-gray-50">
+                      <div className="flex flex-col space-y-1">
+                        <span className="font-medium">{user?.profile?.nome}</span>
+                        <Badge variant={user?.profile?.adminProfile ? "default" : "secondary"} className="w-fit">
+                          {user?.profile?.adminProfile ? "Administrador" : "Usuário"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="mx-2 my-1">
+                      <Link
+                        href="/gerenciamento/paginas"
+                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                          pathname === '/gerenciamento/paginas' ? 'bg-gray-100' : ''
+                        }`}
+                      >
+                        <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
+                        <span className="ml-2">Páginas</span>
+                      </Link>
+                      <Link
+                        href="/gerenciamento/usuarios"
+                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                          pathname === '/gerenciamento/usuarios' ? 'bg-gray-100' : ''
+                        }`}
+                      >
+                        <KeyIcon className="h-5 w-5 text-gray-500" />
+                        <span className="ml-2">Usuários</span>
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
+                      >
+                        <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
+                        <span className="ml-2">Sair</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

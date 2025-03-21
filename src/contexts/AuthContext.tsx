@@ -92,7 +92,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('[Auth] Usando dados do cache')
           setUser(JSON.parse(cachedUser))
           setLoading(false)
-          return
         }
 
         console.log('[Auth] Verificando sessão...')
@@ -161,28 +160,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       console.log('[Auth] Iniciando logout...')
+      setLoading(true)
+      
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('[Auth] Erro durante logout:', error)
         throw error
       }
+
       console.log('[Auth] Logout realizado com sucesso')
       setUser(null)
       sessionStorage.removeItem('user_profile')
-      router.push('/login')
+      
+      // Força a limpeza do cache do React Query
+      window.location.href = '/login'
     } catch (error) {
       console.error('[Auth] Erro na função de logout:', error)
+      setLoading(false)
     }
   }
 
   const refreshUser = async () => {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    if (error) {
-      console.error('Erro ao obter sessão:', error)
-      return
-    }
-    if (session?.user) {
-      await fetchUserProfile(session.user.id)
+    try {
+      console.log('[Auth] Atualizando usuário...')
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error) {
+        console.error('[Auth] Erro ao obter sessão:', error)
+        return
+      }
+      if (session?.user) {
+        await fetchUserProfile(session.user.id)
+      }
+    } catch (error) {
+      console.error('[Auth] Erro ao atualizar usuário:', error)
     }
   }
 
