@@ -6,13 +6,15 @@ import { NovoEquipamentoModal } from "@/components/novo-equipamento-modal"
 import { EditarEquipamentoModal } from "@/components/editar-equipamento-modal"
 import { EquipamentoDetailsModal } from "@/components/equipamento-details-modal"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, Download } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Equipamento, NovoEquipamentoData, UpdateEquipamentoData } from "@/types/equipamento"
 import { equipamentoService } from "@/services/equipamentoService"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 export default function EquipamentosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -125,12 +127,51 @@ export default function EquipamentosPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <Button
-            className="bg-black hover:bg-black/90 text-white"
-            onClick={() => setIsModalOpen(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Novo Equipamento
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const BOM = '\uFEFF'
+                const headers = {
+                  codigo_patrimonio: 'Código',
+                  descricao: 'Descrição',
+                  num_serie: 'Número de Série',
+                  created_at: 'Data de Cadastro'
+                }
+                
+                const escapeCsvCell = (cell: string | number) => {
+                  cell = String(cell).replace(/"/g, '""')
+                  return /[;\n"]/.test(cell) ? `"${cell}"` : cell
+                }
+
+                const csvRows = [
+                  Object.values(headers).join(';'),
+                  ...filteredEquipamentos.map(equipamento => [
+                    escapeCsvCell(equipamento.codigo_patrimonio),
+                    escapeCsvCell(equipamento.descricao),
+                    escapeCsvCell(equipamento.num_serie || 'N/A'),
+                    escapeCsvCell(format(new Date(equipamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }))
+                  ].join(';'))
+                ].join('\r\n')
+
+                const blob = new Blob([BOM + csvRows], { type: 'text/csv;charset=utf-8' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+                link.download = `equipamentos_${format(new Date(), 'dd-MM-yyyy_HH-mm')}.csv`
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" /> Exportar
+            </Button>
+            <Button
+              className="bg-black hover:bg-black/90 text-white"
+              onClick={() => setIsModalOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Novo Equipamento
+            </Button>
+          </div>
         </div>
 
         {/* Error alert */}
@@ -151,6 +192,39 @@ export default function EquipamentosPage() {
               onView={(equipamento) => setSelectedEquipamento(equipamento)}
               onEdit={setSelectedEquipamentoForEdit}
               onDelete={handleDeleteEquipamento}
+              searchTerm={searchTerm}
+              onExport={() => {
+                const BOM = '\uFEFF'
+                const headers = {
+                  codigo_patrimonio: 'Código',
+                  descricao: 'Descrição',
+                  num_serie: 'Número de Série',
+                  created_at: 'Data de Cadastro'
+                }
+                
+                const escapeCsvCell = (cell: string | number) => {
+                  cell = String(cell).replace(/"/g, '""')
+                  return /[;\n"]/.test(cell) ? `"${cell}"` : cell
+                }
+
+                const csvRows = [
+                  Object.values(headers).join(';'),
+                  ...filteredEquipamentos.map(equipamento => [
+                    escapeCsvCell(equipamento.codigo_patrimonio),
+                    escapeCsvCell(equipamento.descricao),
+                    escapeCsvCell(equipamento.num_serie || 'N/A'),
+                    escapeCsvCell(format(new Date(equipamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }))
+                  ].join(';'))
+                ].join('\r\n')
+
+                const blob = new Blob([BOM + csvRows], { type: 'text/csv;charset=utf-8' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+                link.download = `equipamentos_${format(new Date(), 'dd-MM-yyyy_HH-mm')}.csv`
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+              }}
             />
           )}
         </div>

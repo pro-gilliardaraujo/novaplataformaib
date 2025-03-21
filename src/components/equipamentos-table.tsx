@@ -79,6 +79,8 @@ interface EquipamentosTableProps {
   onView: (equipamento: Equipamento) => void
   onEdit: (equipamento: Equipamento) => void
   onDelete: (codigoPatrimonio: string) => Promise<void>
+  searchTerm: string
+  onExport: () => void
 }
 
 type ColumnType = {
@@ -92,11 +94,12 @@ export function EquipamentosTable({
   equipamentos, 
   onView,
   onEdit,
-  onDelete
+  onDelete,
+  searchTerm,
+  onExport
 }: EquipamentosTableProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<Record<string, Set<string>>>({})
-  const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Equipamento
     direction: 'asc' | 'desc'
@@ -220,7 +223,7 @@ export function EquipamentosTable({
       Object.values(headers).join(';'),
       
       // Data rows
-      ...filteredData.map(equipamento => [
+      ...equipamentos.map(equipamento => [
         escapeCsvCell(equipamento.codigo_patrimonio),
         escapeCsvCell(equipamento.descricao),
         escapeCsvCell(equipamento.num_serie || 'N/A'),
@@ -248,154 +251,113 @@ export function EquipamentosTable({
         // Aplicar filtro de busca
         if (searchTerm) {
           const searchLower = searchTerm.toLowerCase()
-          return (
-            row.codigo_patrimonio.toLowerCase().includes(searchLower) ||
-            row.descricao.toLowerCase().includes(searchLower) ||
-            (row.num_serie?.toLowerCase() || '').includes(searchLower)
+          return Object.values(row).some(value => 
+            value?.toString().toLowerCase().includes(searchLower)
           )
         }
         return true
       })
-      .filter((row) =>
-        Object.entries(filters).every(([key, selectedOptions]) => {
-          if (selectedOptions.size === 0) return true
-          const column = columns.find(col => col.key === key)
-          if (!column) return true
-          const value = column.getValue ? column.getValue(row) : row[key as keyof Equipamento]
-          return typeof value === "string" && selectedOptions.has(value)
+      .filter(row => {
+        // Aplicar filtros de coluna
+        return Object.entries(filters).every(([columnKey, selectedValues]) => {
+          if (selectedValues.size === 0) return true
+          const value = columns.find(col => col.key === columnKey)?.getValue?.(row) || row[columnKey as keyof Equipamento]
+          return selectedValues.has(String(value))
         })
-      )
-  }, [sortedData, filters, searchTerm])
+      })
+  }, [sortedData, searchTerm, filters])
 
-  const startIndex = (currentPage - 1) * rowsPerPage
-  const endIndex = startIndex + rowsPerPage
-  const paginatedData = filteredData.slice(startIndex, endIndex)
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  )
+
   const totalPages = Math.ceil(filteredData.length / rowsPerPage)
 
   return (
-    <div className="border rounded-lg">
-      <Table>
-        <TableHeader className="bg-black">
-          <TableRow>
-            {columns.map((column) => (
-              <TableHead key={column.key} className="text-white font-medium h-[49px]">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-1">
-                      <span>{column.title}</span>
-                      <div className="flex items-center">
-                        {column.sortable && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-transparent"
-                            onClick={() => handleSort(column.key)}
-                          >
-                            <ArrowUpDown className={`h-4 w-4 ${
-                              sortConfig?.key === column.key
-                                ? sortConfig.direction === 'asc'
-                                  ? 'text-white'
-                                  : 'text-white rotate-180'
-                                : 'text-white/50'
-                            }`} />
-                          </Button>
-                        )}
-                        {filterOptions[column.key]?.length > 0 && (
-                          <FilterDropdown
-                            title={column.title}
-                            options={filterOptions[column.key]}
-                            selectedOptions={filters[column.key] || new Set()}
-                            onOptionToggle={(option) => handleFilterToggle(column.key, option)}
-                            onClear={() => handleClearFilter(column.key)}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </TableHead>
-            ))}
-            <TableHead className="text-white font-medium h-[49px] text-center">Detalhes</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {paginatedData.map((equipamento) => (
-            <TableRow key={equipamento.id} className="h-[49px] hover:bg-gray-50 border-b border-gray-200">
+    <div className="space-y-4">
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {columns.map((column) => (
-                <TableCell key={column.key} className="py-0 border-x border-gray-100">
-                  {column.getValue ? column.getValue(equipamento) : equipamento[column.key]}
-                </TableCell>
+                <TableHead key={column.key} className="whitespace-nowrap">
+                  <div className="flex items-center space-x-2">
+                    <span>{column.title}</span>
+                    {column.sortable && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleSort(column.key)}
+                      >
+                        <ArrowUpDown className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {filterOptions[column.key]?.length > 0 && (
+                      <FilterDropdown
+                        title={column.title}
+                        options={filterOptions[column.key]}
+                        selectedOptions={filters[column.key] || new Set()}
+                        onOptionToggle={(option) => handleFilterToggle(column.key, option)}
+                        onClear={() => handleClearFilter(column.key)}
+                      />
+                    )}
+                  </div>
+                </TableHead>
               ))}
-              <TableCell className="py-0 border-x border-gray-100">
-                <div className="flex justify-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => onView(equipamento)}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
+              <TableHead>Ações</TableHead>
             </TableRow>
-          ))}
-          {/* Fill empty rows to maintain consistent height */}
-          {paginatedData.length < rowsPerPage && (
-            Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-              <TableRow key={`empty-${index}`} className="h-[49px] border-b border-gray-200">
-                {Array(columns.length + 1).fill(0).map((_, colIndex) => (
-                  <TableCell key={`empty-cell-${colIndex}`} className="py-0 border-x border-gray-100">&nbsp;</TableCell>
+          </TableHeader>
+          <TableBody>
+            {paginatedData.map((equipamento) => (
+              <TableRow key={equipamento.codigo_patrimonio}>
+                {columns.map((column) => (
+                  <TableCell key={column.key}>
+                    {column.getValue ? column.getValue(equipamento) : String(equipamento[column.key])}
+                  </TableCell>
                 ))}
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onView(equipamento)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
-      {/* Pagination */}
-      <div className="border-t flex items-center justify-between bg-white px-4 h-10">
-        <div className="text-sm text-gray-500">
-          Mostrando {startIndex + 1} a {Math.min(endIndex, filteredData.length)} de {filteredData.length} resultados
+      {/* Paginação */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Mostrando {paginatedData.length} de {filteredData.length} resultados
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center space-x-2">
           <Button
             variant="outline"
             size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-gray-600">
+          <div className="text-sm">
             Página {currentPage} de {totalPages}
-          </span>
+          </div>
           <Button
             variant="outline"
             size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
             disabled={currentPage === totalPages}
           >
             <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex justify-between items-center mb-4">
-        <div className="w-[400px]">
-          <Input
-            placeholder="Buscar equipamentos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-9"
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="h-9" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Exportar
           </Button>
         </div>
       </div>
