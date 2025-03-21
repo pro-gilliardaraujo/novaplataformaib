@@ -47,27 +47,10 @@ export default function Sidebar() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  const { data: menuData = { reports: [], management: [] }, isLoading, error, refetch } = useQuery({
+  const { data: menuData = { reports: [], management: [] }, isLoading, error } = useQuery({
     queryKey: ['menu-data'],
     queryFn: async () => {
       try {
-        console.log('Starting menu data fetch, user:', user?.id)
-        console.log('Supabase client:', supabase)
-
-        // Primeiro tenta buscar apenas categorias para testar a conexão
-        const testQuery = await supabase
-          .from('categories')
-          .select('id')
-          .limit(1)
-
-        console.log('Test query result:', testQuery)
-
-        if (testQuery.error) {
-          console.error('Test query failed:', testQuery.error)
-          throw new Error(`Connection test failed: ${testQuery.error.message}`)
-        }
-
-        // Se o teste passou, faz a query completa
         const { data: categories, error: categoriesError } = await supabase
           .from('categories')
           .select(`
@@ -77,32 +60,20 @@ export default function Sidebar() {
             section,
             icon,
             order_index,
-            pages!inner (
+            pages (
               id,
               name,
               slug,
               icon,
-              order_index,
-              category_id,
-              content
+              category_id
             )
           `)
           .order('order_index')
 
-        if (categoriesError) {
-          console.error('Categories query failed:', categoriesError)
-          throw new Error(`Failed to fetch categories: ${categoriesError.message}`)
-        }
-
-        if (!categories || categories.length === 0) {
-          console.warn('No categories found')
-          return { reports: [], management: [] }
-        }
-
-        console.log('Raw categories data:', categories)
+        if (categoriesError) throw categoriesError
 
         // Transform categories to handle special cases
-        const transformedCategories = categories.map(category => {
+        const transformedCategories = categories?.map(category => {
           // Make "Controle de Paradas" a single page
           if (category.slug === 'paradas') {
             return {
@@ -111,32 +82,29 @@ export default function Sidebar() {
             }
           }
 
-          // Ensure pages are sorted by order_index
+          // Sort pages by name
           const sortedPages = [...(category.pages || [])].sort((a, b) => 
-            (a.order_index || 0) - (b.order_index || 0)
+            a.name.localeCompare(b.name)
           )
 
           return {
             ...category,
             pages: sortedPages
           }
-        })
+        }) || []
 
         const reports = transformedCategories.filter(cat => cat.section === 'reports')
         const management = transformedCategories.filter(cat => cat.section === 'management')
 
-        console.log('Final menu data:', { reports, management })
-
         return { reports, management }
       } catch (error) {
-        console.error('Menu data query failed:', error)
+        console.error('Error fetching menu data:', error)
         throw error
       }
     },
     enabled: !!user,
-    staleTime: Infinity,
-    retry: 5,
-    retryDelay: 1000
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    retry: 3
   })
 
   const toggleCategory = (categoryId: string) => {
@@ -402,10 +370,10 @@ export default function Sidebar() {
       ) : error ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center px-4">
-            <p className="text-red-500 mb-2">Erro ao carregar o menu: {error instanceof Error ? error.message : 'Erro desconhecido'}</p>
+            <p className="text-red-500 mb-2">Erro ao carregar o menu</p>
             <Button 
               variant="outline" 
-              onClick={() => refetch()}
+              onClick={() => router.refresh()}
               className="text-sm"
             >
               Tentar novamente

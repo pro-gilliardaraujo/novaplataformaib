@@ -117,8 +117,8 @@ export function ConferenciasTable() {
           quantidade_sistema,
           quantidade_conferida,
           diferenca,
-          itens_estoque:itens_estoque (
-            codigo_patrimonio,
+          item:item_id (
+            codigo_fabricante,
             descricao
           )
         `)
@@ -132,8 +132,8 @@ export function ConferenciasTable() {
         quantidade_sistema: number
         quantidade_conferida: number
         diferenca: number
-        itens_estoque: {
-          codigo_patrimonio: string
+        item: {
+          codigo_fabricante: string
           descricao: string
         }
       }
@@ -141,8 +141,8 @@ export function ConferenciasTable() {
       const itens = (itensData as unknown as ItemConferenciaResponse[]).map(item => ({
         id: item.id,
         item_id: item.item_id,
-        codigo_patrimonio: item.itens_estoque.codigo_patrimonio,
-        descricao: item.itens_estoque.descricao,
+        codigo_patrimonio: item.item.codigo_fabricante,
+        descricao: item.item.descricao,
         quantidade_sistema: item.quantidade_sistema,
         quantidade_conferida: item.quantidade_conferida,
         diferenca: item.diferenca
@@ -267,6 +267,10 @@ export function ConferenciasTable() {
     loadConferencias()
   }
 
+  const handleViewConferencia = (conferencia: Conferencia) => {
+    loadConferenciaDetails(conferencia)
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -359,7 +363,7 @@ export function ConferenciasTable() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => loadConferenciaDetails(conferencia)}
+                          onClick={() => handleViewConferencia(conferencia)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -424,6 +428,8 @@ export function ConferenciasTable() {
           open={!!selectedConferencia}
           onOpenChange={(open) => !open && setSelectedConferencia(null)}
           conferencia={selectedConferencia}
+          onEdit={() => {}}
+          onMovimentacao={() => {}}
         />
       )}
     </div>

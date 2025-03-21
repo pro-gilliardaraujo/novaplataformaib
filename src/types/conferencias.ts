@@ -4,7 +4,7 @@ export interface ItemConferencia {
   codigo_patrimonio: string
   descricao: string
   quantidade_sistema: number
-  quantidade_conferida: number
+  quantidade_conferida: number | "--"
   diferenca: number
 }
 
