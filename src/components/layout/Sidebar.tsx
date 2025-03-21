@@ -54,7 +54,23 @@ export default function Sidebar() {
         console.log('Fetching menu data...')
         const { data: categories, error: categoriesError } = await supabase
           .from('categories')
-          .select('*')
+          .select(`
+            id,
+            name,
+            slug,
+            section,
+            icon,
+            order_index,
+            pages (
+              id,
+              name,
+              slug,
+              icon,
+              order_index,
+              category_id,
+              content
+            )
+          `)
           .order('order_index')
 
         if (categoriesError) {
@@ -62,30 +78,10 @@ export default function Sidebar() {
           throw categoriesError
         }
 
-        console.log('Categories fetched:', categories)
-
-        // Fetch pages for each category
-        const categoriesWithPages = await Promise.all(
-          categories.map(async (category) => {
-            const { data: pages, error: pagesError } = await supabase
-              .from('pages')
-              .select('*')
-              .eq('category_id', category.id)
-              .order('order_index')
-
-            if (pagesError) {
-              console.error('Error fetching pages for category:', category.id, pagesError)
-              return { ...category, pages: [] }
-            }
-
-            return { ...category, pages: pages || [] }
-          })
-        )
-
-        console.log('Categories with pages:', categoriesWithPages)
+        console.log('Categories with pages:', categories)
 
         // Transform categories to handle special cases
-        const transformedCategories = categoriesWithPages.map(category => {
+        const transformedCategories = categories?.map(category => {
           // Make "Controle de Paradas" a single page
           if (category.slug === 'paradas') {
             return {
@@ -94,8 +90,16 @@ export default function Sidebar() {
             }
           }
 
-          return category
-        })
+          // Ensure pages are sorted by order_index
+          const sortedPages = [...(category.pages || [])].sort((a, b) => 
+            (a.order_index || 0) - (b.order_index || 0)
+          )
+
+          return {
+            ...category,
+            pages: sortedPages
+          }
+        }) || []
 
         const reports = transformedCategories.filter(cat => cat.section === 'reports')
         const management = transformedCategories.filter(cat => cat.section === 'management')
