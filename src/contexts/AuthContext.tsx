@@ -57,12 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(userData)
       sessionStorage.setItem('user_profile', JSON.stringify(userData))
+      return userData
     } catch (error) {
       console.error('Erro ao buscar perfil do usuário:', error)
       const cachedUser = sessionStorage.getItem('user_profile')
       if (cachedUser) {
-        setUser(JSON.parse(cachedUser))
+        const parsedUser = JSON.parse(cachedUser)
+        setUser(parsedUser)
+        return parsedUser
       }
+      return null
     } finally {
       setLoading(false)
     }
@@ -75,8 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
     if (session?.user) {
-      await fetchUserProfile(session.user.id)
+      return await fetchUserProfile(session.user.id)
     }
+    return null
   }
 
   useEffect(() => {
@@ -87,7 +92,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const cachedUser = sessionStorage.getItem('user_profile')
         if (cachedUser && mounted) {
           setUser(JSON.parse(cachedUser))
-          setLoading(false)
         }
 
         const { data: { session }, error } = await supabase.auth.getSession()
@@ -99,7 +103,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (mounted) {
             setUser(null)
             sessionStorage.removeItem('user_profile')
-            setLoading(false)
             if (pathname !== '/login') {
               router.push('/login')
             }
@@ -107,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Erro na inicialização da autenticação:', error)
+      } finally {
         if (mounted) {
           setLoading(false)
         }
@@ -119,11 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return
 
       if (session?.user) {
-        await fetchUserProfile(session.user.id)
+        const userData = await fetchUserProfile(session.user.id)
+        if (userData && pathname === '/login') {
+          router.push('/')
+        }
       } else {
         setUser(null)
         sessionStorage.removeItem('user_profile')
-        setLoading(false)
         if (pathname !== '/login') {
           router.push('/login')
         }
@@ -138,12 +144,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut()
       setUser(null)
       sessionStorage.clear()
-      window.location.href = '/login'
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      window.location.replace('/login')
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
+      window.location.replace('/login')
     }
   }
 
