@@ -48,10 +48,16 @@ export default function Sidebar() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error } = useQuery({
+  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error, refetch } = useQuery({
     queryKey: ['menu-data', user?.id],
     queryFn: async () => {
       try {
+        if (!user?.id) {
+          console.error('No user ID available')
+          return { reports: [], management: [] }
+        }
+
+        console.log('Fetching menu data for user:', user.id)
         const { data: categories, error: categoriesError } = await supabase
           .from('categories')
           .select(`
@@ -71,10 +77,20 @@ export default function Sidebar() {
           `)
           .order('order_index')
 
-        if (categoriesError) throw categoriesError
+        if (categoriesError) {
+          console.error('Error fetching categories:', categoriesError)
+          throw categoriesError
+        }
 
+        if (!categories) {
+          console.log('No categories found')
+          return { reports: [], management: [] }
+        }
+
+        console.log('Categories fetched successfully:', categories.length)
+        
         // Transform categories to handle special cases
-        const transformedCategories = categories?.map(category => {
+        const transformedCategories = categories.map(category => {
           // Sort pages by name
           const sortedPages = [...(category.pages || [])].sort((a, b) => 
             a.name.localeCompare(b.name)
@@ -84,21 +100,30 @@ export default function Sidebar() {
             ...category,
             pages: sortedPages
           }
-        }) || []
+        })
 
         const reports = transformedCategories.filter(cat => cat.section === 'reports')
         const management = transformedCategories.filter(cat => cat.section === 'management')
 
+        console.log('Menu data processed:', { reports: reports.length, management: management.length })
         return { reports, management }
       } catch (error) {
-        console.error('Error fetching menu data:', error)
+        console.error('Error in menu data query:', error)
         throw error
       }
     },
     enabled: !loading && !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutos
-    retry: 3
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
   })
+
+  // Adiciona um efeito para recarregar os dados quando o usuário mudar
+  useEffect(() => {
+    if (user?.id) {
+      refetch()
+    }
+  }, [user?.id, refetch])
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(prev =>
