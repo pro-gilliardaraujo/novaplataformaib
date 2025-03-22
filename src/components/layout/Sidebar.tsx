@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
 import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
+import { VERSION } from "@/config/version"
 import {
   Cog6ToothIcon,
   KeyIcon,
@@ -397,6 +398,9 @@ export default function Sidebar() {
                     }`}
                   />
                 </button>
+                <span className="text-xs text-gray-500 px-5 -mt-1">
+                  v{VERSION.version} ({VERSION.buildDate ? new Date(VERSION.buildDate).toLocaleDateString() : 'dev'})
+                </span>
                 {isSettingsOpen && (
                   <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
                     <div className="p-4 border-b bg-gray-50">

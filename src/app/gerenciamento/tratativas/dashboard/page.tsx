@@ -9,7 +9,8 @@ import { RecentActivity } from "@/components/tratativas/recent-activity"
 import { PendingTratativas } from "@/components/tratativas/pending-tratativas"
 import { Tratativa } from "@/types/tratativas"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Calendar, Clock, CheckCircle, XCircle } from "lucide-react"
+import { Calendar, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function DashboardPage() {
   const [data, setData] = useState<{
@@ -19,12 +20,13 @@ export default function DashboardPage() {
       enviadas: number
       devolvidas: number
       canceladas: number
+      confirmar: number
     }
     setores: Record<string, number>
     lastDocumentNumber: string
   }>({
     tratativas: [],
-    stats: { total: 0, enviadas: 0, devolvidas: 0, canceladas: 0 },
+    stats: { total: 0, enviadas: 0, devolvidas: 0, canceladas: 0, confirmar: 0 },
     setores: {},
     lastDocumentNumber: "1000"
   })
@@ -65,6 +67,7 @@ export default function DashboardPage() {
           enviadas: tratativas.filter(t => t.status === "ENVIADA").length,
           devolvidas: tratativas.filter(t => t.status === "DEVOLVIDA").length,
           canceladas: tratativas.filter(t => t.status === "CANCELADA").length,
+          confirmar: tratativas.filter(t => t.status === "À CONFIRMAR").length
         }
         console.log('Calculated stats:', stats)
 
@@ -108,7 +111,7 @@ export default function DashboardPage() {
       {/* Main Dashboard Container */}
       <div className="grid grid-rows-[120px_minmax(0,1.2fr)_minmax(0,1fr)] h-full gap-2 p-2">
         {/* SECTION 1: STATS CARDS & QUICK ACCESS */}
-        <div className="grid grid-cols-5 gap-2 h-full">
+        <div className="grid grid-cols-6 gap-2">
           {/* Stats Cards */}
           <div>
             <Card className="h-full">
@@ -125,10 +128,21 @@ export default function DashboardPage() {
             <Card className="h-full">
               <CardContent className="flex items-center justify-between h-full p-4">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Enviadas</p>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Em Andamento</p>
                   <p className="text-base sm:text-lg font-bold text-yellow-600">{data.stats.enviadas}</p>
                 </div>
                 <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
+              </CardContent>
+            </Card>
+          </div>
+          <div>
+            <Card className="h-full">
+              <CardContent className="flex items-center justify-between h-full p-4">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">À Confirmar</p>
+                  <p className="text-base sm:text-lg font-bold text-orange-600">{data.stats.confirmar}</p>
+                </div>
+                <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
               </CardContent>
             </Card>
           </div>
@@ -154,12 +168,8 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-          {/* Quick Access Card */}
           <div>
-            <Card className="h-full flex flex-col">
-              <CardHeader className="py-1.5 flex-none">
-                <CardTitle className="text-lg font-semibold text-center">Acesso Rápido</CardTitle>
-              </CardHeader>
+            <Card className="h-full">
               <CardContent className="p-2 flex-1">
                 <QuickAccess 
                   onTratativaAdded={fetchData} 
@@ -185,6 +195,7 @@ export default function DashboardPage() {
                       enviadas={data.stats.enviadas}
                       devolvidas={data.stats.devolvidas}
                       canceladas={data.stats.canceladas}
+                      confirmar={data.stats.confirmar}
                     />
                   </div>
                 </CardContent>
@@ -211,11 +222,13 @@ export default function DashboardPage() {
             <CardHeader className="py-1.5 flex-none">
               <CardTitle className="text-lg font-semibold text-center">Atividade Recente</CardTitle>
             </CardHeader>
-            <CardContent className="p-2 flex-1 overflow-auto">
-              <RecentActivity 
-                recentTratativas={data.tratativas.slice(0, 5)} 
-                hideTitle
-              />
+            <CardContent className="p-2 flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <RecentActivity 
+                  recentTratativas={data.tratativas.slice(0, 10)} 
+                  hideTitle
+                />
+              </ScrollArea>
             </CardContent>
           </Card>
           {/* Pending Activity Card */}
@@ -223,11 +236,15 @@ export default function DashboardPage() {
             <CardHeader className="py-1.5 flex-none">
               <CardTitle className="text-lg font-semibold text-center">Tratativas Pendentes</CardTitle>
             </CardHeader>
-            <CardContent className="p-2 flex-1 overflow-auto">
-              <PendingTratativas 
-                tratativas={data.tratativas.filter(t => t.status === "ENVIADA").slice(0, 5)} 
-                hideTitle
-              />
+            <CardContent className="p-2 flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <PendingTratativas 
+                  tratativas={data.tratativas.filter(t => 
+                    t.status === "ENVIADA" || t.status === "À CONFIRMAR"
+                  ).slice(0, 10)} 
+                  hideTitle
+                />
+              </ScrollArea>
             </CardContent>
           </Card>
         </div>

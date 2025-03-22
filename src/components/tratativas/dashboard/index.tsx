@@ -26,11 +26,12 @@ export function TratativasDashboard({ tratativas, onTratativaEdited }: Tratativa
       enviadas: number
       devolvidas: number
       canceladas: number
+      confirmar: number
     }
     setores: Record<string, number>
     lastDocumentNumber: string
   }>({
-    stats: { total: 0, enviadas: 0, devolvidas: 0, canceladas: 0 },
+    stats: { total: 0, enviadas: 0, devolvidas: 0, canceladas: 0, confirmar: 0 },
     setores: {},
     lastDocumentNumber: "1000"
   })
@@ -40,7 +41,8 @@ export function TratativasDashboard({ tratativas, onTratativaEdited }: Tratativa
       total: tratativas.length,
       enviadas: tratativas.filter(t => t.status === "ENVIADA").length,
       devolvidas: tratativas.filter(t => t.status === "DEVOLVIDA").length,
-      canceladas: tratativas.filter(t => t.status === "CANCELADA").length
+      canceladas: tratativas.filter(t => t.status === "CANCELADA").length,
+      confirmar: tratativas.filter(t => t.status === "À CONFIRMAR").length
     }
     return stats
   }
@@ -75,12 +77,19 @@ export function TratativasDashboard({ tratativas, onTratativaEdited }: Tratativa
   return (
     <div className="h-full flex flex-col gap-2 p-2">
       {/* SECTION 1: STATS CARDS AND QUICK ACCESS */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-6 gap-2">
         <StatsCard
           title="Total de Tratativas"
           value={data.stats.total}
           icon={<Calendar className="h-4 w-4" />}
           valueClassName="text-black"
+        />
+        
+        <StatsCard
+          title="À Confirmar"
+          value={data.stats.confirmar}
+          icon={<Clock className="h-4 w-4 text-[#FFA500]" />}
+          valueClassName="text-[#FFA500]"
         />
         <StatsCard
           title="Em Andamento"
@@ -100,6 +109,7 @@ export function TratativasDashboard({ tratativas, onTratativaEdited }: Tratativa
           icon={<XCircle className="h-4 w-4 text-[#EF4444]" />}
           valueClassName="text-[#EF4444]"
         />
+        
         <Card className="p-2">
           <Button
             className="bg-black hover:bg-black/90 text-white h-full w-full"
@@ -125,6 +135,7 @@ export function TratativasDashboard({ tratativas, onTratativaEdited }: Tratativa
                     enviadas={data.stats.enviadas}
                     devolvidas={data.stats.devolvidas}
                     canceladas={data.stats.canceladas}
+                    confirmar={data.stats.confirmar}
                   />
                 </div>
               </CardContent>
@@ -169,7 +180,9 @@ export function TratativasDashboard({ tratativas, onTratativaEdited }: Tratativa
           <CardContent className="p-2">
             <div className="space-y-0 overflow-auto">
               <PendingTratativas 
-                tratativas={tratativas.filter(t => t.status === "ENVIADA").slice(0, 5)}
+                tratativas={tratativas.filter(t => 
+                  t.status === "ENVIADA" || t.status === "À CONFIRMAR"
+                ).slice(0, 5)}
                 hideTitle
                 onTratativaDeleted={onTratativaEdited}
               />
