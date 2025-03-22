@@ -41,14 +41,14 @@ const OleosIcon = DocumentDuplicateIcon
 const BonificacoesIcon = DocumentDuplicateIcon
 
 export default function Sidebar() {
-  const { user, signOut } = useAuth()
+  const { user, loading, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  const { data: menuData = { reports: [], management: [] }, isLoading, error } = useQuery({
-    queryKey: ['menu-data'],
+  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error } = useQuery({
+    queryKey: ['menu-data', user?.id],
     queryFn: async () => {
       try {
         const { data: categories, error: categoriesError } = await supabase
@@ -94,7 +94,7 @@ export default function Sidebar() {
         throw error
       }
     },
-    enabled: !!user,
+    enabled: !loading && !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutos
     retry: 3
   })
@@ -260,7 +260,6 @@ export default function Sidebar() {
 
   const handleSignOut = async () => {
     await signOut()
-    router.push("/login")
   }
 
   const renderSection = (section: 'reports' | 'management') => {
@@ -355,7 +354,7 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {isLoading ? (
+      {isMenuLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
         </div>
