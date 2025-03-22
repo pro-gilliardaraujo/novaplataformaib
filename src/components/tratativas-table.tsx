@@ -6,11 +6,27 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download } from "lucide-react"
+import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download, Trash2 } from "lucide-react"
 import TratativaDetailsModal from "./tratativa-details-modal"
 import { Tratativa, TratativaDetailsProps } from "@/types/tratativas"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { useUser } from "@/hooks/useUser"
+import { useToast } from "@/components/ui/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { createClient } from "@supabase/supabase-js"
+import { NovaTratativaModal } from "@/components/nova-tratativa-modal"
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 interface FilterState {
   [key: string]: Set<string>
@@ -27,11 +43,18 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
   const [sorting, setSorting] = useState<{ column: string; direction: 'asc' | 'desc' | null } | null>(null)
   const [selectedTratativa, setSelectedTratativa] = useState<TratativaDetailsProps | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [lastDocumentNumber, setLastDocumentNumber] = useState("999")
   const rowsPerPage = 15
+  const [tratativaToDelete, setTratativaToDelete] = useState<Tratativa | null>(null)
+  const { user } = useUser()
+  const { toast } = useToast()
 
   const formatAnalista = (analista: string) => {
     if (!analista) return "";
-    return analista.split(" (")[0];
+    // Extrai o email entre parênteses, se existir
+    const match = analista.match(/\((.*?)\)/)
+    return match ? match[1] : analista
   }
 
   const columns = [
@@ -216,6 +239,52 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
   const startIndex = (currentPage - 1) * rowsPerPage
   const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
 
+  const handleDelete = async () => {
+    if (!tratativaToDelete) return
+
+    try {
+      const { error } = await supabase
+        .from("tratativas")
+        .delete()
+        .eq("id", tratativaToDelete.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Sucesso",
+        description: "Tratativa excluída com sucesso!"
+      })
+      onTratativaEdited()
+    } catch (error) {
+      console.error("Erro ao excluir tratativa:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a tratativa.",
+        variant: "destructive"
+      })
+    } finally {
+      setTratativaToDelete(null)
+    }
+  }
+
+  const fetchLastDocumentNumber = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tratativas")
+        .select("numero_tratativa")
+        .order("created_at", { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        setLastDocumentNumber(data[0].numero_tratativa)
+      }
+    } catch (error) {
+      console.error("Erro ao buscar o último número de documento:", error)
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -231,7 +300,10 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
         <div className="flex gap-2">
           <Button
             className="bg-black hover:bg-black/90 text-white h-9"
-            onClick={() => {}}
+            onClick={async () => {
+              await fetchLastDocumentNumber()
+              setIsModalOpen(true)
+            }}
           >
             <Plus className="mr-2 h-4 w-4" /> Nova Tratativa
           </Button>
@@ -276,7 +348,7 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
                     </div>
                   </TableHead>
                 ))}
-                <TableHead className="text-white font-medium w-[100px] px-3">Ações</TableHead>
+                <TableHead className="text-white font-medium w-[100px] px-3">Detalhes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -305,14 +377,15 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 p-0"
+                        className="h-8 w-8 p-0"
                         onClick={() => {
-                          const { id, ...rest } = tratativa
-                          setSelectedTratativa({ ...rest, id: id.toString() })
+                          setSelectedTratativa({
+                            ...tratativa,
+                            id: tratativa.id.toString()
+                          })
                         }}
-                        title="Detalhes"
                       >
-                        <Eye className="h-3.5 w-3.5" />
+                        <Eye className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -363,14 +436,44 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
         </div>
       </div>
 
+      {/* Modal de confirmação de exclusão */}
+      <AlertDialog open={!!tratativaToDelete} onOpenChange={(open) => !open && setTratativaToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Tratativa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta tratativa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {selectedTratativa && (
         <TratativaDetailsModal
           open={!!selectedTratativa}
           onOpenChange={(open) => !open && setSelectedTratativa(null)}
           tratativa={selectedTratativa}
           onTratativaEdited={onTratativaEdited}
+          onTratativaDeleted={onTratativaEdited}
         />
       )}
+
+      <NovaTratativaModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onTratativaAdded={onTratativaEdited}
+        lastDocumentNumber={lastDocumentNumber}
+        mockData={null}
+      />
     </div>
   )
 }
