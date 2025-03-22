@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "NEXT_PUBLIC_VERSION=$(node -p \"require('./package.json').version\") next dev",
-    "build": "NEXT_PUBLIC_BUILD_DATE=$(date -u +'%Y-%m-%d_%H:%M:%S') NEXT_PUBLIC_VERSION=$(node -p \"require('./package.json').version\") NEXT_PUBLIC_COMMIT_SHA=$(git rev-parse --short HEAD) next build",
+    "build": "node -e \"process.env.NEXT_PUBLIC_VERSION=require('./package.json').version; process.env.NEXT_PUBLIC_BUILD_DATE=new Date().toISOString()\" && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "vercel-build": "npm run typecheck && NEXT_PUBLIC_BUILD_DATE=$(date -u +'%Y-%m-%d_%H:%M:%S') NEXT_PUBLIC_VERSION=$(node -p \"require('./package.json').version\") NEXT_PUBLIC_COMMIT_SHA=$(git rev-parse --short HEAD) next build",
+    "vercel-build": "npm run typecheck && node -e \"process.env.NEXT_PUBLIC_VERSION=require('./package.json').version; process.env.NEXT_PUBLIC_BUILD_DATE=new Date().toISOString()\" && next build",
     "version:patch": "npm version patch --no-git-tag-version",
     "version:minor": "npm version minor --no-git-tag-version",
     "version:major": "npm version major --no-git-tag-version"

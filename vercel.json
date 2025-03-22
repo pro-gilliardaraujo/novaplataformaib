@@ -3,11 +3,5 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": ".next",
   "cleanUrls": true,
-  "public": false,
-  "build": {
-    "env": {
-      "NEXT_PUBLIC_VERSION": "@pkg.version",
-      "NEXT_PUBLIC_COMMIT_SHA": "@vercel/git-commit-sha"
-    }
-  }
+  "public": false
 } 
