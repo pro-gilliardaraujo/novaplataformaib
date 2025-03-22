@@ -6,7 +6,6 @@
   "public": false,
   "build": {
     "env": {
-      "NEXT_PUBLIC_BUILD_DATE": "@now/deployment-date",
       "NEXT_PUBLIC_VERSION": "@pkg.version",
       "NEXT_PUBLIC_COMMIT_SHA": "@vercel/git-commit-sha"
     }
