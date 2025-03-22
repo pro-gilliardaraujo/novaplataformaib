@@ -252,7 +252,7 @@ export function EquipamentosTable({
         if (searchTerm) {
           const searchLower = searchTerm.toLowerCase()
           return Object.values(row).some(value => 
-            value?.toString().toLowerCase().includes(searchLower)
+            value != null && value.toString().toLowerCase().includes(searchLower)
           )
         }
         return true

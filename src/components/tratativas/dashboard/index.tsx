@@ -11,12 +11,15 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar, Clock, CheckCircle, XCircle, Plus } from "lucide-react"
 import { subDays } from "date-fns"
+import { NovaTratativaModal } from "@/components/nova-tratativa-modal"
 
 interface TratativasDashboardProps {
   tratativas: Tratativa[]
+  onTratativaEdited: () => void
 }
 
-export function TratativasDashboard({ tratativas }: TratativasDashboardProps) {
+export function TratativasDashboard({ tratativas, onTratativaEdited }: TratativasDashboardProps) {
+  const [isNovaTratativaModalOpen, setIsNovaTratativaModalOpen] = useState(false)
   const [data, setData] = useState<{
     stats: {
       total: number
@@ -32,25 +35,33 @@ export function TratativasDashboard({ tratativas }: TratativasDashboardProps) {
     lastDocumentNumber: "1000"
   })
 
+  const calculateStats = (tratativas: Tratativa[]) => {
+    const stats = {
+      total: tratativas.length,
+      enviadas: tratativas.filter(t => t.status === "ENVIADA").length,
+      devolvidas: tratativas.filter(t => t.status === "DEVOLVIDA").length,
+      canceladas: tratativas.filter(t => t.status === "CANCELADA").length
+    }
+    return stats
+  }
+
+  const calculateSetores = (tratativas: Tratativa[]) => {
+    const setores: Record<string, number> = {}
+    tratativas.forEach(tratativa => {
+      const setor = tratativa.setor
+      setores[setor] = (setores[setor] || 0) + 1
+    })
+    return setores
+  }
+
   useEffect(() => {
     const lastDocumentNumber = tratativas.reduce((max, t) => {
       const num = parseInt(t.numero_tratativa || "0", 10)
       return num > max ? num : max
     }, 0).toString().padStart(4, "0")
 
-    const stats = {
-      total: tratativas.length,
-      enviadas: tratativas.filter(t => t.status === "ENVIADA").length,
-      devolvidas: tratativas.filter(t => t.status === "DEVOLVIDA").length,
-      canceladas: tratativas.filter(t => t.status === "CANCELADA").length,
-    }
-
-    const setores = tratativas.reduce((acc: Record<string, number>, t) => {
-      const setor = t.setor || 'Não especificado'
-      acc[setor] = (acc[setor] || 0) + 1
-      return acc
-    }, {})
-
+    const stats = calculateStats(tratativas)
+    const setores = calculateSetores(tratativas)
     setData({ stats, setores, lastDocumentNumber })
   }, [tratativas])
 
@@ -69,26 +80,30 @@ export function TratativasDashboard({ tratativas }: TratativasDashboardProps) {
           title="Total de Tratativas"
           value={data.stats.total}
           icon={<Calendar className="h-4 w-4" />}
+          valueClassName="text-black"
         />
         <StatsCard
           title="Em Andamento"
           value={data.stats.enviadas}
-          icon={<Clock className="h-4 w-4" />}
+          icon={<Clock className="h-4 w-4 text-[#FFA500]" />}
+          valueClassName="text-[#FFA500]"
         />
         <StatsCard
           title="Devolvidas"
           value={data.stats.devolvidas}
-          icon={<CheckCircle className="h-4 w-4" />}
+          icon={<CheckCircle className="h-4 w-4 text-[#22C55E]" />}
+          valueClassName="text-[#22C55E]"
         />
         <StatsCard
           title="Canceladas"
           value={data.stats.canceladas}
-          icon={<XCircle className="h-4 w-4" />}
+          icon={<XCircle className="h-4 w-4 text-[#EF4444]" />}
+          valueClassName="text-[#EF4444]"
         />
         <Card className="p-2">
           <Button
             className="bg-black hover:bg-black/90 text-white h-full w-full"
-            onClick={() => {}}
+            onClick={() => setIsNovaTratativaModalOpen(true)}
           >
             <Plus className="mr-2 h-4 w-4" /> Nova Tratativa
           </Button>
@@ -102,7 +117,7 @@ export function TratativasDashboard({ tratativas }: TratativasDashboardProps) {
             {/* Status Chart Card */}
             <Card className="p-2">
               <CardHeader className="p-2">
-                <CardTitle className="text-lg font-semibold">Status das Tratativas</CardTitle>
+                <CardTitle className="text-lg font-semibold text-center">Status das Tratativas</CardTitle>
               </CardHeader>
               <CardContent className="p-2">
                 <div className="h-[220px]">
@@ -117,7 +132,7 @@ export function TratativasDashboard({ tratativas }: TratativasDashboardProps) {
             {/* Sector Chart Card */}
             <Card className="p-2">
               <CardHeader className="p-2">
-                <CardTitle className="text-lg font-semibold">Tratativas por Setor</CardTitle>
+                <CardTitle className="text-lg font-semibold text-center">Tratativas por Setor</CardTitle>
               </CardHeader>
               <CardContent className="p-2">
                 <div className="h-[220px]">
@@ -134,13 +149,14 @@ export function TratativasDashboard({ tratativas }: TratativasDashboardProps) {
         {/* Recent Activity Card */}
         <Card className="p-2">
           <CardHeader className="p-2">
-            <CardTitle className="text-lg font-semibold">Atividade Recente</CardTitle>
+            <CardTitle className="text-lg font-semibold text-center">Atividade Recente</CardTitle>
           </CardHeader>
           <CardContent className="p-2">
             <div className="space-y-0 overflow-auto">
               <RecentActivity 
                 recentTratativas={recentTratativas}
                 hideTitle
+                onTratativaDeleted={onTratativaEdited}
               />
             </div>
           </CardContent>
@@ -148,18 +164,35 @@ export function TratativasDashboard({ tratativas }: TratativasDashboardProps) {
         {/* Pending Activity Card */}
         <Card className="p-2">
           <CardHeader className="p-2">
-            <CardTitle className="text-lg font-semibold">Tratativas Pendentes</CardTitle>
+            <CardTitle className="text-lg font-semibold text-center">Tratativas Pendentes</CardTitle>
           </CardHeader>
           <CardContent className="p-2">
             <div className="space-y-0 overflow-auto">
               <PendingTratativas 
                 tratativas={tratativas.filter(t => t.status === "ENVIADA").slice(0, 5)}
                 hideTitle
+                onTratativaDeleted={onTratativaEdited}
               />
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <NovaTratativaModal
+        open={isNovaTratativaModalOpen}
+        onOpenChange={setIsNovaTratativaModalOpen}
+        onTratativaAdded={() => {
+          // Recarregar os dados após adicionar uma nova tratativa
+          const newStats = calculateStats(tratativas)
+          const newSetores = calculateSetores(tratativas)
+          setData(prev => ({
+            ...prev,
+            stats: newStats,
+            setores: newSetores
+          }))
+        }}
+        lastDocumentNumber={tratativas[0]?.numero_tratativa || "1000"}
+      />
     </div>
   )
 } 

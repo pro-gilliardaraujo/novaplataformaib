@@ -111,7 +111,7 @@ export default function EquipamentosPage() {
 
   const filteredEquipamentos = equipamentos.filter(e => 
     Object.values(e).some(value => 
-      value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      value != null && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
     )
   )
 

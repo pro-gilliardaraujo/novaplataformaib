@@ -144,7 +144,7 @@ export function RetiradaTable({
           return (
             retirada.codigo_patrimonio.toLowerCase().includes(searchLower) ||
             retirada.retirado_por.toLowerCase().includes(searchLower) ||
-            retirada.frota_instalada.toLowerCase().includes(searchLower)
+            (typeof retirada.frota_instalada === 'string' && retirada.frota_instalada.toLowerCase().includes(searchLower))
           )
         }
 

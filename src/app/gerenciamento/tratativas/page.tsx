@@ -57,7 +57,10 @@ export default function TratativasPage() {
 
         <div className="flex-1 p-2">
           <TabsContent value="overview" className="h-full m-0">
-            <TratativasDashboard tratativas={tratativas} />
+            <TratativasDashboard 
+              tratativas={tratativas} 
+              onTratativaEdited={fetchTratativas}
+            />
           </TabsContent>
           <TabsContent value="list" className="h-full m-0">
             <TratativasTable 

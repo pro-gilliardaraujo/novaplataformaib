@@ -365,6 +365,7 @@ export function TratativasTable({ tratativas, onTratativaEdited }: TratativasTab
                       tratativa.status === 'DEVOLVIDA' ? 'bg-green-100 text-green-800' :
                       tratativa.status === 'CANCELADA' ? 'bg-red-100 text-red-800' :
                       tratativa.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' :
+                      tratativa.status === 'À CONFIRMAR' ? 'bg-orange-500 text-white' :
                       tratativa.status === 'ENVIADA' ? 'bg-amber-100 text-amber-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
