@@ -16,10 +16,11 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      storageKey: 'sb-auth-token',
+      flowType: 'pkce',
       storage: {
         getItem: (key) => {
           try {
+            if (typeof window === 'undefined') return null
             const item = sessionStorage.getItem(key)
             return item ? JSON.parse(item) : null
           } catch (error) {
@@ -29,6 +30,7 @@ export const supabase = createClient(
         },
         setItem: (key, value) => {
           try {
+            if (typeof window === 'undefined') return
             sessionStorage.setItem(key, JSON.stringify(value))
           } catch (error) {
             console.error('Error writing to sessionStorage:', error)
@@ -36,6 +38,7 @@ export const supabase = createClient(
         },
         removeItem: (key) => {
           try {
+            if (typeof window === 'undefined') return
             sessionStorage.removeItem(key)
           } catch (error) {
             console.error('Error removing from sessionStorage:', error)
@@ -49,7 +52,11 @@ export const supabase = createClient(
 // Adiciona listener para limpar dados ao fechar a aba/janela
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
-    sessionStorage.clear()
-    localStorage.clear()
+    try {
+      sessionStorage.clear()
+      localStorage.clear()
+    } catch (error) {
+      console.error('Error clearing storage:', error)
+    }
   })
 } 
