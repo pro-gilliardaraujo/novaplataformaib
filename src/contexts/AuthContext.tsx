@@ -97,28 +97,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        // Primeiro, tenta usar o cache
         const cachedUser = sessionStorage.getItem('user_profile')
         if (cachedUser && mounted) {
-          console.log('Using cached user profile')
+          console.log('Found cached user')
           setUser(JSON.parse(cachedUser))
-          setLoading(false) // Reduz o tempo de loading inicial
         }
 
-        // Então verifica a sessão
         const { data: { session }, error } = await supabase.auth.getSession()
         console.log('Session check result:', { session, error })
 
-        if (error) {
-          console.error('Session error:', error)
-          throw error
-        }
+        if (error) throw error
 
         if (session?.user && mounted) {
-          console.log('Valid session found, fetching profile...')
-          if (!user) { // Só busca o perfil se não tivermos um usuário
-            await fetchUserProfile(session.user.id)
-          }
+          console.log('Valid session found')
+          await fetchUserProfile(session.user.id)
         } else {
           if (mounted) {
             console.log('No valid session')
@@ -131,13 +123,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Error in initAuth:', error)
-        if (mounted) {
-          setUser(null)
-          sessionStorage.removeItem('user_profile')
-          if (pathname !== '/login') {
-            router.push('/login')
-          }
-        }
       } finally {
         if (mounted) {
           setLoading(false)
@@ -147,8 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return
 
       if (session?.user) {
@@ -174,32 +158,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       setUser(null)
+      sessionStorage.clear()
+      localStorage.clear()
       
-      // Primeiro faz o signOut do Supabase
       const { error } = await supabase.auth.signOut()
       if (error) throw error
 
-      // Depois limpa o storage
-      sessionStorage.clear()
-      localStorage.clear()
-      
-      // Por último limpa o cache
-      if ('caches' in window) {
-        try {
-          const cacheKeys = await caches.keys()
-          await Promise.all(cacheKeys.map(key => caches.delete(key)))
-        } catch (error) {
-          console.error('Erro ao limpar cache:', error)
-        }
-      }
-
       router.push('/login')
+      
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 100)
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
-      // Força o logout mesmo em caso de erro
-      sessionStorage.clear()
-      localStorage.clear()
       router.push('/login')
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 100)
     }
   }
 
