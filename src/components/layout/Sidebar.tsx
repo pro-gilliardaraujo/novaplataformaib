@@ -6,7 +6,6 @@ import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
 import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
-import { getVersion } from "@/lib/version"
 import {
   Cog6ToothIcon,
   KeyIcon,
@@ -48,9 +47,12 @@ export default function Sidebar() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
+  console.log('Sidebar - Auth State:', { user, loading })
+
   const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error, refetch } = useQuery({
     queryKey: ['menu-data', user?.id],
     queryFn: async () => {
+      console.log('Fetching menu data for user:', user?.id)
       try {
         if (!user?.id) {
           console.error('No user ID available')
@@ -423,9 +425,6 @@ export default function Sidebar() {
                     }`}
                   />
                 </button>
-                <span className="text-xs text-gray-500 px-5 -mt-1">
-                  {getVersion()}
-                </span>
                 {isSettingsOpen && (
                   <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
                     <div className="p-4 border-b bg-gray-50">

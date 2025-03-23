@@ -7,7 +7,7 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
-// Configuração do cliente Supabase com opções otimizadas
+// Configuração do cliente Supabase com armazenamento em sessão
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -20,28 +20,36 @@ export const supabase = createClient(
       storage: {
         getItem: (key) => {
           try {
-            const item = localStorage.getItem(key)
+            const item = sessionStorage.getItem(key)
             return item ? JSON.parse(item) : null
           } catch (error) {
-            console.error('Error reading from localStorage:', error)
+            console.error('Error reading from sessionStorage:', error)
             return null
           }
         },
         setItem: (key, value) => {
           try {
-            localStorage.setItem(key, JSON.stringify(value))
+            sessionStorage.setItem(key, JSON.stringify(value))
           } catch (error) {
-            console.error('Error writing to localStorage:', error)
+            console.error('Error writing to sessionStorage:', error)
           }
         },
         removeItem: (key) => {
           try {
-            localStorage.removeItem(key)
+            sessionStorage.removeItem(key)
           } catch (error) {
-            console.error('Error removing from localStorage:', error)
+            console.error('Error removing from sessionStorage:', error)
           }
         }
       }
     }
   }
-) 
+)
+
+// Adiciona listener para limpar dados ao fechar a aba/janela
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    sessionStorage.clear()
+    localStorage.clear()
+  })
+} 
