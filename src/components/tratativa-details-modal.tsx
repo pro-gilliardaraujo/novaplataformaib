@@ -77,6 +77,49 @@ export default function TratativaDetailsModal({
   const { toast } = useToast()
   const { user } = useUser()
 
+  const callPdfTaskApi = async (id: string) => {
+    try {
+      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("PDF API Error Response:", errorText)
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log("PDF task API response:", result)
+      return result
+    } catch (error) {
+      console.error("Error calling PDF task API:", error)
+      throw error
+    }
+  }
+
+  const handleViewDocuments = async () => {
+    // Se a penalidade for P2 ou maior e o status for DEVOLVIDA, chama a API
+    const [penalidade] = tratativa.penalidade.split(" - ")
+    const shouldCallPdfTask = ["P2", "P3", "P4", "P5", "P6"].includes(penalidade) && 
+                            tratativa.status === "DEVOLVIDA"
+
+    if (shouldCallPdfTask) {
+      try {
+        await callPdfTaskApi(tratativa.id)
+      } catch (error) {
+        console.error("Erro ao gerar PDF:", error)
+        // Continua mesmo se houver erro na geração do PDF
+      }
+    }
+    
+    setIsDocumentViewerOpen(true)
+  }
+
   const handleDelete = async () => {
     if (!user?.email) return
 
@@ -237,7 +280,7 @@ export default function TratativaDetailsModal({
               {(tratativa.url_documento_enviado || tratativa.url_documento_devolvido) && (
                 <Button
                   variant="outline"
-                  onClick={() => setIsDocumentViewerOpen(true)}
+                  onClick={handleViewDocuments}
                   className="w-auto min-w-[200px]"
                 >
                   <FileText className="mr-2 h-4 w-4" />

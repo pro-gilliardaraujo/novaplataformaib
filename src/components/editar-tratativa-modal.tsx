@@ -156,7 +156,7 @@ export function EditarTratativaModal({
 
   const uploadFile = async (file: File): Promise<string> => {
     const normalizedName = normalizeFileName(file.name)
-    const fileName = `temp/${uuidv4()}-${normalizedName}`
+    const fileName = `tratativas/devolvidas/${uuidv4()}-${normalizedName}`
     const { error: uploadError } = await supabase.storage.from("tratativas").upload(fileName, file)
     if (uploadError) throw uploadError
     const { data: urlData } = supabase.storage.from("tratativas").getPublicUrl(fileName)
@@ -199,12 +199,17 @@ export function EditarTratativaModal({
       const updatedData = {
         ...formData,
         advertido: advertidoStatus,
-        imagem_evidencia1: fileUrl || formData.imagem_evidencia1,
+        imagem_evidencia1: formData.status === "À CONFIRMAR" ? (fileUrl || formData.imagem_evidencia1) : formData.imagem_evidencia1,
+        url_documento_devolvido: formData.status === "DEVOLVIDA" ? fileUrl : formData.url_documento_devolvido,
+        data_devolvida: formData.status === "DEVOLVIDA" ? new Date().toISOString().split('T')[0] : formData.data_devolvida
       }
+
+      // Remove o campo id dos dados antes de fazer o update
+      const { id, created_at, updated_at, ...dataToUpdate } = updatedData
 
       const { error } = await supabase
         .from("tratativas")
-        .update(updatedData)
+        .update(dataToUpdate)
         .eq("id", formData.id)
 
       if (error) throw error
@@ -250,13 +255,18 @@ export function EditarTratativaModal({
 
       const updatedData = {
         ...formData,
-        imagem_evidencia1: fileUrl || formData.imagem_evidencia1,
+        imagem_evidencia1: formData.status === "À CONFIRMAR" ? (fileUrl || formData.imagem_evidencia1) : formData.imagem_evidencia1,
+        url_documento_devolvido: formData.status === "DEVOLVIDA" ? fileUrl : formData.url_documento_devolvido,
+        data_devolvida: formData.status === "DEVOLVIDA" ? new Date().toISOString().split('T')[0] : formData.data_devolvida,
         status: "À CONFIRMAR"
       }
 
+      // Remove o campo id dos dados antes de fazer o update
+      const { id, created_at, updated_at, ...dataToUpdate } = updatedData
+
       const { error } = await supabase
         .from("tratativas")
-        .update(updatedData)
+        .update(dataToUpdate)
         .eq("id", formData.id)
 
       if (error) throw error
@@ -283,12 +293,15 @@ export function EditarTratativaModal({
 
   const callPdfTaskApi = async (id: string | number) => {
     try {
+      const requestBody = { id: id.toString() }
+      console.log('PDF Task API Request Body:', requestBody)
+
       const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ id: id.toString() }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {

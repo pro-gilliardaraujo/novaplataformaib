@@ -41,16 +41,25 @@ const OleosIcon = DocumentDuplicateIcon
 const BonificacoesIcon = DocumentDuplicateIcon
 
 export default function Sidebar() {
-  const { user, signOut } = useAuth()
+  const { user, loading, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  const { data: menuData = { reports: [], management: [] }, isLoading, error } = useQuery({
-    queryKey: ['menu-data'],
+  console.log('Sidebar - Auth State:', { user, loading })
+
+  const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error, refetch } = useQuery({
+    queryKey: ['menu-data', user?.id],
     queryFn: async () => {
+      console.log('Fetching menu data for user:', user?.id)
       try {
+        if (!user?.id) {
+          console.error('No user ID available')
+          return { reports: [], management: [] }
+        }
+
+        console.log('Fetching menu data for user:', user.id)
         const { data: categories, error: categoriesError } = await supabase
           .from('categories')
           .select(`
@@ -70,10 +79,20 @@ export default function Sidebar() {
           `)
           .order('order_index')
 
-        if (categoriesError) throw categoriesError
+        if (categoriesError) {
+          console.error('Error fetching categories:', categoriesError)
+          throw categoriesError
+        }
 
+        if (!categories) {
+          console.log('No categories found')
+          return { reports: [], management: [] }
+        }
+
+        console.log('Categories fetched successfully:', categories.length)
+        
         // Transform categories to handle special cases
-        const transformedCategories = categories?.map(category => {
+        const transformedCategories = categories.map(category => {
           // Sort pages by name
           const sortedPages = [...(category.pages || [])].sort((a, b) => 
             a.name.localeCompare(b.name)
@@ -83,21 +102,30 @@ export default function Sidebar() {
             ...category,
             pages: sortedPages
           }
-        }) || []
+        })
 
         const reports = transformedCategories.filter(cat => cat.section === 'reports')
         const management = transformedCategories.filter(cat => cat.section === 'management')
 
+        console.log('Menu data processed:', { reports: reports.length, management: management.length })
         return { reports, management }
       } catch (error) {
-        console.error('Error fetching menu data:', error)
+        console.error('Error in menu data query:', error)
         throw error
       }
     },
-    enabled: !!user,
+    enabled: !loading && !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutos
-    retry: 3
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
   })
+
+  // Adiciona um efeito para recarregar os dados quando o usuário mudar
+  useEffect(() => {
+    if (user?.id) {
+      refetch()
+    }
+  }, [user?.id, refetch])
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(prev =>
@@ -260,7 +288,6 @@ export default function Sidebar() {
 
   const handleSignOut = async () => {
     await signOut()
-    router.push("/login")
   }
 
   const renderSection = (section: 'reports' | 'management') => {
@@ -355,7 +382,7 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {isLoading ? (
+      {isMenuLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
         </div>

@@ -1,1 +1,7 @@
- 
+{
+  "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": ".next",
+  "cleanUrls": true,
+  "public": false
+} 

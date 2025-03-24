@@ -6,12 +6,14 @@ interface TratativasStatusChartProps {
   enviadas: number
   devolvidas: number
   canceladas: number
+  confirmar: number
 }
 
 const COLORS = {
   enviadas: "#FFA500",  // Orange for "Em Andamento"
   devolvidas: "#22C55E", // Green for "Devolvidas"
-  canceladas: "#EF4444"  // Red for "Canceladas"
+  canceladas: "#EF4444",  // Red for "Canceladas"
+  confirmar: "#F97316"   // Orange for "À Confirmar"
 }
 
 const RADIAN = Math.PI / 180
@@ -34,11 +36,12 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
   )
 }
 
-export function TratativasStatusChart({ enviadas, devolvidas, canceladas }: TratativasStatusChartProps) {
+export function TratativasStatusChart({ enviadas, devolvidas, canceladas, confirmar }: TratativasStatusChartProps) {
   const data = [
     { name: "Em Andamento", value: enviadas },
     { name: "Devolvidas", value: devolvidas },
-    { name: "Canceladas", value: canceladas }
+    { name: "Canceladas", value: canceladas },
+    { name: "À Confirmar", value: confirmar }
   ]
 
   return (

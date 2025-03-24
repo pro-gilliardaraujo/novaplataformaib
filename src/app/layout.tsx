@@ -15,6 +15,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
+      <head>
+        <link 
+          rel="icon" 
+          href="https://kjlwqezxzqjfhacmjhbh.supabase.co/storage/v1/object/public/sourcefiles//logo.png" 
+          type="image/png"
+        />
+      </head>
       <body className={`${inter.className} overflow-hidden`}>
         <ClientLayout>
           {children}
