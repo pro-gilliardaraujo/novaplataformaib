@@ -77,6 +77,35 @@ export default function TratativaDetailsModal({
   const { toast } = useToast()
   const { user } = useUser()
 
+  const callPdfTaskApi = async (id: string) => {
+    try {
+      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("PDF API Error Response:", errorText)
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log("PDF task API response:", result)
+      return result
+    } catch (error) {
+      console.error("Error calling PDF task API:", error)
+      throw error
+    }
+  }
+
+  const handleViewDocuments = () => {
+    setIsDocumentViewerOpen(true)
+  }
+
   const handleDelete = async () => {
     if (!user?.email) return
 
@@ -157,6 +186,7 @@ export default function TratativaDetailsModal({
               <SectionTitle title="Identificação" />
               <div className="grid grid-cols-4 gap-6">
                 <DetailItem label="Documento" value={tratativa.numero_tratativa} />
+                <DetailItem label="CPF" value={tratativa.cpf} />
                 <DetailItem label="Funcionário" value={tratativa.funcionario} />
                 <DetailItem label="Função" value={tratativa.funcao} />
                 <DetailItem label="Setor" value={tratativa.setor} />
@@ -234,15 +264,17 @@ export default function TratativaDetailsModal({
           <div className="border-t bg-white px-8 py-5">
             <SectionTitle title="Documentos" />
             <div className="flex justify-center mt-4">
-              {(tratativa.url_documento_enviado || tratativa.url_documento_devolvido) && (
+              {(tratativa.url_documento_enviado?.trim() || tratativa.url_documento_devolvido?.trim()) ? (
                 <Button
                   variant="outline"
-                  onClick={() => setIsDocumentViewerOpen(true)}
+                  onClick={handleViewDocuments}
                   className="w-auto min-w-[200px]"
                 >
                   <FileText className="mr-2 h-4 w-4" />
                   Visualizar documentos
                 </Button>
+              ) : (
+                <span className="text-sm text-gray-500">Nenhum documento disponível</span>
               )}
             </div>
           </div>
