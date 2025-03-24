@@ -17,6 +17,7 @@ import { formatCPF } from "@/utils/formatters"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { storageService } from "@/services/storageService"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { useAuth } from "@/contexts/AuthContext"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -79,41 +80,46 @@ export function NovaTratativaModal({
   lastDocumentNumber,
   mockData,
 }: NovaTratativaModalProps) {
+  const { user } = useAuth()
+  console.log("[DEBUG] useAuth hook result:", { user })
+
   const [documentNumber, setDocumentNumber] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [formData, setFormData] = useState({
-    numero_tratativa: "",
-    funcionario: "",
-    cpf: "",
-    funcao: "",
-    setor: "",
-    data_infracao: "",
-    hora_infracao: "",
-    codigo_infracao: "",
-    descricao_infracao: "",
-    penalidade: "",
-    texto_advertencia: "",
-    lider: "",
-    status: "ENVIADA",
-    texto_limite: "",
-    url_documento_enviado: "",
-    metrica: "",
-    valor_praticado: "",
-    advertido: "",
-    imagem_evidencia1: "",
-    data_formatada: "",
-    mock: false,
-    analista: "Gilliard (gilliard@ib.logistica)"
-  })
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false)
   const [isFormDirty, setIsFormDirty] = useState(false)
 
-  const resetFormAndStates = () => {
-    setFormData({
+  type FormDataType = {
+    numero_tratativa: string
+    funcionario: string
+    cpf: string
+    funcao: string
+    setor: string
+    data_infracao: string
+    hora_infracao: string
+    codigo_infracao: string
+    descricao_infracao: string
+    penalidade: string
+    texto_advertencia: string
+    lider: string
+    status: string
+    texto_limite: string
+    url_documento_enviado: string
+    metrica: string
+    valor_praticado: string
+    advertido: string
+    imagem_evidencia1: string
+    data_formatada: string
+    mock: boolean
+    analista: string
+  }
+
+  const [formData, setFormData] = useState<FormDataType>(() => {
+    console.log("Initializing formData with user:", user) // Debug log
+    return {
       numero_tratativa: "",
       funcionario: "",
       cpf: "",
@@ -135,12 +141,36 @@ export function NovaTratativaModal({
       imagem_evidencia1: "",
       data_formatada: "",
       mock: false,
-      analista: "Gilliard (gilliard@ib.logistica)"
+      analista: user?.profile ? `${user.profile.nome || 'Usuário'} (${user.email})` : ''
+    }
+  })
+
+  // Debug effect for user changes
+  useEffect(() => {
+    console.log("[DEBUG] User object changed:", {
+      email: user?.email,
+      profile: user?.profile,
+      formDataAnalista: formData.analista
     })
-    setFiles([])
-    setError("")
-    setIsFormDirty(false)
-  }
+    
+    if (user?.email && user?.profile) {
+      const analistaValue = `${user.profile.nome || 'Usuário'} (${user.email})`
+      console.log("[DEBUG] Setting analista to:", analistaValue)
+      setFormData(prev => ({
+        ...prev,
+        analista: analistaValue
+      }))
+    }
+  }, [user])
+
+  // Debug effect for formData changes
+  useEffect(() => {
+    console.log("[DEBUG] FormData changed:", {
+      analista: formData.analista,
+      hasUser: !!user,
+      userEmail: user?.email
+    })
+  }, [formData, user])
 
   useEffect(() => {
     if (open) {
@@ -153,19 +183,36 @@ export function NovaTratativaModal({
       const nextNumber = generateNextDocumentNumber(lastDocumentNumber)
       setDocumentNumber(nextNumber)
 
-      // Resetar o formulário antes de definir novos valores
-      resetFormAndStates()
+      console.log("Setting form data with user:", user) // Debug log
 
-      // Definir os dados do formulário com o novo número
-      setFormData(prev => ({
-        ...prev,
+      // Resetar o formulário antes de definir novos valores
+      setFormData({
         numero_tratativa: nextNumber,
+        funcionario: "",
+        cpf: "",
+        funcao: "",
+        setor: "",
+        data_infracao: "",
+        hora_infracao: "",
+        codigo_infracao: "",
+        descricao_infracao: "",
+        penalidade: "",
+        texto_advertencia: "",
+        lider: "",
         status: "ENVIADA",
+        texto_limite: "",
+        url_documento_enviado: "",
+        metrica: "",
+        valor_praticado: "",
+        advertido: "",
+        imagem_evidencia1: "",
+        data_formatada: "",
         mock: mockData ? true : false,
+        analista: user?.profile ? `${user.profile.nome || 'Usuário'} (${user.email})` : '',
         ...(mockData || {})
-      }))
+      })
     }
-  }, [open, lastDocumentNumber, mockData])
+  }, [open, lastDocumentNumber, mockData, user])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsFormDirty(true)
@@ -243,6 +290,14 @@ export function NovaTratativaModal({
       return
     }
 
+    if (!formData.analista && user?.email) {
+      // Garante que o analista esteja definido antes do submit
+      setFormData(prev => ({
+        ...prev,
+        analista: `${user.profile.nome || 'Usuário'} (${user.email})`
+      }))
+    }
+
     setIsLoading(true)
 
     try {
@@ -305,14 +360,24 @@ export function NovaTratativaModal({
       if (data && data.length > 0) {
         const newEntryId = data[0].id
         const [penalidade] = formData.penalidade.split(" - ")
+        console.log("Penalidade:", penalidade)
 
-        if (["P2", "P3", "P4", "P5", "P6"].includes(penalidade)) {
+        if (penalidade && ["P2", "P3", "P4", "P5", "P6"].includes(penalidade.trim())) {
+          console.log("Chamando API PDF para tratativa:", newEntryId)
           try {
             const pdfResult = await callPdfTaskApi(newEntryId.toString())
             console.log("PDF generation result:", pdfResult)
           } catch (pdfError) {
             console.error("Error in PDF generation:", pdfError)
+            toast({
+              title: "Atenção",
+              description: "Tratativa criada, mas houve um erro ao gerar o PDF. O sistema tentará gerar novamente em breve.",
+              variant: "destructive",
+              duration: 5000,
+            })
           }
+        } else {
+          console.log("Penalidade não requer geração de PDF:", penalidade)
         }
       }
 
@@ -475,13 +540,43 @@ export function NovaTratativaModal({
     }
   }
 
+  const resetFormAndStates = () => {
+    setFormData({
+      numero_tratativa: "",
+      funcionario: "",
+      cpf: "",
+      funcao: "",
+      setor: "",
+      data_infracao: "",
+      hora_infracao: "",
+      codigo_infracao: "",
+      descricao_infracao: "",
+      penalidade: "",
+      texto_advertencia: "",
+      lider: "",
+      status: "ENVIADA",
+      texto_limite: "",
+      url_documento_enviado: "",
+      metrica: "",
+      valor_praticado: "",
+      advertido: "",
+      imagem_evidencia1: "",
+      data_formatada: "",
+      mock: false,
+      analista: user?.profile ? `${user.profile.nome || 'Usuário'} (${user.email})` : ''
+    })
+    setFiles([])
+    setError("")
+    setIsFormDirty(false)
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleCloseAttempt}>
         <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
           <div className="flex items-center px-4 h-12 border-b relative">
             <div className="flex-1 text-center">
-              <span className="text-base font-medium">Nova Tratativa - Documento #{formData.numero_tratativa || documentNumber}</span>
+              <span className="text-base font-medium">Nova Tratativa - Documento {formData.numero_tratativa || documentNumber}</span>
             </div>
             <DialogClose asChild>
               <Button 
@@ -688,23 +783,28 @@ export function NovaTratativaModal({
             </form>
           </ScrollArea>
           <div className="border-t bg-gray-50 p-4">
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                className="bg-orange-500 hover:bg-orange-600 text-white hover:text-white"
-                onClick={handleSaveTemporary}
-                disabled={isLoading || !formData.funcionario || !formData.data_infracao}
-              >
-                {isLoading ? "Salvando..." : "Salvar Temporariamente"}
-              </Button>
-              <Button 
-                type="submit" 
-                className="bg-black hover:bg-black/90"
-                onClick={handleSubmit} 
-                disabled={isLoading || files.length === 0}
-              >
-                {isLoading ? "Gerando Tratativa..." : "Gerar Tratativa"}
-              </Button>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 flex items-center">
+                Analista: {formData.analista || 'Não definido'}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="bg-orange-500 hover:bg-orange-600 text-white hover:text-white"
+                  onClick={handleSaveTemporary}
+                  disabled={isLoading || !formData.funcionario || !formData.data_infracao}
+                >
+                  {isLoading ? "Salvando..." : "Salvar Temporariamente"}
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-black hover:bg-black/90"
+                  onClick={handleSubmit} 
+                  disabled={isLoading || files.length === 0}
+                >
+                  {isLoading ? "Gerando Tratativa..." : "Gerar Tratativa"}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
