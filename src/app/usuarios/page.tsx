@@ -9,7 +9,7 @@ import { NovoUsuarioModal } from "@/components/novo-usuario-modal"
 import { EditarUsuarioModal } from "@/components/editar-usuario-modal"
 import { UsuarioDetailsModal } from "@/components/usuario-details-modal"
 import { userService } from "@/services/userService"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<User[]>([])

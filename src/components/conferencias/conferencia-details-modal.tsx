@@ -6,10 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { Badge } from "@/components/ui/badge"
 import { Conferencia, ItemConferencia } from "@/types/conferencias"
 import { Button } from "@/components/ui/button"
-import { X, Pencil, Trash2 } from "lucide-react"
+import { X, Pencil, Trash2, Download } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import { format } from "date-fns"
 
 interface ConferenciaDetailsModalProps {
   conferencia: Conferencia
@@ -126,6 +127,44 @@ export function ConferenciaDetailsModal({
     }
   }
 
+  const handleExport = () => {
+    if (!conferencia.itens?.length) return
+
+    const BOM = '\uFEFF'
+    
+    const escapeCsvCell = (cell: string | number) => {
+      cell = String(cell).replace(/"/g, '""')
+      return /[;\n"]/.test(cell) ? `"${cell}"` : cell
+    }
+
+    const headers = {
+      codigo_patrimonio: 'Código',
+      descricao: 'Descrição',
+      quantidade_sistema: 'Qtd. Sistema',
+      quantidade_conferida: 'Qtd. Conferida',
+      diferenca: 'Diferença'
+    }
+
+    const csvRows = [
+      Object.values(headers).join(';'),
+      ...conferencia.itens.map(item => [
+        escapeCsvCell(item.codigo_patrimonio),
+        escapeCsvCell(item.descricao),
+        escapeCsvCell(item.quantidade_sistema),
+        escapeCsvCell(item.quantidade_conferida),
+        escapeCsvCell(item.diferenca)
+      ].join(';'))
+    ].join('\r\n')
+
+    const blob = new Blob([BOM + csvRows], { type: 'text/csv;charset=utf-8' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `conferencia_${conferencia.id}_${format(new Date(), 'dd-MM-yyyy_HH-mm')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,26 +175,34 @@ export function ConferenciaDetailsModal({
             </DialogTitle>
             <div className="absolute right-4 flex items-center gap-2">
               <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-md shadow-sm"
                 onClick={() => onEdit(conferencia)}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-md shadow-sm hover:bg-red-50 hover:text-red-600"
                 onClick={() => setShowDeleteDialog(true)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-md shadow-sm"
+                onClick={handleExport}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
               <DialogClose asChild>
                 <Button 
                   variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
+                  size="icon"
+                  className="h-8 w-8 rounded-md shadow-sm"
                 >
                   <X className="h-4 w-4" />
                 </Button>

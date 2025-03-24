@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatCPF } from "@/utils/formatters"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { storageService } from "@/services/storageService"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -108,36 +109,66 @@ export function NovaTratativaModal({
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false)
+  const [isFormDirty, setIsFormDirty] = useState(false)
+
+  const resetFormAndStates = () => {
+    setFormData({
+      numero_tratativa: "",
+      funcionario: "",
+      cpf: "",
+      funcao: "",
+      setor: "",
+      data_infracao: "",
+      hora_infracao: "",
+      codigo_infracao: "",
+      descricao_infracao: "",
+      penalidade: "",
+      texto_advertencia: "",
+      lider: "",
+      status: "ENVIADA",
+      texto_limite: "",
+      url_documento_enviado: "",
+      metrica: "",
+      valor_praticado: "",
+      advertido: "",
+      imagem_evidencia1: "",
+      data_formatada: "",
+      mock: false,
+      analista: "Gilliard (gilliard@ib.logistica)"
+    })
+    setFiles([])
+    setError("")
+    setIsFormDirty(false)
+  }
 
   useEffect(() => {
-    const generateNextDocumentNumber = (lastNumber: string) => {
-      const currentNumber = Number.parseInt(lastNumber, 10)
-      if (isNaN(currentNumber)) return "1000"
-      return (currentNumber + 1).toString().padStart(4, "0")
-    }
+    if (open) {
+      const generateNextDocumentNumber = (lastNumber: string) => {
+        const currentNumber = Number.parseInt(lastNumber, 10)
+        if (isNaN(currentNumber)) return "1000"
+        return (currentNumber + 1).toString().padStart(4, "0")
+      }
 
-    const nextNumber = generateNextDocumentNumber(lastDocumentNumber)
-    setDocumentNumber(nextNumber)
+      const nextNumber = generateNextDocumentNumber(lastDocumentNumber)
+      setDocumentNumber(nextNumber)
 
-    if (mockData) {
-      setFormData((prev) => ({
-        ...prev,
-        ...mockData,
-        numero_tratativa: nextNumber,
-        status: "ENVIADA",
-        mock: true,
-      }))
-    } else {
-      setFormData((prev) => ({
+      // Resetar o formulário antes de definir novos valores
+      resetFormAndStates()
+
+      // Definir os dados do formulário com o novo número
+      setFormData(prev => ({
         ...prev,
         numero_tratativa: nextNumber,
         status: "ENVIADA",
-        mock: false,
+        mock: mockData ? true : false,
+        ...(mockData || {})
       }))
     }
-  }, [lastDocumentNumber, mockData])
+  }, [open, lastDocumentNumber, mockData])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsFormDirty(true)
     const { name, value } = e.target
     setFormData((prev) => {
       const newData = { ...prev, [name]: value || "" }
@@ -152,6 +183,7 @@ export function NovaTratativaModal({
   }
 
   const handleSelectChange = (name: string, value: string) => {
+    setIsFormDirty(true)
     if (name === "penalidade") {
       const [code, description] = value.split(" - ")
       setFormData((prev) => ({ ...prev, [name]: `${code} - ${description}` }))
@@ -161,6 +193,7 @@ export function NovaTratativaModal({
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsFormDirty(true)
     const selectedFiles = Array.from(e.target.files || [])
     const imageFile = selectedFiles.find((file) => file.type.startsWith("image/"))
     if (imageFile) {
@@ -294,7 +327,7 @@ export function NovaTratativaModal({
 
       onTratativaAdded()
       onOpenChange(false)
-      resetForm()
+      resetFormAndStates()
     } catch (error) {
       console.error("Error:", error)
       setError("Erro ao criar tratativa. Tente novamente.")
@@ -328,254 +361,372 @@ export function NovaTratativaModal({
     }
   }
 
-  const resetForm = () => {
-    setFormData({
-      numero_tratativa: "",
-      funcionario: "",
-      cpf: "",
-      funcao: "",
-      setor: "",
-      data_infracao: "",
-      hora_infracao: "",
-      codigo_infracao: "",
-      descricao_infracao: "",
-      penalidade: "",
-      texto_advertencia: "",
-      lider: "",
-      status: "ENVIADA",
-      texto_limite: "",
-      url_documento_enviado: "",
-      metrica: "",
-      valor_praticado: "",
-      advertido: "",
-      imagem_evidencia1: "",
-      data_formatada: "",
-      mock: false,
-      analista: "Gilliard (gilliard@ib.logistica)"
-    })
-    setFiles([])
+  const handleSaveTemporary = async () => {
+    try {
+      setIsLoading(true)
+      setError("")
+
+      // Validar campos obrigatórios mínimos
+      if (!formData.funcionario || !formData.data_infracao) {
+        toast({
+          title: "Erro",
+          description: "Preencha pelo menos o funcionário e a data da infração.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
+      // Determinar status baseado na penalidade
+      let advertidoStatus = ""
+      if (formData.penalidade) {
+        const [penalidade] = formData.penalidade.split(" - ")
+        switch (penalidade) {
+          case "P1":
+          case "P2":
+            advertidoStatus = "Advertido"
+            break
+          case "P3":
+          case "P4":
+          case "P5":
+            advertidoStatus = "Suspenso"
+            break
+          case "P6":
+            advertidoStatus = "Desligado"
+            break
+        }
+      }
+
+      // Preparar dados para salvar
+      const tratativaData = {
+        ...formData,
+        numero_tratativa: documentNumber,
+        status: "À CONFIRMAR",
+        created_at: new Date().toISOString(),
+        data_formatada: formatarData(formData.data_infracao),
+        advertido: advertidoStatus,
+        imagem_evidencia1: "",
+        mock: false
+      }
+
+      // Tentar salvar no Supabase
+      const { data, error } = await supabase
+        .from("tratativas")
+        .insert([tratativaData])
+        .select("*")
+
+      if (error) {
+        console.error("Erro ao salvar no Supabase:", error)
+        throw error
+      }
+
+      // Sucesso
+      toast({
+        title: "Sucesso",
+        description: `Tratativa ${documentNumber} salva temporariamente.`,
+        duration: 3000,
+      })
+
+      // Atualizar a lista e fechar o modal
+      await updateTratativasList()
+      onTratativaAdded()
+      onOpenChange(false)
+      resetFormAndStates()
+
+    } catch (error) {
+      console.error("Erro ao salvar tratativa:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar a tratativa temporariamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const uploadImage = async (file: File): Promise<string> => {
+    try {
+      const fileName = `${Date.now()}-${file.name}`
+      const { url } = await storageService.uploadFile({
+        bucket: "tratativas",
+        path: fileName,
+        file
+      })
+      return url
+    } catch (error) {
+      console.error("Erro ao fazer upload da imagem:", error)
+      return ""
+    }
+  }
+
+  const handleCloseConfirmed = () => {
+    setShowCloseConfirmation(false)
+    resetFormAndStates()
+    setIsFormDirty(false)
+    onOpenChange(false)
+  }
+
+  const handleCloseAttempt = () => {
+    if (isFormDirty) {
+      setShowCloseConfirmation(true)
+    } else {
+      onOpenChange(false)
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
-        <div className="flex items-center px-4 h-12 border-b relative">
-          <div className="flex-1 text-center">
-            <span className="text-base font-medium">Nova Tratativa</span>
-          </div>
-          <DialogClose asChild>
-            <Button 
-              variant="outline"
-              className="h-8 w-8 p-0 absolute right-2 top-2"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogClose>
-        </div>
-        <ScrollArea className="flex-grow px-6 py-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-4">
-              <SectionTitle title="Informações Básicas" />
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="data_infracao">Data da Infração</Label>
-                  <Input
-                    id="data_infracao"
-                    name="data_infracao"
-                    type="date"
-                    value={formData.data_infracao}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="hora_infracao">Hora da Infração</Label>
-                  <Input
-                    id="hora_infracao"
-                    name="hora_infracao"
-                    type="time"
-                    value={formData.hora_infracao}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cpf">CPF</Label>
-                  <Input
-                    id="cpf"
-                    name="cpf"
-                    type="text"
-                    value={formData.cpf}
-                    onChange={handleInputChange}
-                    required
-                    maxLength={14}
-                  />
-                </div>
-              </div>
-
-              <SectionTitle title="Dados do Funcionário" />
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="funcionario">Nome do Funcionário</Label>
-                  <Input
-                    id="funcionario"
-                    name="funcionario"
-                    type="text"
-                    value={formData.funcionario}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="funcao">Função</Label>
-                  <Input
-                    id="funcao"
-                    name="funcao"
-                    type="text"
-                    value={formData.funcao}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="setor">Setor</Label>
-                  <Input
-                    id="setor"
-                    name="setor"
-                    type="text"
-                    value={formData.setor}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <SectionTitle title="Detalhes da Infração" />
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="lider">Nome do Líder</Label>
-                  <Input
-                    id="lider"
-                    name="lider"
-                    type="text"
-                    value={formData.lider}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="codigo_infracao">Código da Infração</Label>
-                  <Input
-                    id="codigo_infracao"
-                    name="codigo_infracao"
-                    type="text"
-                    value={formData.codigo_infracao}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="descricao_infracao">Infração Cometida</Label>
-                  <Input
-                    id="descricao_infracao"
-                    name="descricao_infracao"
-                    type="text"
-                    value={formData.descricao_infracao}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <SectionTitle title="Penalidade" />
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="penalidade">Penalidade Aplicada</Label>
-                  <Select
-                    value={formData.penalidade}
-                    onValueChange={(value) => handleSelectChange("penalidade", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a penalidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="P1 - Comunicação Verbal">P1 - Comunicação Verbal</SelectItem>
-                      <SelectItem value="P2 - Advertência Escrita">P2 - Advertência Escrita</SelectItem>
-                      <SelectItem value="P3 - Suspensão 1 dia">P3 - Suspensão 1 dia</SelectItem>
-                      <SelectItem value="P4 - Suspensão 2 dias">P4 - Suspensão 2 dias</SelectItem>
-                      <SelectItem value="P5 - Suspensão 3 dias">P5 - Suspensão 3 dias</SelectItem>
-                      <SelectItem value="P6 - Desligamento">P6 - Desligamento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <Label htmlFor="texto_advertencia">Texto Advertência</Label>
-                  <Input
-                    id="texto_advertencia"
-                    name="texto_advertencia"
-                    type="text"
-                    value={formData.texto_advertencia}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
+    <>
+      <Dialog open={open} onOpenChange={handleCloseAttempt}>
+        <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
+          <div className="flex items-center px-4 h-12 border-b relative">
+            <div className="flex-1 text-center">
+              <span className="text-base font-medium">Nova Tratativa - Documento #{formData.numero_tratativa || documentNumber}</span>
             </div>
-
-            <SectionTitle title="Anexo (Máximo 1 imagem)" />
-            <div className="flex items-center space-x-4">
-              <div
-                className={`border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer ${
-                  files.length >= 1 ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                onClick={files.length < 1 ? handleUploadClick : undefined}
+            <DialogClose asChild>
+              <Button 
+                variant="outline"
+                className="h-8 w-8 p-0 absolute right-2 top-2"
+                onClick={handleCloseAttempt}
               >
-                <Input
-                  id="file-upload"
-                  type="file"
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  ref={fileInputRef}
-                  className="hidden"
-                  disabled={files.length >= 1}
-                />
-                <span className="text-gray-500">{files.length < 1 ? "Procurar imagem" : "Imagem selecionada"}</span>
-              </div>
-              {files.length > 0 && (
-                <div className="flex-1">
-                  <p className="font-medium">Arquivos anexados:</p>
-                  {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between mt-1">
-                      <span>{file.name}</span>
-                      <Button type="button" onClick={() => handleRemoveFile(index)} variant="destructive" size="sm">
-                        Remover
-                      </Button>
-                    </div>
-                  ))}
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
+          <ScrollArea className="flex-grow px-6 py-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-4">
+                <SectionTitle title="Informações Básicas" />
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="data_infracao">Data da Infração</Label>
+                    <Input
+                      id="data_infracao"
+                      name="data_infracao"
+                      type="date"
+                      value={formData.data_infracao}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="hora_infracao">Hora da Infração</Label>
+                    <Input
+                      id="hora_infracao"
+                      name="hora_infracao"
+                      type="time"
+                      value={formData.hora_infracao}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cpf">CPF</Label>
+                    <Input
+                      id="cpf"
+                      name="cpf"
+                      type="text"
+                      value={formData.cpf}
+                      onChange={handleInputChange}
+                      required
+                      maxLength={14}
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {error && <div className="text-red-500">{error}</div>}
-          </form>
-        </ScrollArea>
-        <div className="border-t bg-gray-50 p-4">
-          <Button 
-            type="submit" 
-            className="w-full" 
-            onClick={handleSubmit} 
-            disabled={isLoading || files.length === 0}
-          >
-            {isLoading ? "Gerando Tratativa..." : "Gerar Tratativa"}
-          </Button>
-          {files.length === 0 && (
-            <p className="text-sm text-red-500 mt-2 text-center">
-              É necessário anexar uma imagem para criar a tratativa
-            </p>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+                <SectionTitle title="Dados do Funcionário" />
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="funcionario">Nome do Funcionário</Label>
+                    <Input
+                      id="funcionario"
+                      name="funcionario"
+                      type="text"
+                      value={formData.funcionario}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="funcao">Função</Label>
+                    <Input
+                      id="funcao"
+                      name="funcao"
+                      type="text"
+                      value={formData.funcao}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="setor">Setor</Label>
+                    <Input
+                      id="setor"
+                      name="setor"
+                      type="text"
+                      value={formData.setor}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <SectionTitle title="Detalhes da Infração" />
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="lider">Nome do Líder</Label>
+                    <Input
+                      id="lider"
+                      name="lider"
+                      type="text"
+                      value={formData.lider}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="codigo_infracao">Código da Infração</Label>
+                    <Input
+                      id="codigo_infracao"
+                      name="codigo_infracao"
+                      type="text"
+                      value={formData.codigo_infracao}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="descricao_infracao">Infração Cometida</Label>
+                    <Input
+                      id="descricao_infracao"
+                      name="descricao_infracao"
+                      type="text"
+                      value={formData.descricao_infracao}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <SectionTitle title="Penalidade" />
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="penalidade">Penalidade Aplicada</Label>
+                    <Select
+                      value={formData.penalidade}
+                      onValueChange={(value) => handleSelectChange("penalidade", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a penalidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="P1 - Comunicação Verbal">P1 - Comunicação Verbal</SelectItem>
+                        <SelectItem value="P2 - Advertência Escrita">P2 - Advertência Escrita</SelectItem>
+                        <SelectItem value="P3 - Suspensão 1 dia">P3 - Suspensão 1 dia</SelectItem>
+                        <SelectItem value="P4 - Suspensão 2 dias">P4 - Suspensão 2 dias</SelectItem>
+                        <SelectItem value="P5 - Suspensão 3 dias">P5 - Suspensão 3 dias</SelectItem>
+                        <SelectItem value="P6 - Desligamento">P6 - Desligamento</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="texto_advertencia">Texto Advertência</Label>
+                    <Input
+                      id="texto_advertencia"
+                      name="texto_advertencia"
+                      type="text"
+                      value={formData.texto_advertencia}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <SectionTitle title="Anexo (Máximo 1 imagem)" />
+              <div className="space-y-2">
+                <div className="flex items-center space-x-4">
+                  <div
+                    className={`border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer ${
+                      files.length >= 1 ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                    onClick={files.length < 1 ? handleUploadClick : undefined}
+                  >
+                    <Input
+                      id="file-upload"
+                      type="file"
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      ref={fileInputRef}
+                      className="hidden"
+                      disabled={files.length >= 1}
+                    />
+                    <span className="text-gray-500">{files.length < 1 ? "Procurar imagem" : "Imagem selecionada"}</span>
+                  </div>
+                  {files.length > 0 && (
+                    <div className="flex-1">
+                      <p className="font-medium">Arquivos anexados:</p>
+                      {files.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between mt-1">
+                          <span>{file.name}</span>
+                          <Button type="button" onClick={() => handleRemoveFile(index)} variant="destructive" size="sm">
+                            Remover
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {files.length === 0 && (
+                  <p className="text-sm text-red-500">
+                    É necessário anexar uma imagem para gerar a tratativa definitiva
+                  </p>
+                )}
+              </div>
+
+              {error && <div className="text-red-500">{error}</div>}
+            </form>
+          </ScrollArea>
+          <div className="border-t bg-gray-50 p-4">
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                className="bg-orange-500 hover:bg-orange-600 text-white hover:text-white"
+                onClick={handleSaveTemporary}
+                disabled={isLoading || !formData.funcionario || !formData.data_infracao}
+              >
+                {isLoading ? "Salvando..." : "Salvar Temporariamente"}
+              </Button>
+              <Button 
+                type="submit" 
+                className="bg-black hover:bg-black/90"
+                onClick={handleSubmit} 
+                disabled={isLoading || files.length === 0}
+              >
+                {isLoading ? "Gerando Tratativa..." : "Gerar Tratativa"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showCloseConfirmation} onOpenChange={setShowCloseConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Descartar alterações?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem alterações não salvas. Tem certeza que deseja fechar? Todas as alterações serão perdidas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCloseConfirmed}>
+              Sim, descartar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

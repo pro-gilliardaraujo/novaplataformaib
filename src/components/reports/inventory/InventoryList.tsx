@@ -319,7 +319,7 @@ export function InventoryList({ categorias, settings, onCategoriaCreated }: Inve
         return (
           row.codigo_fabricante.toLowerCase().includes(searchLower) ||
           row.descricao.toLowerCase().includes(searchLower) ||
-          row.categoria?.nome.toLowerCase().includes(searchLower)
+          (row.categoria?.nome && row.categoria.nome.toLowerCase().includes(searchLower))
         )
       }
       return true

@@ -11,7 +11,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Settings, LogOut, Key } from "lucide-react"
 import { AlterarSenhaPadraoModal } from "./alterar-senha-padrao-modal"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/contexts/AuthContext"
 
 export function UserMenu() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
@@ -63,7 +63,7 @@ export function UserMenu() {
             <span>Configurações</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => signOut()}>
+          <DropdownMenuItem onClick={signOut}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Sair</span>
           </DropdownMenuItem>

@@ -117,7 +117,7 @@ export function TiposParadaContent() {
       }) &&
       (search === "" || 
         Object.values(row).some(value => 
-          value?.toString().toLowerCase().includes(search.toLowerCase())
+          value != null && value.toString().toLowerCase().includes(search.toLowerCase())
         ))
     )
 

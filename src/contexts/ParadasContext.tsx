@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { Unidade, FrotaStatus } from "@/types/paradas"
 import { Frota } from "@/types/frotas"
 import { supabase } from "@/lib/supabase"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "@/components/ui/use-toast"
 
 interface ParadasContextType {

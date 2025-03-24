@@ -114,7 +114,7 @@ export default function TratativasListaPage() {
             <TratativasTable 
               tratativas={tratativas.filter(t => 
                 Object.values(t).some(value => 
-                  value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+                  value != null && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
                 )
               )}
               onTratativaEdited={fetchTratativas}

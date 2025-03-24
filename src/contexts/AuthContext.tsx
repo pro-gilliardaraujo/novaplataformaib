@@ -26,15 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  console.log('[Auth] Estado inicial:', {
-    hasUser: !!user,
-    loading,
-    pathname
-  })
-
   const fetchUserProfile = async (userId: string) => {
+    console.log('Fetching user profile for:', userId)
     try {
-      console.log('[Auth] Buscando perfil do usuário:', userId)
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
@@ -42,11 +36,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (error) {
-        console.error('[Auth] Erro ao buscar perfil:', error)
+        console.error('Error fetching profile:', error)
         throw error
       }
 
-      console.log('[Auth] Perfil encontrado:', profile)
+      console.log('Profile fetched:', profile)
+
       const userData: CustomUser = {
         id: userId,
         email: profile.user_email,
@@ -62,73 +57,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           adminProfile: profile.adminProfile,
           firstLogin: profile.firstLogin,
           user_email: profile.user_email,
-          ultimo_acesso: profile.ultimo_acesso
+          ultimo_acesso: profile.ultimo_acesso,
         },
       }
 
       setUser(userData)
       sessionStorage.setItem('user_profile', JSON.stringify(userData))
-      setLoading(false)
+      return userData
     } catch (error) {
-      console.error('[Auth] Erro ao buscar perfil do usuário:', error)
+      console.error('Error in fetchUserProfile:', error)
+      const cachedUser = sessionStorage.getItem('user_profile')
+      if (cachedUser) {
+        console.log('Using cached user profile')
+        const parsedUser = JSON.parse(cachedUser)
+        setUser(parsedUser)
+        return parsedUser
+      }
+      return null
+    } finally {
       setLoading(false)
     }
   }
 
+  const refreshUser = async () => {
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) {
+      console.error('Erro ao obter sessão:', error)
+      return
+    }
+    if (session?.user) {
+      return await fetchUserProfile(session.user.id)
+    }
+    return null
+  }
+
   useEffect(() => {
     let mounted = true
+    console.log('AuthProvider mounted, pathname:', pathname)
 
     const initAuth = async () => {
       try {
-        console.log('[Auth] Iniciando autenticação...')
-        
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        if (sessionError) {
-          console.error('[Auth] Erro ao verificar sessão:', sessionError)
-          throw sessionError
+        const cachedUser = sessionStorage.getItem('user_profile')
+        if (cachedUser && mounted) {
+          console.log('Found cached user')
+          setUser(JSON.parse(cachedUser))
         }
 
-        if (session?.user) {
-          console.log('[Auth] Sessão ativa encontrada:', session.user.id)
-          if (mounted) {
-            await fetchUserProfile(session.user.id)
-          }
+        const { data: { session }, error } = await supabase.auth.getSession()
+        console.log('Session check result:', { session, error })
+
+        if (error) throw error
+
+        if (session?.user && mounted) {
+          console.log('Valid session found')
+          await fetchUserProfile(session.user.id)
         } else {
-          console.log('[Auth] Nenhuma sessão ativa')
           if (mounted) {
+            console.log('No valid session')
             setUser(null)
             sessionStorage.removeItem('user_profile')
-            setLoading(false)
             if (pathname !== '/login') {
               router.push('/login')
             }
           }
         }
       } catch (error) {
-        console.error('[Auth] Erro na inicialização da autenticação:', error)
+        console.error('Error in initAuth:', error)
+      } finally {
         if (mounted) {
-          setUser(null)
-          sessionStorage.removeItem('user_profile')
           setLoading(false)
-          if (pathname !== '/login') {
-            router.push('/login')
-          }
         }
       }
     }
 
     initAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[Auth] Mudança de estado:', event)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return
 
       if (session?.user) {
-        await fetchUserProfile(session.user.id)
+        const userData = await fetchUserProfile(session.user.id)
+        if (userData && pathname === '/login') {
+          router.push('/')
+        }
       } else {
         setUser(null)
         sessionStorage.removeItem('user_profile')
-        setLoading(false)
         if (pathname !== '/login') {
           router.push('/login')
         }
@@ -143,38 +157,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      console.log('[Auth] Iniciando logout...')
-      setLoading(true)
+      setUser(null)
+      sessionStorage.clear()
+      localStorage.clear()
       
       const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.error('[Auth] Erro durante logout:', error)
-        throw error
-      }
+      if (error) throw error
 
-      console.log('[Auth] Logout realizado com sucesso')
-      setUser(null)
-      sessionStorage.removeItem('user_profile')
-      window.location.href = '/login'
+      router.push('/login')
+      
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 100)
     } catch (error) {
-      console.error('[Auth] Erro na função de logout:', error)
-      setLoading(false)
-    }
-  }
-
-  const refreshUser = async () => {
-    try {
-      console.log('[Auth] Atualizando usuário...')
-      const { data: { session }, error } = await supabase.auth.getSession()
-      if (error) {
-        console.error('[Auth] Erro ao obter sessão:', error)
-        return
-      }
-      if (session?.user) {
-        await fetchUserProfile(session.user.id)
-      }
-    } catch (error) {
-      console.error('[Auth] Erro ao atualizar usuário:', error)
+      console.error('Erro ao fazer logout:', error)
+      router.push('/login')
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 100)
     }
   }
 
