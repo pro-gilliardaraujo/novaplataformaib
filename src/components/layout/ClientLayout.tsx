@@ -4,6 +4,35 @@ import { useState } from "react"
 import Sidebar from "@/components/layout/Sidebar"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { usePathname } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
+
+function LayoutContent({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const { loading } = useAuth()
+  const isPublicRoute = pathname === '/login'
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+      </div>
+    )
+  }
+
+  if (isPublicRoute) {
+    return children
+  }
+
+  return (
+    <div className="flex h-screen">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent">
+        {children}
+      </main>
+    </div>
+  )
+}
 
 export default function ClientLayout({
   children,
@@ -26,12 +55,9 @@ export default function ClientLayout({
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <div className="flex h-screen">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent">
-            {children}
-          </main>
-        </div>
+        <LayoutContent>
+          {children}
+        </LayoutContent>
       </AuthProvider>
     </QueryClientProvider>
   )
