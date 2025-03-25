@@ -149,19 +149,17 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
         .single()
 
       if (itemError) {
-        console.error('Erro ao inserir item:', itemError)
-        toast({
-          title: "Erro",
-          description: "Não foi possível cadastrar o item: " + itemError.message,
-          variant: "destructive",
-        })
-        return
+        throw itemError
+      }
+
+      if (!itemData) {
+        throw new Error("Não foi possível obter os dados do item após a inserção")
       }
 
       // 2. Upload images if any
       if (selectedFiles.length > 0) {
-        try {
-          for (const file of selectedFiles) {
+        const uploadPromises = selectedFiles.map(async (file) => {
+          try {
             const fileExt = file.name.split('.').pop()
             const fileName = `${itemData.id}/${Date.now()}.${fileExt}`
             
@@ -173,7 +171,7 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
               throw uploadError
             }
 
-            // 3. Save image reference
+            // Save image reference
             const { error: imageError } = await supabase
               .from('imagens_item')
               .insert([{
@@ -184,17 +182,23 @@ export function ItemEstoqueModal({ open, onOpenChange, onSuccess, categorias }: 
             if (imageError) {
               throw imageError
             }
+
+            return fileName
+          } catch (error) {
+            console.error('Erro ao processar imagem:', error)
+            return null
           }
-        } catch (error) {
-          console.error('Erro ao processar imagens:', error)
+        })
+
+        const results = await Promise.allSettled(uploadPromises)
+        const failedUploads = results.filter(r => r.status === 'rejected').length
+
+        if (failedUploads > 0) {
           toast({
             title: "Aviso",
-            description: "Item foi cadastrado, mas houve um erro ao salvar as imagens",
+            description: `Item cadastrado, mas ${failedUploads} ${failedUploads === 1 ? 'imagem falhou' : 'imagens falharam'} ao ser enviada.`,
             variant: "destructive",
           })
-          handleOpenChange(false)
-          onSuccess()
-          return
         }
       }
       

@@ -24,6 +24,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { SectionTitle } from "@/components/ui/section-title"
+import { DetailItem } from "@/components/ui/detail-item"
 
 interface DetalhesItemModalProps {
   open: boolean
@@ -66,53 +68,47 @@ interface ImagemItem {
   url_imagem: string
 }
 
-function DetailItem({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col items-start">
-      <span className="text-sm font-medium text-gray-500">{label}</span>
-      <span className="text-sm mt-1">{value}</span>
-    </div>
-  )
-}
-
-function SectionTitle({ title }: { title: string }) {
-  return (
-    <div className="flex items-center mb-4">
-      <div className="flex-grow h-px bg-gray-200"></div>
-      <h3 className="text-base font-medium px-4">{title}</h3>
-      <div className="flex-grow h-px bg-gray-200"></div>
-    </div>
-  )
-}
-
 export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categorias }: DetalhesItemModalProps) {
+  const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
-  const [descricao, setDescricao] = useState(item.descricao)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showMovimentacao, setShowMovimentacao] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [imagens, setImagens] = useState<ImagemItem[]>([])
+
+  // Form states
   const [codigoFabricante, setCodigoFabricante] = useState(item.codigo_fabricante)
+  const [descricao, setDescricao] = useState(item.descricao)
   const [quantidade, setQuantidade] = useState(String(item.quantidade_atual))
-  const [observacoes, setObservacoes] = useState(item.observacoes || "")
-  const [categoryId, setCategoryId] = useState(item.category_id || "")
   const [nivelMinimo, setNivelMinimo] = useState(item.nivel_minimo ? String(item.nivel_minimo) : "")
   const [nivelCritico, setNivelCritico] = useState(item.nivel_critico ? String(item.nivel_critico) : "")
   const [alertasAtivos, setAlertasAtivos] = useState(item.alertas_ativos ?? true)
-  const [imagens, setImagens] = useState<ImagemItem[]>([])
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [showMovimentacao, setShowMovimentacao] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const { toast } = useToast()
+  const [observacoes, setObservacoes] = useState(item.observacoes || "")
 
-  // Load images when modal opens
-  const carregarImagens = async () => {
+  useEffect(() => {
+    if (open) {
+      setIsEditing(false) // Reset editing mode when modal opens
+      loadImagens()
+    }
+  }, [open, item.id])
+
+  const loadImagens = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: imagensData, error } = await supabase
         .from('imagens_item')
         .select('*')
         .eq('item_id', item.id)
 
       if (error) throw error
 
-      setImagens(data || [])
+      setImagens(imagensData || [])
+      if (imagensData.length > 0) {
+        const firstImageUrl = supabase.storage
+          .from('itens-estoque')
+          .getPublicUrl(imagensData[0].url_imagem).data.publicUrl
+        setSelectedImage(firstImageUrl)
+      }
     } catch (error) {
       console.error('Erro ao carregar imagens:', error)
       toast({
@@ -122,13 +118,6 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
       })
     }
   }
-
-  useEffect(() => {
-    if (open) {
-      setIsEditing(false) // Reset editing mode when modal opens
-      carregarImagens()
-    }
-  }, [open, item.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -152,7 +141,6 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
           codigo_fabricante: codigoFabricante,
           quantidade_atual: Number(quantidade),
           observacoes,
-          category_id: categoryId || null,
           nivel_minimo: nivelMinimo ? Number(nivelMinimo) : null,
           nivel_critico: nivelCritico ? Number(nivelCritico) : null,
           alertas_ativos: alertasAtivos
@@ -240,14 +228,14 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
 
   const handleDeleteImage = async (imagem: ImagemItem) => {
     try {
-      // 1. Delete from storage
+      // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('itens-estoque')
         .remove([imagem.url_imagem])
 
       if (storageError) throw storageError
 
-      // 2. Delete from database
+      // Delete from database
       const { error: dbError } = await supabase
         .from('imagens_item')
         .delete()
@@ -255,12 +243,15 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
 
       if (dbError) throw dbError
 
-      // 3. Reload images from database
-      await carregarImagens()
-
-      // 4. Clear selected image if it was deleted
+      setImagens(prev => prev.filter(img => img.id !== imagem.id))
+      
       if (selectedImage === supabase.storage.from('itens-estoque').getPublicUrl(imagem.url_imagem).data.publicUrl) {
-        setSelectedImage(null)
+        const remainingImages = imagens.filter(img => img.id !== imagem.id)
+        if (remainingImages.length > 0) {
+          setSelectedImage(supabase.storage.from('itens-estoque').getPublicUrl(remainingImages[0].url_imagem).data.publicUrl)
+        } else {
+          setSelectedImage(null)
+        }
       }
 
       toast({
@@ -285,6 +276,58 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
     onOpenChange(open)
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    setIsLoading(true)
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const fileName = `${item.id}/${Date.now()}-${file.name}`
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('itens-estoque')
+          .upload(fileName, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: dbData, error: dbError } = await supabase
+          .from('imagens_item')
+          .insert([{
+            item_id: item.id,
+            url_imagem: uploadData.path
+          }])
+          .select()
+          .single()
+
+        if (dbError) throw dbError
+
+        const newImagem: ImagemItem = {
+          id: dbData.id,
+          url_imagem: uploadData.path
+        }
+
+        setImagens(prev => [...prev, newImagem])
+        setSelectedImage(supabase.storage.from('itens-estoque').getPublicUrl(uploadData.path).data.publicUrl)
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Imagens carregadas com sucesso",
+      })
+    } catch (error) {
+      console.error('Erro ao carregar imagens:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar uma ou mais imagens",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[1200px] h-[90vh] p-0">
@@ -293,9 +336,33 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
           <div className="flex items-center h-14 shrink-0 border-b px-4">
             <div className="flex-1" />
             <DialogTitle className="text-xl font-semibold flex-1 text-center">
-              Detalhes - {item.descricao}
+              {isEditing ? "Editar Item" : "Detalhes do Item"} - {item.descricao}
             </DialogTitle>
-            <div className="flex-1 flex justify-end">
+            <div className="flex-1 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-md shadow-sm"
+                onClick={() => setShowMovimentacao(true)}
+              >
+                <ArrowUpDown className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-md shadow-sm"
+                onClick={() => setIsEditing(!isEditing)}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-md shadow-sm"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
               <DialogClose asChild>
                 <Button 
                   variant="outline"
@@ -313,37 +380,112 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
             {/* Left Column - Informações */}
             <div className="w-[30%] overflow-y-auto border-r border-gray-200">
               <div className="p-4 space-y-6">
-                <div>
-                  <SectionTitle title="Informações do Item" />
-                  <div className="grid grid-cols-1 gap-4">
-                    <DetailItem label="Código do Fabricante" value={item.codigo_fabricante} />
-                    <DetailItem label="Descrição" value={item.descricao} />
-                    <DetailItem label="Categoria" value={item.categoria?.nome || 'Sem Categoria'} />
-                    <DetailItem label="Quantidade Atual" value={item.quantidade_atual} />
-                    <DetailItem label="Nível Mínimo" value={item.nivel_minimo || '-'} />
-                    <DetailItem label="Nível Crítico" value={item.nivel_critico || '-'} />
-                    <DetailItem 
-                      label="Alertas Ativos" 
-                      value={
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          item.alertas_ativos
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}>
-                          {item.alertas_ativos ? "Sim" : "Não"}
-                        </span>
-                      }
-                    />
-                  </div>
-                </div>
-
-                {item.observacoes && (
-                  <div>
-                    <SectionTitle title="Observações" />
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm whitespace-pre-wrap">{item.observacoes}</p>
+                {isEditing ? (
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="codigoFabricante">Código do Fabricante</Label>
+                      <Input
+                        id="codigoFabricante"
+                        value={codigoFabricante}
+                        onChange={(e) => setCodigoFabricante(e.target.value)}
+                      />
                     </div>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="descricao">Descrição</Label>
+                      <Input
+                        id="descricao"
+                        value={descricao}
+                        onChange={(e) => setDescricao(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quantidade">Quantidade Atual</Label>
+                      <Input
+                        id="quantidade"
+                        type="number"
+                        value={quantidade}
+                        onChange={(e) => setQuantidade(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nivelMinimo">Nível Mínimo</Label>
+                      <Input
+                        id="nivelMinimo"
+                        type="number"
+                        value={nivelMinimo}
+                        onChange={(e) => setNivelMinimo(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nivelCritico">Nível Crítico</Label>
+                      <Input
+                        id="nivelCritico"
+                        type="number"
+                        value={nivelCritico}
+                        onChange={(e) => setNivelCritico(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="alertasAtivos"
+                        checked={alertasAtivos}
+                        onCheckedChange={(checked) => setAlertasAtivos(checked as boolean)}
+                      />
+                      <Label htmlFor="alertasAtivos">Alertas Ativos</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="observacoes">Observações</Label>
+                      <Textarea
+                        id="observacoes"
+                        value={observacoes}
+                        onChange={(e) => setObservacoes(e.target.value)}
+                        className="h-[100px]"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={isLoading} className="bg-black hover:bg-black/90">
+                        {isLoading ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div>
+                      <SectionTitle title="Informações do Item" />
+                      <div className="grid grid-cols-1 gap-4">
+                        <DetailItem label="Código do Fabricante" value={item.codigo_fabricante} />
+                        <DetailItem label="Descrição" value={item.descricao} />
+                        <DetailItem label="Categoria" value={item.categoria?.nome || 'Sem Categoria'} />
+                        <DetailItem label="Quantidade Atual" value={item.quantidade_atual} />
+                        <DetailItem label="Nível Mínimo" value={item.nivel_minimo || '-'} />
+                        <DetailItem label="Nível Crítico" value={item.nivel_critico || '-'} />
+                        <DetailItem 
+                          label="Alertas Ativos" 
+                          value={
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              item.alertas_ativos
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}>
+                              {item.alertas_ativos ? "Sim" : "Não"}
+                            </span>
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {item.observacoes && (
+                      <div>
+                        <SectionTitle title="Observações" />
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <p className="text-sm whitespace-pre-wrap">{item.observacoes}</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -401,87 +543,91 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
             {/* Right Column - Imagens */}
             <div className="w-[40%] overflow-y-auto">
               <div className="p-4">
-                <SectionTitle title="Imagens" />
+                <div className="flex items-center justify-between mb-4">
+                  <SectionTitle title="Imagens" />
+                  {isEditing && (
+                    <>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => document.getElementById('image-upload')?.click()}
+                      >
+                        Adicionar Imagens
+                      </Button>
+                    </>
+                  )}
+                </div>
                 {imagens.length > 0 ? (
                   <div className="space-y-4">
                     {/* Imagem Principal */}
-                    <div className="bg-white rounded-lg border border-gray-200 h-[400px]">
-                      <div className="relative w-full h-full">
+                    <div className="bg-white rounded-lg border border-gray-200 h-[400px] relative">
+                      {selectedImage && (
                         <Image
-                          src={selectedImage || supabase.storage
-                            .from('itens-estoque')
-                            .getPublicUrl(imagens[0].url_imagem).data.publicUrl}
+                          src={selectedImage}
                           alt="Imagem principal"
                           fill
                           className="object-contain"
                           sizes="(max-width: 1200px) 40vw"
                         />
-                      </div>
+                      )}
+                      {isEditing && selectedImage && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="absolute top-2 right-2 h-8 w-8 bg-white"
+                          onClick={() => {
+                            const imagemToDelete = imagens.find(img => 
+                              supabase.storage.from('itens-estoque').getPublicUrl(img.url_imagem).data.publicUrl === selectedImage
+                            )
+                            if (imagemToDelete) {
+                              handleDeleteImage(imagemToDelete)
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      )}
                     </div>
 
                     {/* Miniaturas */}
-                    <div className="h-24 bg-white rounded-lg border border-gray-200">
-                      <div className="relative h-full px-2">
-                        {imagens.length > 4 && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full"
-                              onClick={() => {
-                                const container = document.getElementById('thumbnails-container')
-                                if (container) {
-                                  container.scrollLeft -= 80
-                                }
-                              }}
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full"
-                              onClick={() => {
-                                const container = document.getElementById('thumbnails-container')
-                                if (container) {
-                                  container.scrollLeft += 80
-                                }
-                              }}
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                        <div 
-                          id="thumbnails-container"
-                          className="flex gap-2 overflow-x-auto scrollbar-hide h-full items-center px-1"
-                        >
-                          {imagens.map((imagem) => {
-                            const imageUrl = supabase.storage
-                              .from('itens-estoque')
-                              .getPublicUrl(imagem.url_imagem).data.publicUrl
+                    <div className="relative">
+                      <div
+                        id="thumbnails-container"
+                        className="flex gap-2 overflow-x-auto scrollbar-hide py-2"
+                      >
+                        {imagens.map((imagem) => {
+                          const imageUrl = supabase.storage
+                            .from('itens-estoque')
+                            .getPublicUrl(imagem.url_imagem).data.publicUrl
 
-                            return (
-                              <div
-                                key={imagem.id}
-                                className={`relative h-[80px] w-[80px] flex-shrink-0 rounded-md overflow-hidden cursor-pointer border-2 transition-all ${
-                                  selectedImage === imageUrl 
-                                    ? 'border-black' 
-                                    : 'border-gray-200 hover:border-gray-400'
-                                }`}
-                                onClick={() => setSelectedImage(imageUrl)}
-                              >
-                                <Image
-                                  src={imageUrl}
-                                  alt={`Imagem ${imagem.id}`}
-                                  fill
-                                  className="object-cover"
-                                  sizes="80px"
-                                />
-                              </div>
-                            )
-                          })}
-                        </div>
+                          return (
+                            <div
+                              key={imagem.id}
+                              className={`relative h-[80px] w-[80px] flex-shrink-0 rounded-md overflow-hidden cursor-pointer border-2 transition-all ${
+                                selectedImage === imageUrl 
+                                  ? 'border-black' 
+                                  : 'border-gray-200 hover:border-gray-400'
+                              }`}
+                              onClick={() => setSelectedImage(imageUrl)}
+                            >
+                              <Image
+                                src={imageUrl}
+                                alt={`Imagem ${imagem.id}`}
+                                fill
+                                className="object-cover"
+                                sizes="80px"
+                              />
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
@@ -495,6 +641,23 @@ export function DetalhesItemModal({ open, onOpenChange, item, onSuccess, categor
           </div>
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Excluir Item"
+        description="Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita."
+        onConfirm={handleDelete}
+      />
+
+      {/* Movimentação Modal */}
+      <MovimentacaoEstoqueModal
+        open={showMovimentacao}
+        onOpenChange={setShowMovimentacao}
+        item={item}
+        onSuccess={onSuccess}
+      />
     </Dialog>
   )
 } 
