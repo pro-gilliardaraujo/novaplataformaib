@@ -6,6 +6,7 @@ export interface Tratativa {
   created_at: string
   updated_at: string
   funcionario: string
+  cpf: string
   data_infracao: string
   descricao: string
   observacoes?: string
