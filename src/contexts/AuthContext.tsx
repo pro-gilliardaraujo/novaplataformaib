@@ -26,8 +26,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
+  // Função para limpar todos os dados da sessão
+  const clearSessionData = () => {
+    setUser(null)
+    sessionStorage.clear()
+    localStorage.clear()
+    
+    // Limpar cookies específicos do Supabase
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/")
+    })
+  }
+
   const fetchUserProfile = async (userId: string) => {
-    console.log('Fetching user profile for:', userId)
     try {
       const { data: profile, error } = await supabase
         .from("profiles")
@@ -35,18 +48,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("user_id", userId)
         .single()
 
-      if (error) {
-        console.error('Error fetching profile:', error)
-        throw error
-      }
-
-      console.log('Profile fetched:', profile)
+      if (error) throw error
 
       const userData: CustomUser = {
         id: userId,
         email: profile.user_email,
         created_at: profile.created_at,
-        last_sign_in_at: null,
+        last_sign_in_at: new Date().toISOString(),
         email_confirmed_at: null,
         profile: {
           id: profile.id,
@@ -66,63 +74,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return userData
     } catch (error) {
       console.error('Error in fetchUserProfile:', error)
-      const cachedUser = sessionStorage.getItem('user_profile')
-      if (cachedUser) {
-        console.log('Using cached user profile')
-        const parsedUser = JSON.parse(cachedUser)
-        setUser(parsedUser)
-        return parsedUser
-      }
+      clearSessionData()
       return null
-    } finally {
-      setLoading(false)
     }
   }
 
   const refreshUser = async () => {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    if (error) {
-      console.error('Erro ao obter sessão:', error)
-      return
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error) throw error
+      
+      if (session?.user) {
+        return await fetchUserProfile(session.user.id)
+      }
+      
+      clearSessionData()
+      return null
+    } catch (error) {
+      console.error('Error refreshing user:', error)
+      clearSessionData()
+      return null
     }
-    if (session?.user) {
-      return await fetchUserProfile(session.user.id)
-    }
-    return null
   }
+
+  // Efeito para verificar a sessão quando a janela recebe foco
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshUser()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
+
+  // Efeito para verificar a sessão periodicamente
+  useEffect(() => {
+    const interval = setInterval(refreshUser, 5 * 60 * 1000) // A cada 5 minutos
+    return () => clearInterval(interval)
+  }, [])
+
+  // Efeito para limpar a sessão quando a janela é fechada
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!user?.profile?.adminProfile) { // Mantém sessão apenas para admins
+        clearSessionData()
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [user])
 
   useEffect(() => {
     let mounted = true
-    console.log('AuthProvider mounted, pathname:', pathname)
 
     const initAuth = async () => {
       try {
-        const cachedUser = sessionStorage.getItem('user_profile')
-        if (cachedUser && mounted) {
-          console.log('Found cached user')
-          setUser(JSON.parse(cachedUser))
-        }
-
         const { data: { session }, error } = await supabase.auth.getSession()
-        console.log('Session check result:', { session, error })
 
         if (error) throw error
 
         if (session?.user && mounted) {
-          console.log('Valid session found')
           await fetchUserProfile(session.user.id)
-        } else {
-          if (mounted) {
-            console.log('No valid session')
-            setUser(null)
-            sessionStorage.removeItem('user_profile')
-            if (pathname !== '/login') {
-              router.push('/login')
-            }
+          if (pathname === '/login') {
+            router.push('/inicio')
+          }
+        } else if (mounted) {
+          clearSessionData()
+          if (pathname !== '/login') {
+            router.push('/login')
           }
         }
       } catch (error) {
         console.error('Error in initAuth:', error)
+        clearSessionData()
+        if (pathname !== '/login') {
+          router.push('/login')
+        }
       } finally {
         if (mounted) {
           setLoading(false)
@@ -132,17 +160,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
+      if (event === 'SIGNED_OUT') {
+        clearSessionData()
+        router.push('/login')
+        return
+      }
+
       if (session?.user) {
-        const userData = await fetchUserProfile(session.user.id)
-        if (userData && pathname === '/login') {
-          router.push('/')
+        await fetchUserProfile(session.user.id)
+        if (pathname === '/login') {
+          router.push('/inicio')
         }
       } else {
-        setUser(null)
-        sessionStorage.removeItem('user_profile')
+        clearSessionData()
         if (pathname !== '/login') {
           router.push('/login')
         }
@@ -157,24 +190,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      setUser(null)
-      sessionStorage.clear()
-      localStorage.clear()
-      
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-
+      clearSessionData()
+      await supabase.auth.signOut()
       router.push('/login')
-      
-      setTimeout(() => {
-        window.location.href = '/login'
-      }, 100)
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
+      clearSessionData()
       router.push('/login')
-      setTimeout(() => {
-        window.location.href = '/login'
-      }, 100)
     }
   }
 

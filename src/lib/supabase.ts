@@ -20,27 +20,33 @@ export const supabase = createClient(
       storage: {
         getItem: (key) => {
           try {
-            const item = localStorage.getItem(key)
+            const item = sessionStorage.getItem(key)
             return item ? JSON.parse(item) : null
           } catch (error) {
-            console.error('Error reading from localStorage:', error)
+            console.error('Error reading from sessionStorage:', error)
             return null
           }
         },
         setItem: (key, value) => {
           try {
-            localStorage.setItem(key, JSON.stringify(value))
+            sessionStorage.setItem(key, JSON.stringify(value))
           } catch (error) {
-            console.error('Error writing to localStorage:', error)
+            console.error('Error writing to sessionStorage:', error)
           }
         },
         removeItem: (key) => {
           try {
-            localStorage.removeItem(key)
+            sessionStorage.removeItem(key)
           } catch (error) {
-            console.error('Error removing from localStorage:', error)
+            console.error('Error removing from sessionStorage:', error)
           }
         }
+      }
+    },
+    global: {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache'
       }
     }
   }
