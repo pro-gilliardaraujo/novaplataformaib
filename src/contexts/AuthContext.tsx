@@ -85,15 +85,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error
       
       if (session?.user) {
-        return await fetchUserProfile(session.user.id)
+        await fetchUserProfile(session.user.id)
+      } else {
+        clearSessionData()
       }
-      
-      clearSessionData()
-      return null
     } catch (error) {
       console.error('Error refreshing user:', error)
       clearSessionData()
-      return null
     }
   }
 

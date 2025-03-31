@@ -40,7 +40,7 @@ const PlantioIcon = DocumentDuplicateIcon
 const OleosIcon = DocumentDuplicateIcon
 const BonificacoesIcon = DocumentDuplicateIcon
 
-export default function Sidebar() {
+export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
