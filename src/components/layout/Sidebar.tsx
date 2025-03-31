@@ -283,13 +283,15 @@ export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
     await signOut()
   }
 
-  // Antes de return, adicionamos esta função para gerenciar o texto com base na propriedade isCollapsed
+  // Comentando a linha que usa o getLabelClass, pois não queremos o comportamento de hover
   const getLabelClass = () => {
-    return isCollapsed ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : '';
+    // Removendo o comportamento de esconder o texto quando colapsado
+    // return isCollapsed ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : '';
+    return isCollapsed ? 'hidden' : '';
   }
 
   return (
-    <div className={`h-full bg-white shadow-sm flex flex-col ${isCollapsed ? 'overflow-hidden' : 'overflow-y-auto'} scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent group`}>
+    <div className={`h-full bg-white shadow-sm flex flex-col ${isCollapsed ? 'overflow-hidden' : 'overflow-y-auto'} scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent`}>
       {/* Logo IB */}
       <div className="p-3 flex justify-center items-center border-b">
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
@@ -432,7 +434,7 @@ export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
       )}
 
       {/* Rodapé com usuário */}
-      {user && (
+      {/* {user && (
         <div className="mt-auto border-t pt-2 pb-3">
           <div className="relative">
             <div className="flex items-center mx-3 justify-between">
@@ -490,7 +492,7 @@ export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
             )}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   )
 } 
