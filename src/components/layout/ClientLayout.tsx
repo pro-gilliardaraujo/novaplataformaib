@@ -1,78 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Sidebar from "@/components/layout/Sidebar"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { usePathname } from "next/navigation"
-import { useAuth } from "@/contexts/AuthContext"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 export function LayoutContent({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  // Remover verificação de autenticação e rota pública
-  // const { loading } = useAuth()
-  // const isPublicRoute = pathname === '/login'
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-
-  // Removendo o efeito que colapsa a sidebar automaticamente em telas menores
-  // useEffect(() => {
-  //  const handleResize = () => {
-  //    // Colapsa automaticamente em telas menores que 2xl (1536px)
-  //    setIsSidebarCollapsed(window.innerWidth < 1536)
-  //  }
-  //
-  //  // Checa o tamanho inicial
-  //  handleResize()
-  //
-  //  // Adiciona o listener de resize
-  //  window.addEventListener('resize', handleResize)
-  //
-  //  // Cleanup
-  //  return () => window.removeEventListener('resize', handleResize)
-  // }, [])
-
-  // Removendo verificação de loading e rota pública
-  // if (loading) {
-  //   return (
-  //     <div className="flex items-center justify-center h-screen">
-  //       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-  //     </div>
-  //   )
-  // }
-
-  // if (isPublicRoute) {
-  //   return children
-  // }
-
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed)
-  }
-
   return (
-    <div className="flex h-screen relative">
-      {/* Sidebar com classes responsivas */}
-      <div className={`
-        relative transition-all duration-300 ease-in-out
-        ${isSidebarCollapsed ? 'w-16' : 'w-64'}
-      `}>
-        <Sidebar isCollapsed={isSidebarCollapsed} />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute -right-3 top-20 bg-white border shadow-sm z-50 rounded-full"
-          onClick={toggleSidebar}
-        >
-          {isSidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
-
-      {/* Main content */}
+    <div className="flex h-screen">
+      <Sidebar />
       <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent p-2">
         {children}
       </main>
