@@ -9,22 +9,23 @@ export default function PublicTemplate({
 }: {
   children: React.ReactNode
 }) {
-  const { user, loading } = useAuth()
-  const router = useRouter()
+  // Remover a lógica de autenticação
+  // const { user, loading } = useAuth()
+  // const router = useRouter()
 
-  useEffect(() => {
-    if (!loading && user) {
-      router.push("/")
-    }
-  }, [user, loading, router])
+  // useEffect(() => {
+  //  if (!loading && user) {
+  //    router.push("/")
+  //  }
+  // }, [user, loading, router])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Carregando...</p>
-      </div>
-    )
-  }
+  // if (loading) {
+  //  return (
+  //    <div className="min-h-screen flex items-center justify-center">
+  //      <p>Carregando...</p>
+  //    </div>
+  //  )
+  // }
 
   return (
     <html lang="pt-BR">

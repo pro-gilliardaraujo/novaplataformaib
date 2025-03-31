@@ -22,7 +22,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<CustomUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // Iniciando como false para evitar carregamento inicial
   const router = useRouter()
   const pathname = usePathname()
 
@@ -95,106 +95,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Efeito para verificar a sessão quando a janela recebe foco
-  useEffect(() => {
-    const handleFocus = () => {
-      refreshUser()
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [])
-
-  // Efeito para verificar a sessão periodicamente
-  useEffect(() => {
-    const interval = setInterval(refreshUser, 5 * 60 * 1000) // A cada 5 minutos
-    return () => clearInterval(interval)
-  }, [])
-
-  // Efeito para limpar a sessão quando a janela é fechada
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (!user?.profile?.adminProfile) { // Mantém sessão apenas para admins
-        clearSessionData()
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [user])
-
-  useEffect(() => {
-    let mounted = true
-
-    const initAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession()
-
-        if (error) throw error
-
-        if (session?.user && mounted) {
-          await fetchUserProfile(session.user.id)
-          if (pathname === '/login') {
-            router.push('/inicio')
-          }
-        } else if (mounted) {
-          clearSessionData()
-          if (pathname !== '/login') {
-            router.push('/login')
-          }
-        }
-      } catch (error) {
-        console.error('Error in initAuth:', error)
-        clearSessionData()
-        if (pathname !== '/login') {
-          router.push('/login')
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    initAuth()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return
-
-      if (event === 'SIGNED_OUT') {
-        clearSessionData()
-        router.push('/login')
-        return
-      }
-
-      if (session?.user) {
-        await fetchUserProfile(session.user.id)
-        if (pathname === '/login') {
-          router.push('/inicio')
-        }
-      } else {
-        clearSessionData()
-        if (pathname !== '/login') {
-          router.push('/login')
-        }
-      }
-    })
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
-  }, [pathname, router])
-
+  // Mantendo apenas o signOut simples
   const signOut = async () => {
     try {
       clearSessionData()
       await supabase.auth.signOut()
-      router.push('/login')
+      // Remover o redirecionamento para login
+      // router.push('/login')
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
       clearSessionData()
-      router.push('/login')
+      // Remover o redirecionamento para login
+      // router.push('/login')
     }
   }
 

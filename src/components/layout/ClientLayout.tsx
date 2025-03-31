@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button"
 
 export function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { loading } = useAuth()
-  const isPublicRoute = pathname === '/login'
+  // Remover verificação de autenticação e rota pública
+  // const { loading } = useAuth()
+  // const isPublicRoute = pathname === '/login'
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   useEffect(() => {
@@ -31,17 +32,18 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-      </div>
-    )
-  }
+  // Removendo verificação de loading e rota pública
+  // if (loading) {
+  //   return (
+  //     <div className="flex items-center justify-center h-screen">
+  //       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+  //     </div>
+  //   )
+  // }
 
-  if (isPublicRoute) {
-    return children
-  }
+  // if (isPublicRoute) {
+  //   return children
+  // }
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed)
