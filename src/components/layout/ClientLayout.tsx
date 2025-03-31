@@ -16,21 +16,22 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   // const isPublicRoute = pathname === '/login'
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
-  useEffect(() => {
-    const handleResize = () => {
-      // Colapsa automaticamente em telas menores que 2xl (1536px)
-      setIsSidebarCollapsed(window.innerWidth < 1536)
-    }
-
-    // Checa o tamanho inicial
-    handleResize()
-
-    // Adiciona o listener de resize
-    window.addEventListener('resize', handleResize)
-
-    // Cleanup
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  // Removendo o efeito que colapsa a sidebar automaticamente em telas menores
+  // useEffect(() => {
+  //  const handleResize = () => {
+  //    // Colapsa automaticamente em telas menores que 2xl (1536px)
+  //    setIsSidebarCollapsed(window.innerWidth < 1536)
+  //  }
+  //
+  //  // Checa o tamanho inicial
+  //  handleResize()
+  //
+  //  // Adiciona o listener de resize
+  //  window.addEventListener('resize', handleResize)
+  //
+  //  // Cleanup
+  //  return () => window.removeEventListener('resize', handleResize)
+  // }, [])
 
   // Removendo verificação de loading e rota pública
   // if (loading) {
@@ -54,14 +55,13 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
       {/* Sidebar com classes responsivas */}
       <div className={`
         relative transition-all duration-300 ease-in-out
-        ${isSidebarCollapsed ? 'w-16 hover:w-64' : 'w-64'}
-        2xl:${isSidebarCollapsed ? 'w-16 hover:w-64' : 'w-64'}
+        ${isSidebarCollapsed ? 'w-16' : 'w-64'}
       `}>
         <Sidebar isCollapsed={isSidebarCollapsed} />
         <Button
           variant="ghost"
           size="icon"
-          className="absolute -right-3 top-20 bg-white border shadow-sm z-50 rounded-full hidden 2xl:flex"
+          className="absolute -right-3 top-20 bg-white border shadow-sm z-50 rounded-full"
           onClick={toggleSidebar}
         >
           {isSidebarCollapsed ? (

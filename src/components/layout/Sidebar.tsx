@@ -51,16 +51,10 @@ export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
   console.log('Sidebar - isCollapsed:', isCollapsed)
 
   const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error, refetch } = useQuery({
-    queryKey: ['menu-data', user?.id],
+    queryKey: ['menu-data'],
     queryFn: async () => {
-      console.log('Fetching menu data for user:', user?.id)
+      console.log('Fetching menu data')
       try {
-        if (!user?.id) {
-          console.error('No user ID available')
-          return { reports: [], management: [] }
-        }
-
-        console.log('Fetching menu data for user:', user.id)
         const { data: categories, error: categoriesError } = await supabase
           .from('categories')
           .select(`
@@ -115,18 +109,16 @@ export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
         throw error
       }
     },
-    enabled: !loading && !!user?.id,
+    // Habilitado sempre, não depende mais do usuário
     staleTime: 1000 * 60 * 5, // 5 minutos
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
   })
 
-  // Adiciona um efeito para recarregar os dados quando o usuário mudar
+  // Adiciona um efeito para recarregar os dados quando o componente for montado
   useEffect(() => {
-    if (user?.id) {
-      refetch()
-    }
-  }, [user?.id, refetch])
+    refetch()
+  }, [refetch])
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(prev =>
@@ -315,7 +307,7 @@ export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
       </div>
 
       {/* Menu */}
-      {(!isMenuLoading && user) && (
+      {!isMenuLoading && (
         <div className="flex-1 py-3 flex flex-col gap-3 relative">
           <div className={`px-3 ${isCollapsed ? 'text-center' : ''}`}>
             <h3 className={`text-xs font-semibold text-gray-500 uppercase tracking-wider ${getLabelClass()}`}>
