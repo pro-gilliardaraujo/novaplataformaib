@@ -48,6 +48,7 @@ export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   console.log('Sidebar - Auth State:', { user, loading })
+  console.log('Sidebar - isCollapsed:', isCollapsed)
 
   const { data: menuData = { reports: [], management: [] }, isLoading: isMenuLoading, error, refetch } = useQuery({
     queryKey: ['menu-data', user?.id],
@@ -290,182 +291,211 @@ export default function Sidebar({ isCollapsed }: { isCollapsed?: boolean }) {
     await signOut()
   }
 
-  const renderSection = (section: 'reports' | 'management') => {
-    const categories = menuData[section]
-
-    return (
-      <div className="h-[45%] overflow-y-auto border-t">
-        <div className="px-3 py-4">
-          <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
-            {section === 'reports' ? 'Visualizações' : 'Gerenciamento'}
-          </h2>
-          <nav className="space-y-1">
-            {categories?.map((category) => {
-              // Link direto para categorias que são páginas únicas no gerenciamento
-              if (section === 'management' && (!category.pages || category.pages.length === 0 || (category.pages.length === 1 && category.pages[0].slug === category.slug))) {
-                return (
-                  <Link
-                    key={category.id}
-                    href={`/gerenciamento/${category.slug}`}
-                    className={`flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 ${
-                      pathname === `/gerenciamento/${category.slug}` ? 'bg-gray-100' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {getIconForCategory(category)}
-                      <span>{category.name}</span>
-                    </div>
-                  </Link>
-                )
-              }
-              
-              // Dropdown para categorias com múltiplas páginas
-              return (
-                <div key={category.id}>
-                  <button
-                    onClick={() => toggleCategory(category.id)}
-                    className={`w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 ${
-                      expandedCategory === category.id ? 'bg-gray-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {getIconForCategory(category)}
-                      <span>{category.name}</span>
-                    </div>
-                    <ChevronDownIcon 
-                      className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                        expandedCategory === category.id ? 'transform rotate-180' : ''
-                      }`} 
-                    />
-                  </button>
-                  <div className={`ml-7 space-y-1 ${expandedCategory === category.id ? 'block' : 'hidden'}`}>
-                    {(category.pages || []).map((page: Page) => (
-                      <Link
-                        key={page.id}
-                        href={`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`}
-                        className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                          pathname?.includes(`/${section === 'management' ? 'gerenciamento' : 'relatorios'}/${category.slug}/${page.slug}`)
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
-                      >
-                        {getIconForPage(page)}
-                        <span>{page.name}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </nav>
-        </div>
-      </div>
-    )
+  // Antes de return, adicionamos esta função para gerenciar o texto com base na propriedade isCollapsed
+  const getLabelClass = () => {
+    return isCollapsed ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : '';
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white border-r w-64">
-      {/* Logo - 10% */}
-      <div className="flex items-center px-3 py-4 border-b h-[10%]">
-        <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+    <div className={`h-full bg-white shadow-sm flex flex-col ${isCollapsed ? 'overflow-hidden' : 'overflow-y-auto'} scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent group`}>
+      {/* Logo IB */}
+      <div className="p-3 flex justify-center items-center border-b">
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
           <Image
             src="https://kjlwqezxzqjfhacmjhbh.supabase.co/storage/v1/object/public/sourcefiles//logo.png"
             alt="IB Logística"
-            width={36}
-            height={36}
+            width={32}
+            height={32}
             className="rounded"
-            style={{ width: 'auto', height: 'auto' }}
           />
-          <span className="ml-3 text-base font-medium text-gray-900">
+          <span className={`ml-2 font-semibold text-lg ${getLabelClass()}`}>
             IB Logística
           </span>
-        </Link>
+        </div>
       </div>
 
-      {isMenuLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-        </div>
-      ) : error ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center px-4">
-            <p className="text-red-500 mb-2">Erro ao carregar o menu</p>
-            <Button 
-              variant="outline" 
-              onClick={() => router.refresh()}
-              className="text-sm"
-            >
-              Tentar novamente
-            </Button>
+      {/* Menu */}
+      {(!isMenuLoading && user) && (
+        <div className="flex-1 py-3 flex flex-col gap-3 relative">
+          <div className={`px-3 ${isCollapsed ? 'text-center' : ''}`}>
+            <h3 className={`text-xs font-semibold text-gray-500 uppercase tracking-wider ${getLabelClass()}`}>
+              Relatórios
+            </h3>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-col h-[90%]">
-          {/* Relatórios - 45% */}
-          {renderSection('reports')}
 
-          {/* Gerenciamento - 45% */}
-          {renderSection('management')}
-
-          {/* Configurações - 10% */}
-          <div className="h-[10%] border-t mt-auto relative">
-            <div className="px-3 py-4">
-              <div className="space-y-1">
-                <button
-                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+          <div className="px-1">
+            {menuData.reports.map((category) => (
+              <div key={category.id} className="mb-2">
+                <button 
+                  onClick={() => toggleCategory(category.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                    expandedCategory === category.id ? 'bg-gray-50' : ''
+                  }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
-                    <span>Configurações</span>
+                  <div className="flex items-center">
+                    {expandedCategory === category.id ? 
+                      <FolderOpenIcon className="h-5 w-5 text-gray-500" /> : 
+                      <FolderIcon className="h-5 w-5 text-gray-500" />
+                    }
+                    <span className={`ml-2 ${getLabelClass()}`}>
+                      {category.name}
+                    </span>
                   </div>
-                  <ChevronDownIcon 
-                    className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-                      isSettingsOpen ? 'transform rotate-180' : ''
-                    }`}
-                  />
+                  <div className={`${getLabelClass()}`}>
+                    {expandedCategory === category.id ? 
+                      <ChevronDownIcon className="h-4 w-4 text-gray-500" /> : 
+                      <ChevronRightIcon className="h-4 w-4 text-gray-500" />
+                    }
+                  </div>
                 </button>
-                {isSettingsOpen && (
-                  <div className="absolute bottom-full left-2 right-2 bg-white border rounded-t-lg shadow-lg">
-                    <div className="p-4 border-b bg-gray-50">
-                      <div className="flex flex-col space-y-1">
-                        <span className="font-medium">{user?.profile?.nome}</span>
-                        <Badge variant={user?.profile?.adminProfile ? "default" : "secondary"} className="w-fit">
-                          {user?.profile?.adminProfile ? "Administrador" : "Usuário"}
-                        </Badge>
+
+                {expandedCategory === category.id && (
+                  <div className={`pl-${isCollapsed ? '0' : '4'} mt-1 space-y-1`}>
+                    {category.pages?.length === 0 ? (
+                      <div className="px-4 py-2 text-sm italic text-gray-500">
+                        Nenhum relatório disponível
                       </div>
-                    </div>
-                    <div className="mx-2 my-1">
-                      <Link
-                        href="/gerenciamento/paginas"
-                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
-                          pathname === '/gerenciamento/paginas' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        <DocumentDuplicateIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Páginas</span>
-                      </Link>
-                      <Link
-                        href="/gerenciamento/usuarios"
-                        className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
-                          pathname === '/gerenciamento/usuarios' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        <KeyIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Usuários</span>
-                      </Link>
-                      <button
-                        onClick={handleSignOut}
-                        className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
-                      >
-                        <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
-                        <span className="ml-2">Sair</span>
-                      </button>
-                    </div>
+                    ) : (
+                      category.pages?.map((page) => (
+                        <Link 
+                          key={page.id} 
+                          href={`/${category.slug}/${page.slug}`}
+                          className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                            pathname === `/${category.slug}/${page.slug}` ? 'bg-gray-100' : ''
+                          }`}
+                        >
+                          {getIconForPage(page)}
+                          <span className={`ml-2 ${getLabelClass()}`}>
+                            {page.name}
+                          </span>
+                        </Link>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
+            ))}
+          </div>
+
+          <div className={`px-3 pt-5 ${isCollapsed ? 'text-center' : ''}`}>
+            <h3 className={`text-xs font-semibold text-gray-500 uppercase tracking-wider ${getLabelClass()}`}>
+              Gerenciamento
+            </h3>
+          </div>
+
+          <div className="px-1">
+            {menuData.management.map((category) => (
+              <div key={category.id} className="mb-2">
+                <button 
+                  onClick={() => toggleCategory(category.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                    expandedCategory === category.id ? 'bg-gray-50' : ''
+                  }`}
+                >
+                  <div className="flex items-center">
+                    {expandedCategory === category.id ? 
+                      <FolderOpenIcon className="h-5 w-5 text-gray-500" /> : 
+                      <FolderIcon className="h-5 w-5 text-gray-500" />
+                    }
+                    <span className={`ml-2 ${getLabelClass()}`}>
+                      {category.name}
+                    </span>
+                  </div>
+                  <div className={`${getLabelClass()}`}>
+                    {expandedCategory === category.id ? 
+                      <ChevronDownIcon className="h-4 w-4 text-gray-500" /> : 
+                      <ChevronRightIcon className="h-4 w-4 text-gray-500" />
+                    }
+                  </div>
+                </button>
+
+                {expandedCategory === category.id && (
+                  <div className={`pl-${isCollapsed ? '0' : '4'} mt-1 space-y-1`}>
+                    {category.pages?.length === 0 ? (
+                      <div className="px-4 py-2 text-sm italic text-gray-500">
+                        Nenhuma página disponível
+                      </div>
+                    ) : (
+                      category.pages?.map((page) => (
+                        <Link 
+                          key={page.id} 
+                          href={`/${category.slug}/${page.slug}`}
+                          className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                            pathname === `/${category.slug}/${page.slug}` ? 'bg-gray-100' : ''
+                          }`}
+                        >
+                          {getIconForPage(page)}
+                          <span className={`ml-2 ${getLabelClass()}`}>
+                            {page.name}
+                          </span>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Rodapé com usuário */}
+      {user && (
+        <div className="mt-auto border-t pt-2 pb-3">
+          <div className="relative">
+            <div className="flex items-center mx-3 justify-between">
+              <div className="flex items-center flex-shrink-0">
+                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-xs font-medium uppercase">
+                  {user?.profile?.nome?.charAt(0) || "U"}
+                </div>
+                <div className={`ml-3 ${getLabelClass()}`}>
+                  <p className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
+                    {user.profile?.nome}
+                  </p>
+                  <p className="text-xs font-medium text-gray-500 truncate max-w-[120px]">
+                    {user.profile?.cargo || 'Usuário'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                className={`ml-2 ${isCollapsed ? 'hidden group-hover:flex' : 'flex'} items-center justify-center p-1 rounded-full hover:bg-gray-100`}
+              >
+                <Cog6ToothIcon className="h-5 w-5 text-gray-500" />
+              </button>
             </div>
+
+            {isSettingsOpen && (
+              <div className="absolute bottom-full mb-2 w-44 bg-white rounded-md shadow-lg py-1 right-0 z-10">
+                <div className="py-1 flex flex-col">
+                  <Link
+                    href="/alterar-senha"
+                    className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                      pathname === '/alterar-senha' ? 'bg-gray-100' : ''
+                    }`}
+                  >
+                    <KeyIcon className="h-5 w-5 text-gray-500" />
+                    <span className="ml-2">Alterar Senha</span>
+                  </Link>
+                  <Link
+                    href="/gerenciamento/usuarios"
+                    className={`flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md ${
+                      pathname === '/gerenciamento/usuarios' ? 'bg-gray-100' : ''
+                    }`}
+                  >
+                    <KeyIcon className="h-5 w-5 text-gray-500" />
+                    <span className="ml-2">Usuários</span>
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 rounded-md"
+                  >
+                    <ArrowRightOnRectangleIcon className="h-5 w-5 text-gray-500" />
+                    <span className="ml-2">Sair</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
