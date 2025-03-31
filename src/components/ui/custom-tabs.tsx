@@ -45,7 +45,7 @@ export function CustomTabs({ tabs }: CustomTabsProps) {
           </TabsTrigger>
         ))}
       </TabsList>
-      <div className="flex-1 p-4">
+      <div className="flex-1">
         {tabs.map((tab) => (
           <TabsContent
             key={tab.name}
