@@ -186,18 +186,21 @@ export function NovaTratativaModal({
       const nextNumber = generateNextDocumentNumber(lastDocumentNumber)
       setDocumentNumber(nextNumber)
       
-      if (mockData) {
-        setFormData(prev => ({
-          ...prev,
-          ...mockData,
-          numero_tratativa: documentNumber
-        }))
-      } else if (user?.profile) {
-        setFormData(prev => ({
-          ...prev,
-          analista: `${user.profile.nome || 'Usuário'} (${user.email})`
-        }))
-      }
+      // Atualize o estado do formulário com o número do documento correto
+      setFormData(prev => {
+        const updatedForm = { ...prev, numero_tratativa: nextNumber };
+        
+        if (mockData) {
+          return { ...updatedForm, ...mockData }
+        } else if (user?.profile) {
+          return { 
+            ...updatedForm, 
+            analista: `${user.profile.nome || 'Usuário'} (${user.email})`
+          }
+        }
+        
+        return updatedForm;
+      });
     }
     
     fetchUsuarios()
@@ -270,6 +273,13 @@ export function NovaTratativaModal({
         : "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
       
       const requestBody = folhaUnica ? { id } : { id, folhaUnica };
+      
+      console.log("[DEBUG] Chamando API PDF", { 
+        endpoint, 
+        requestBody, 
+        folhaUnica,
+        usandoRotaSingle: folhaUnica === true
+      });
       
       const response = await fetch(endpoint, {
         method: "POST",
@@ -380,6 +390,12 @@ export function NovaTratativaModal({
           try {
             // Para P1, enviamos parâmetro adicional indicando que é apenas a folha 1
             const folhaUnica = penalidade.trim() === "P1"
+            console.log("[DEBUG] Verificação de penalidade P1:", { 
+              penalidade: penalidade.trim(), 
+              éP1: penalidade.trim() === "P1", 
+              folhaUnica 
+            });
+            
             const pdfResult = await callPdfTaskApi(newEntryId.toString(), folhaUnica)
             console.log("PDF generation result:", pdfResult)
           } catch (pdfError) {

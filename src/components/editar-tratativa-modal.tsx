@@ -238,6 +238,12 @@ export function EditarTratativaModal({
         try {
           // Para P1, enviamos parâmetro adicional indicando que é apenas a folha 1
           const folhaUnica = penalidade.trim() === "P1"
+          console.log("[DEBUG] Verificação de penalidade P1 na edição:", { 
+            penalidade: penalidade.trim(), 
+            éP1: penalidade.trim() === "P1", 
+            folhaUnica 
+          });
+          
           await callPdfTaskApi(formData.id, folhaUnica)
         } catch (pdfError) {
           console.error("Erro ao gerar PDF:", pdfError)
@@ -321,7 +327,12 @@ export function EditarTratativaModal({
         : "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
       
       const requestBody = folhaUnica ? { id: id.toString() } : { id: id.toString(), folhaUnica };
-      console.log('PDF Task API Request Body:', requestBody, 'Endpoint:', endpoint)
+      console.log('[DEBUG] Chamando API PDF na edição:', { 
+        endpoint, 
+        requestBody, 
+        folhaUnica, 
+        usandoRotaSingle: folhaUnica === true
+      });
 
       const response = await fetch(endpoint, {
         method: "POST",
