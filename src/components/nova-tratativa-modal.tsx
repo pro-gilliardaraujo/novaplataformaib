@@ -83,7 +83,7 @@ export function NovaTratativaModal({
   const { user } = useAuth()
   console.log("[DEBUG] useAuth hook result:", { user })
 
-  const [documentNumber, setDocumentNumber] = useState("")
+  const [documentNumber, setDocumentNumber] = useState("0001")
   const [files, setFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState("")
@@ -91,6 +91,7 @@ export function NovaTratativaModal({
   const { toast } = useToast()
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false)
   const [isFormDirty, setIsFormDirty] = useState(false)
+  const [usuarios, setUsuarios] = useState<{id: number, nome: string, email: string}[]>([])
 
   type FormDataType = {
     numero_tratativa: string
@@ -174,45 +175,50 @@ export function NovaTratativaModal({
 
   useEffect(() => {
     if (open) {
+      console.log("Modal opened, lastDocNumber:", lastDocumentNumber)
+      
       const generateNextDocumentNumber = (lastNumber: string) => {
         const currentNumber = Number.parseInt(lastNumber, 10)
-        if (isNaN(currentNumber)) return "1000"
+        if (isNaN(currentNumber)) return "0001"
         return (currentNumber + 1).toString().padStart(4, "0")
       }
-
+      
       const nextNumber = generateNextDocumentNumber(lastDocumentNumber)
       setDocumentNumber(nextNumber)
-
-      console.log("Setting form data with user:", user) // Debug log
-
-      // Resetar o formulário antes de definir novos valores
-      setFormData({
-        numero_tratativa: nextNumber,
-        funcionario: "",
-        cpf: "",
-        funcao: "",
-        setor: "",
-        data_infracao: "",
-        hora_infracao: "",
-        codigo_infracao: "",
-        descricao_infracao: "",
-        penalidade: "",
-        texto_advertencia: "",
-        lider: "",
-        status: "ENVIADA",
-        texto_limite: "",
-        url_documento_enviado: "",
-        metrica: "",
-        valor_praticado: "",
-        advertido: "",
-        imagem_evidencia1: "",
-        data_formatada: "",
-        mock: mockData ? true : false,
-        analista: user?.profile ? `${user.profile.nome || 'Usuário'} (${user.email})` : '',
-        ...(mockData || {})
-      })
+      
+      if (mockData) {
+        setFormData(prev => ({
+          ...prev,
+          ...mockData,
+          numero_tratativa: documentNumber
+        }))
+      } else if (user?.profile) {
+        setFormData(prev => ({
+          ...prev,
+          analista: `${user.profile.nome || 'Usuário'} (${user.email})`
+        }))
+      }
     }
+    
+    fetchUsuarios()
   }, [open, lastDocumentNumber, mockData, user])
+
+  const fetchUsuarios = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, nome, email')
+        .order('nome', { ascending: true })
+      
+      if (error) throw error
+      
+      if (data) {
+        setUsuarios(data)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsFormDirty(true)
@@ -256,14 +262,21 @@ export function NovaTratativaModal({
     fileInputRef.current?.click()
   }
 
-  const callPdfTaskApi = async (id: string) => {
+  const callPdfTaskApi = async (id: string, folhaUnica: boolean = false) => {
     try {
-      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
+      // Usar rota específica para folha única quando folhaUnica for true
+      const endpoint = folhaUnica 
+        ? "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks/single"
+        : "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
+      
+      const requestBody = folhaUnica ? { id } : { id, folhaUnica };
+      
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
@@ -362,10 +375,12 @@ export function NovaTratativaModal({
         const [penalidade] = formData.penalidade.split(" - ")
         console.log("Penalidade:", penalidade)
 
-        if (penalidade && ["P2", "P3", "P4", "P5", "P6"].includes(penalidade.trim())) {
+        if (penalidade && ["P1", "P2", "P3", "P4", "P5", "P6"].includes(penalidade.trim())) {
           console.log("Chamando API PDF para tratativa:", newEntryId)
           try {
-            const pdfResult = await callPdfTaskApi(newEntryId.toString())
+            // Para P1, enviamos parâmetro adicional indicando que é apenas a folha 1
+            const folhaUnica = penalidade.trim() === "P1"
+            const pdfResult = await callPdfTaskApi(newEntryId.toString(), folhaUnica)
             console.log("PDF generation result:", pdfResult)
           } catch (pdfError) {
             console.error("Error in PDF generation:", pdfError)
@@ -715,7 +730,7 @@ export function NovaTratativaModal({
                         <SelectValue placeholder="Selecione a penalidade" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="P1 - Comunicação Verbal">P1 - Comunicação Verbal</SelectItem>
+                        <SelectItem value="P1 - Orientação Verbal">P1 - Orientação Verbal</SelectItem>
                         <SelectItem value="P2 - Advertência Escrita">P2 - Advertência Escrita</SelectItem>
                         <SelectItem value="P3 - Suspensão 1 dia">P3 - Suspensão 1 dia</SelectItem>
                         <SelectItem value="P4 - Suspensão 2 dias">P4 - Suspensão 2 dias</SelectItem>
@@ -734,6 +749,28 @@ export function NovaTratativaModal({
                       onChange={handleInputChange}
                       required
                     />
+                  </div>
+                </div>
+
+                <SectionTitle title="Analista Responsável" />
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <Label htmlFor="analista">Selecione o Analista</Label>
+                    <Select
+                      value={formData.analista}
+                      onValueChange={(value) => handleSelectChange("analista", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o analista responsável" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {usuarios.map((usuario) => (
+                          <SelectItem key={usuario.id} value={`${usuario.nome} (${usuario.email})`}>
+                            {usuario.nome} ({usuario.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>

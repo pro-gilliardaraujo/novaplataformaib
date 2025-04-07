@@ -59,10 +59,8 @@ export default function DynamicManagementPage() {
   }
 
   return (
-    <div className="p-2 h-full">
-      <div className="h-full bg-white rounded-lg shadow-sm border border-gray-100">
-        <CustomTabs tabs={pageData.tabs} />
-      </div>
+    <div className="h-full w-full overflow-hidden">
+      <CustomTabs tabs={pageData.tabs} />
     </div>
   )
 } 

@@ -69,7 +69,7 @@ export function InventoryReport({ type, settings }: InventoryReportProps) {
       )
     default:
       return (
-        <div className="flex items-center justify-center h-[400px]">
+        <div className="flex items-center justify-center h-full w-full">
           <p className="text-gray-500">Tipo de relatório não suportado</p>
         </div>
       )

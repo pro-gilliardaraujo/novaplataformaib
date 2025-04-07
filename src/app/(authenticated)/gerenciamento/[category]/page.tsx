@@ -6,7 +6,7 @@ import { pageService } from "@/services/pageService"
 import { useParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 
-export default function DynamicManagementPage() {
+export default function CategoryManagementPage() {
   const params = useParams()
   const [pageData, setPageData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -43,6 +43,7 @@ export default function DynamicManagementPage() {
         const data = await pageService.getPageBySlug(params.category as string, page.slug)
         
         if (!data || !data.tabs || data.tabs.length === 0) {
+          console.error("Dados inválidos ou sem abas:", data)
           setError("Página não encontrada ou sem conteúdo.")
           return
         }
@@ -81,10 +82,8 @@ export default function DynamicManagementPage() {
   }
 
   return (
-    <div className="p-2 h-full">
-      <div className="h-full bg-white rounded-lg shadow-sm border border-gray-100">
-        <CustomTabs tabs={pageData.tabs} />
-      </div>
+    <div className="h-full w-full overflow-hidden">
+      <CustomTabs tabs={pageData.tabs} />
     </div>
   )
 } 

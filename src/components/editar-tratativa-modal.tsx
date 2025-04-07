@@ -91,11 +91,30 @@ export function EditarTratativaModal({
   const [isUpdating, setIsUpdating] = useState(false)
   const [isSavingTemp, setIsSavingTemp] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [usuarios, setUsuarios] = useState<{id: number, nome: string, email: string}[]>([])
   const { toast } = useToast()
 
   useEffect(() => {
     setFormData(tratativaData)
+    fetchUsuarios()
   }, [tratativaData])
+
+  const fetchUsuarios = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, nome, email')
+        .order('nome', { ascending: true })
+      
+      if (error) throw error
+      
+      if (data) {
+        setUsuarios(data)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -180,6 +199,7 @@ export function EditarTratativaModal({
       switch (penalidade) {
         case "P1":
           advertidoStatus = "Advertido"
+          shouldCallPdfTask = formData.status !== "À CONFIRMAR"
           break
         case "P2":
           advertidoStatus = "Advertido"
@@ -216,7 +236,9 @@ export function EditarTratativaModal({
 
       if (shouldCallPdfTask && formData.status === "DEVOLVIDA") {
         try {
-          await callPdfTaskApi(formData.id)
+          // Para P1, enviamos parâmetro adicional indicando que é apenas a folha 1
+          const folhaUnica = penalidade.trim() === "P1"
+          await callPdfTaskApi(formData.id, folhaUnica)
         } catch (pdfError) {
           console.error("Erro ao gerar PDF:", pdfError)
         }
@@ -291,12 +313,17 @@ export function EditarTratativaModal({
     }
   }
 
-  const callPdfTaskApi = async (id: string | number) => {
+  const callPdfTaskApi = async (id: string | number, folhaUnica: boolean = false) => {
     try {
-      const requestBody = { id: id.toString() }
-      console.log('PDF Task API Request Body:', requestBody)
+      // Usar rota específica para folha única quando folhaUnica for true
+      const endpoint = folhaUnica 
+        ? "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks/single"
+        : "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
+      
+      const requestBody = folhaUnica ? { id: id.toString() } : { id: id.toString(), folhaUnica };
+      console.log('PDF Task API Request Body:', requestBody, 'Endpoint:', endpoint)
 
-      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -476,7 +503,7 @@ export function EditarTratativaModal({
                         <SelectValue placeholder="Selecione a penalidade" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="P1 - Comunicação Verbal">P1 - Comunicação Verbal</SelectItem>
+                        <SelectItem value="P1 - Orientação Verbal">P1 - Orientação Verbal</SelectItem>
                         <SelectItem value="P2 - Advertência Escrita">P2 - Advertência Escrita</SelectItem>
                         <SelectItem value="P3 - Suspensão 1 dia">P3 - Suspensão 1 dia</SelectItem>
                         <SelectItem value="P4 - Suspensão 2 dias">P4 - Suspensão 2 dias</SelectItem>
@@ -495,6 +522,30 @@ export function EditarTratativaModal({
                       onChange={handleInputChange}
                       required
                     />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <SectionTitle title="Analista Responsável" />
+                <div className="grid grid-cols-1 gap-4 mt-4">
+                  <div>
+                    <Label htmlFor="analista">Selecione o Analista</Label>
+                    <Select
+                      value={formData.analista}
+                      onValueChange={(value) => handleSelectChange("analista", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o analista responsável" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {usuarios.map((usuario) => (
+                          <SelectItem key={usuario.id} value={`${usuario.nome} (${usuario.email})`}>
+                            {usuario.nome} ({usuario.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -578,14 +629,29 @@ export function EditarTratativaModal({
           <div className="border-t bg-gray-50 p-4">
             <div className="flex justify-end gap-2">
               {formData.status === "À CONFIRMAR" && (
-                <Button
-                  variant="outline"
-                  className="bg-orange-500 hover:bg-orange-600 text-white hover:text-white"
-                  onClick={handleSaveTemporary}
-                  disabled={isSavingTemp}
-                >
-                  {isSavingTemp ? "Salvando..." : "Salvar Temporariamente"}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    className="bg-orange-500 hover:bg-orange-600 text-white hover:text-white"
+                    onClick={handleSaveTemporary}
+                    disabled={isSavingTemp}
+                  >
+                    {isSavingTemp ? "Salvando..." : "Salvar Temporariamente"}
+                  </Button>
+                  {formData.imagem_evidencia1 || file ? (
+                    <Button
+                      variant="outline"
+                      className="bg-green-600 hover:bg-green-700 text-white hover:text-white"
+                      onClick={() => {
+                        setFormData((prev: any) => ({...prev, status: "ENVIADA"}));
+                        setShowConfirmDialog(true);
+                      }}
+                      disabled={isUpdating || isSavingTemp}
+                    >
+                      Gerar Tratativa
+                    </Button>
+                  ) : null}
+                </>
               )}
               <Button 
                 type="button" 

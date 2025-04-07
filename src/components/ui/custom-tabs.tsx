@@ -21,7 +21,7 @@ function TabContentRenderer({ content }: { content: string | { type: string; set
   if (typeof content === 'string') {
     return (
       <div 
-        className="h-full w-full [&_iframe]:w-full [&_iframe]:h-full" 
+        className="h-full w-full [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:border-0" 
         dangerouslySetInnerHTML={{ __html: content }}
       />
     )
@@ -45,12 +45,12 @@ export function CustomTabs({ tabs }: CustomTabsProps) {
           </TabsTrigger>
         ))}
       </TabsList>
-      <div className="flex-1">
+      <div className="flex-1 overflow-hidden">
         {tabs.map((tab) => (
           <TabsContent
             key={tab.name}
             value={tab.name}
-            className="flex-1 m-0 data-[state=active]:flex h-full"
+            className="flex-1 m-0 p-0 data-[state=active]:flex h-full w-full overflow-hidden"
           >
             <TabContentRenderer content={tab.content} />
           </TabsContent>
