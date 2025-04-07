@@ -109,7 +109,18 @@ export function EditarTratativaModal({
       if (error) throw error
       
       if (data) {
+        console.log("[DEBUG] Usuários carregados na edição:", data.length)
         setUsuarios(data)
+        
+        // Se não tiver analista definido, define o primeiro usuário como padrão
+        if ((!formData.analista || formData.analista === '') && data.length > 0) {
+          const defaultAnalista = `${data[0].nome} (${data[0].email})`
+          console.log("[DEBUG] Definindo analista padrão na edição:", defaultAnalista)
+          setFormData((prev: any) => ({
+            ...prev,
+            analista: defaultAnalista
+          }))
+        }
       }
     } catch (error) {
       console.error('Erro ao buscar usuários:', error)

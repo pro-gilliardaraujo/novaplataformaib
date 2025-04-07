@@ -216,7 +216,18 @@ export function NovaTratativaModal({
       if (error) throw error
       
       if (data) {
+        console.log("[DEBUG] Usuários carregados:", data.length)
         setUsuarios(data)
+        
+        // Se não tiver analista definido, define o primeiro usuário como padrão
+        if (!formData.analista && data.length > 0) {
+          const defaultAnalista = `${data[0].nome} (${data[0].email})`
+          console.log("[DEBUG] Definindo analista padrão:", defaultAnalista)
+          setFormData(prev => ({
+            ...prev,
+            analista: defaultAnalista
+          }))
+        }
       }
     } catch (error) {
       console.error('Erro ao buscar usuários:', error)
@@ -368,6 +379,7 @@ export function NovaTratativaModal({
 
       const tratativaData = {
         ...formData,
+        numero_tratativa: documentNumber,
         imagem_evidencia1: imageUrls[0] || "",
         advertido: advertidoStatus,
         data_formatada: formatarData(formData.data_infracao),
@@ -376,6 +388,8 @@ export function NovaTratativaModal({
       }
 
       console.log("Submitting tratativa data:", tratativaData)
+      console.log("[DEBUG] Número do documento a ser enviado:", documentNumber)
+      
       const { data, error } = await supabase.from("tratativas").insert([tratativaData]).select()
 
       if (error) throw error
@@ -504,6 +518,11 @@ export function NovaTratativaModal({
         imagem_evidencia1: "",
         mock: false
       }
+
+      console.log("[DEBUG] Salvando temporariamente:", {
+        numero_tratativa: documentNumber,
+        status: "À CONFIRMAR"
+      });
 
       // Tentar salvar no Supabase
       const { data, error } = await supabase
