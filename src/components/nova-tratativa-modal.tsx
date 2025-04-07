@@ -220,7 +220,7 @@ export function NovaTratativaModal({
         setUsuarios(data)
         
         // Se não tiver analista definido, define o primeiro usuário como padrão
-        if (!formData.analista && data.length > 0) {
+        if ((!formData.analista || formData.analista === '') && data.length > 0) {
           const defaultAnalista = `${data[0].nome} (${data[0].email})`
           console.log("[DEBUG] Definindo analista padrão:", defaultAnalista)
           setFormData(prev => ({
@@ -233,6 +233,18 @@ export function NovaTratativaModal({
       console.error('Erro ao buscar usuários:', error)
     }
   }
+
+  // Effect para monitorar quando usuários são carregados e verificar se o analista está definido
+  useEffect(() => {
+    if (usuarios.length > 0 && (!formData.analista || formData.analista === '')) {
+      const defaultAnalista = `${usuarios[0].nome} (${usuarios[0].email})`
+      console.log("[DEBUG] Definindo analista após carregar usuários:", defaultAnalista)
+      setFormData(prev => ({
+        ...prev,
+        analista: defaultAnalista
+      }))
+    }
+  }, [usuarios, formData.analista])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsFormDirty(true)
@@ -324,12 +336,22 @@ export function NovaTratativaModal({
       return
     }
 
-    if (!formData.analista && user?.email) {
-      // Garante que o analista esteja definido antes do submit
-      setFormData(prev => ({
-        ...prev,
-        analista: `${user.profile.nome || 'Usuário'} (${user.email})`
-      }))
+    // Verificar se o analista está definido, se não, usar o primeiro usuário
+    if (!formData.analista || formData.analista === '') {
+      if (usuarios.length > 0) {
+        const defaultAnalista = `${usuarios[0].nome} (${usuarios[0].email})`
+        console.log("[DEBUG] Definindo analista no momento do submit:", defaultAnalista)
+        setFormData(prev => ({
+          ...prev,
+          analista: defaultAnalista
+        }))
+        // Como setFormData é assíncrono, precisamos garantir que o valor atualizado seja usado
+        const updatedFormData = { ...formData, analista: defaultAnalista };
+        // Continuar com o submit usando updatedFormData...
+      } else {
+        setError("É necessário selecionar um analista.")
+        return
+      }
     }
 
     setIsLoading(true)
@@ -792,7 +814,7 @@ export function NovaTratativaModal({
                   <div>
                     <Label htmlFor="analista">Selecione o Analista</Label>
                     <Select
-                      value={formData.analista}
+                      value={formData.analista || ""}
                       onValueChange={(value) => handleSelectChange("analista", value)}
                     >
                       <SelectTrigger>
@@ -806,6 +828,10 @@ export function NovaTratativaModal({
                         ))}
                       </SelectContent>
                     </Select>
+                    {/* Debug para mostrar valores */}
+                    <div className="text-xs text-gray-500 mt-1">
+                      {`Analista selecionado: ${formData.analista || 'Nenhum'}`}
+                    </div>
                   </div>
                 </div>
               </div>

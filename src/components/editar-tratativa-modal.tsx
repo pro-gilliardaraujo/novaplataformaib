@@ -95,6 +95,7 @@ export function EditarTratativaModal({
   const { toast } = useToast()
 
   useEffect(() => {
+    console.log("[DEBUG] TratativaData recebida na edição:", tratativaData)
     setFormData(tratativaData)
     fetchUsuarios()
   }, [tratativaData])
@@ -126,6 +127,18 @@ export function EditarTratativaModal({
       console.error('Erro ao buscar usuários:', error)
     }
   }
+
+  // Effect para monitorar quando usuários são carregados e verificar se o analista está definido
+  useEffect(() => {
+    if (usuarios.length > 0 && (!formData.analista || formData.analista === '')) {
+      const defaultAnalista = `${usuarios[0].nome} (${usuarios[0].email})`
+      console.log("[DEBUG] Definindo analista após carregar usuários na edição:", defaultAnalista)
+      setFormData((prev: any) => ({
+        ...prev,
+        analista: defaultAnalista
+      }))
+    }
+  }, [usuarios, formData.analista])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -554,7 +567,7 @@ export function EditarTratativaModal({
                   <div>
                     <Label htmlFor="analista">Selecione o Analista</Label>
                     <Select
-                      value={formData.analista}
+                      value={formData.analista || ""}
                       onValueChange={(value) => handleSelectChange("analista", value)}
                     >
                       <SelectTrigger>
@@ -568,6 +581,9 @@ export function EditarTratativaModal({
                         ))}
                       </SelectContent>
                     </Select>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {`Analista selecionado: ${formData.analista || 'Nenhum'}`}
+                    </div>
                   </div>
                 </div>
               </div>
