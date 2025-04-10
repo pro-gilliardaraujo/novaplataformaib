@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { X, FileText, Pencil, Trash2 } from "lucide-react"
+import { X, FileText, Pencil, Trash2, RefreshCw } from "lucide-react"
 import { TratativaDetailsProps } from "@/types/tratativas"
 import { DocumentViewerModal } from "./document-viewer-modal"
 import { EditarTratativaModal } from "./editar-tratativa-modal"
@@ -74,6 +74,10 @@ export default function TratativaDetailsModal({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [regeneratingPdf, setRegeneratingPdf] = useState(false)
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false)
+  const [confirmationNumber, setConfirmationNumber] = useState("")
+  const [deleteError, setDeleteError] = useState("")
   const { toast } = useToast()
   const { user } = useUser()
 
@@ -107,34 +111,66 @@ export default function TratativaDetailsModal({
   }
 
   const handleDelete = async () => {
-    if (!user?.email) return
+    // Verificar se o número de confirmação corresponde ao número da tratativa
+    if (confirmationNumber !== tratativa.numero_tratativa) {
+      setDeleteError("O número digitado não corresponde ao número da tratativa.")
+      return
+    }
 
     setIsDeleting(true)
+    setDeleteError("")
+    
     try {
+      // Log detalhado para ajudar no diagnóstico
+      console.log("Tentando excluir tratativa:", {
+        id: tratativa.id,
+        numero: tratativa.numero_tratativa,
+        tipo: typeof tratativa.id
+      })
+      
+      // Exclusão direta via Supabase, com nova service key
       const { error } = await supabase
         .from("tratativas")
         .delete()
         .eq("id", tratativa.id)
 
-      if (error) throw error
-
+      if (error) {
+        console.error("Erro ao excluir tratativa via Supabase:", error)
+        throw error
+      }
+      
+      console.log("Tratativa excluída com sucesso")
+      
       toast({
         title: "Sucesso",
-        description: "Tratativa excluída com sucesso!"
+        description: `Tratativa ${tratativa.numero_tratativa} excluída com sucesso!`
       })
-      onTratativaDeleted?.()
+      
+      // Notificar o componente pai sobre a exclusão
+      if (onTratativaDeleted) {
+        onTratativaDeleted()
+      }
+      
+      // Fechar o modal
       onOpenChange(false)
     } catch (error) {
       console.error("Erro ao excluir tratativa:", error)
       toast({
         title: "Erro",
-        description: "Não foi possível excluir a tratativa.",
+        description: "Não foi possível excluir a tratativa. Verifique o console para mais detalhes.",
         variant: "destructive"
       })
     } finally {
       setIsDeleting(false)
       setShowDeleteDialog(false)
+      setConfirmationNumber("")
     }
+  }
+
+  // Handler para o input de confirmação
+  const handleConfirmationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmationNumber(e.target.value)
+    if (deleteError) setDeleteError("")
   }
 
   const formatAnalista = (analista: string) => {
@@ -142,6 +178,61 @@ export default function TratativaDetailsModal({
     const match = analista.match(/\((.*?)\)/)
     return match ? match[1] : analista
   }
+
+  const regenerarDocumento = async (folhaUnica = false) => {
+    setRegeneratingPdf(true);
+    
+    try {
+      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/regenerate-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: tratativa.id,
+          folhaUnica
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error Response:", errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        toast({
+          title: "Sucesso",
+          description: `Documento gerado com sucesso para ${tratativa.funcionario}`
+        });
+        // Recarregar os dados da tratativa após gerar o documento
+        onTratativaEdited?.();
+      } else if (result.status === 'info') {
+        toast({
+          title: "Informação",
+          description: result.message
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: `Erro ao gerar documento: ${result.error}`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao regenerar documento:', error);
+      toast({
+        title: "Erro",
+        description: "Erro de comunicação com o servidor",
+        variant: "destructive"
+      });
+    } finally {
+      setRegeneratingPdf(false);
+      setShowRegenerateDialog(false);
+    }
+  };
 
   return (
     <>
@@ -160,14 +251,22 @@ export default function TratativaDetailsModal({
               >
                 <Pencil className="h-4 w-4" />
               </Button>
-              {user?.email === formatAnalista(tratativa.analista) && (
-                <Button 
+              <Button 
+                variant="outline"
+                className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 border-red-200"
+                onClick={() => setShowDeleteDialog(true)}
+                title="Excluir Tratativa"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              {!tratativa.url_documento_enviado && (
+                <Button
                   variant="outline"
-                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                  onClick={() => setShowDeleteDialog(true)}
-                  title="Excluir"
+                  className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                  onClick={() => setShowRegenerateDialog(true)}
+                  title="Regenerar Documento"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <RefreshCw className="h-4 w-4" />
                 </Button>
               )}
               <DialogClose asChild>
@@ -282,23 +381,80 @@ export default function TratativaDetailsModal({
       </Dialog>
 
       {/* Modal de confirmação de exclusão */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog open={showDeleteDialog} onOpenChange={(open) => {
+        if (!open) {
+          setConfirmationNumber("");
+          setDeleteError("");
+        }
+        setShowDeleteDialog(open);
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Tratativa</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir esta tratativa? Esta ação não pode ser desfeita.
+              <div className="mt-4">
+                <p>Para confirmar, digite o número da tratativa <strong>{tratativa.numero_tratativa}</strong> abaixo:</p>
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={confirmationNumber}
+                    onChange={handleConfirmationChange}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                    placeholder="Digite o número da tratativa"
+                    disabled={isDeleting}
+                    autoFocus
+                  />
+                </div>
+                {deleteError && (
+                  <p className="text-red-500 text-sm mt-2">{deleteError}</p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={isDeleting || !confirmationNumber}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
-              {isDeleting ? "Excluindo..." : "Excluir"}
+              {isDeleting ? "Excluindo..." : "Confirmar Exclusão"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal para regeneração de documento */}
+      <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar Documento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Como deseja gerar o documento para a tratativa <strong>{tratativa.numero_tratativa}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-center gap-4 my-4">
+            <Button
+              variant="default"
+              disabled={regeneratingPdf}
+              onClick={() => regenerarDocumento(false)}
+              className="min-w-[200px]"
+            >
+              {regeneratingPdf ? "Gerando..." : "Documento Completo (2 folhas)"}
+            </Button>
+            
+            <Button
+              variant="outline"
+              disabled={regeneratingPdf}
+              onClick={() => regenerarDocumento(true)}
+              className="min-w-[150px]"
+            >
+              {regeneratingPdf ? "Gerando..." : "Apenas Folha 1"}
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={regeneratingPdf}>Cancelar</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TratativasTable } from "@/components/tratativas-table"
 import { TratativasDashboard } from "@/components/tratativas/dashboard/index"
 import { Tratativa } from "@/types/tratativas"
+import TratativasSemDocumento from "@/components/tratativas/TratativasSemDocumento"
 
 export default function TratativasPage() {
   const [tratativas, setTratativas] = useState<Tratativa[]>([])
@@ -53,6 +54,9 @@ export default function TratativasPage() {
           <TabsTrigger value="list" className="rounded-none border-b-2 border-b-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground hover:text-foreground data-[state=active]:border-b-black data-[state=active]:text-foreground">
             Lista Detalhada
           </TabsTrigger>
+          <TabsTrigger value="sem-documento" className="rounded-none border-b-2 border-b-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground hover:text-foreground data-[state=active]:border-b-black data-[state=active]:text-foreground">
+            Sem Documento
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 p-2">
@@ -67,6 +71,9 @@ export default function TratativasPage() {
               tratativas={tratativas}
               onTratativaEdited={fetchTratativas}
             />
+          </TabsContent>
+          <TabsContent value="sem-documento" className="h-full m-0">
+            <TratativasSemDocumento />
           </TabsContent>
         </div>
       </Tabs>

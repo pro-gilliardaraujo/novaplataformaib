@@ -91,7 +91,6 @@ export function NovaTratativaModal({
   const { toast } = useToast()
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false)
   const [isFormDirty, setIsFormDirty] = useState(false)
-  const [usuarios, setUsuarios] = useState<{id: number, nome: string, email: string}[]>([])
 
   type FormDataType = {
     numero_tratativa: string
@@ -202,49 +201,7 @@ export function NovaTratativaModal({
         return updatedForm;
       });
     }
-    
-    fetchUsuarios()
   }, [open, lastDocumentNumber, mockData, user])
-
-  const fetchUsuarios = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id, nome, email')
-        .order('nome', { ascending: true })
-      
-      if (error) throw error
-      
-      if (data) {
-        console.log("[DEBUG] Usuários carregados:", data.length)
-        setUsuarios(data)
-        
-        // Se não tiver analista definido, define o primeiro usuário como padrão
-        if ((!formData.analista || formData.analista === '') && data.length > 0) {
-          const defaultAnalista = `${data[0].nome} (${data[0].email})`
-          console.log("[DEBUG] Definindo analista padrão:", defaultAnalista)
-          setFormData(prev => ({
-            ...prev,
-            analista: defaultAnalista
-          }))
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao buscar usuários:', error)
-    }
-  }
-
-  // Effect para monitorar quando usuários são carregados e verificar se o analista está definido
-  useEffect(() => {
-    if (usuarios.length > 0 && (!formData.analista || formData.analista === '')) {
-      const defaultAnalista = `${usuarios[0].nome} (${usuarios[0].email})`
-      console.log("[DEBUG] Definindo analista após carregar usuários:", defaultAnalista)
-      setFormData(prev => ({
-        ...prev,
-        analista: defaultAnalista
-      }))
-    }
-  }, [usuarios, formData.analista])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsFormDirty(true)
@@ -336,22 +293,11 @@ export function NovaTratativaModal({
       return
     }
 
-    // Verificar se o analista está definido, se não, usar o primeiro usuário
-    if (!formData.analista || formData.analista === '') {
-      if (usuarios.length > 0) {
-        const defaultAnalista = `${usuarios[0].nome} (${usuarios[0].email})`
-        console.log("[DEBUG] Definindo analista no momento do submit:", defaultAnalista)
-        setFormData(prev => ({
-          ...prev,
-          analista: defaultAnalista
-        }))
-        // Como setFormData é assíncrono, precisamos garantir que o valor atualizado seja usado
-        const updatedFormData = { ...formData, analista: defaultAnalista };
-        // Continuar com o submit usando updatedFormData...
-      } else {
-        setError("É necessário selecionar um analista.")
-        return
-      }
+    // Simplificar definição do analista - usar o usuário atual ou deixar em branco
+    let analistaValue = "";
+    if (user?.email) {
+      analistaValue = `${user.profile?.nome || 'Usuário'} (${user.email})`
+      console.log("[DEBUG] Usando usuário atual como analista:", analistaValue)
     }
 
     setIsLoading(true)
@@ -406,7 +352,7 @@ export function NovaTratativaModal({
         advertido: advertidoStatus,
         data_formatada: formatarData(formData.data_infracao),
         mock: formData.mock,
-        analista: formData.analista
+        analista: analistaValue  // Usar o valor que definimos acima
       }
 
       console.log("Submitting tratativa data:", tratativaData)
@@ -806,32 +752,6 @@ export function NovaTratativaModal({
                       onChange={handleInputChange}
                       required
                     />
-                  </div>
-                </div>
-
-                <SectionTitle title="Analista Responsável" />
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <Label htmlFor="analista">Selecione o Analista</Label>
-                    <Select
-                      value={formData.analista || ""}
-                      onValueChange={(value) => handleSelectChange("analista", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o analista responsável" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {usuarios.map((usuario) => (
-                          <SelectItem key={usuario.id} value={`${usuario.nome} (${usuario.email})`}>
-                            {usuario.nome} ({usuario.email})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {/* Debug para mostrar valores */}
-                    <div className="text-xs text-gray-500 mt-1">
-                      {`Analista selecionado: ${formData.analista || 'Nenhum'}`}
-                    </div>
                   </div>
                 </div>
               </div>
