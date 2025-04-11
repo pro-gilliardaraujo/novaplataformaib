@@ -751,13 +751,10 @@ export function EditarTratativaModal({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Responsabilidade</AlertDialogTitle>
             <AlertDialogDescription>
-              <p className="mb-4">
-                Confirmando a tratativa, está ciente de que se torna sua responsabilidade acompanhar o mesmo.
-              </p>
               {selectedAnalista && (
                 <div className="mt-4">
-                  <p>Por questões de segurança, apenas o próprio analista deve saber seu nome completo.</p>
-                  <p className="mt-2">Digite seu <strong>nome completo</strong> abaixo para confirmar que você é realmente o analista <strong>{selectedAnalista.shortName}</strong>:</p>
+                  <p className="mb-4">Confirmando a tratativa, está ciente de que se torna sua responsabilidade acompanhar o mesmo.</p>
+                  <p>Digite seu nome completo abaixo para te confirmar como analista responsável:</p>
                   <div className="mt-2">
                     <input
                       type="text"
