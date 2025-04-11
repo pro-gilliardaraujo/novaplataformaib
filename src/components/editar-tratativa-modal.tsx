@@ -132,8 +132,11 @@ export function EditarTratativaModal({
     } else if (name === "analista") {
       const analista = analistasData.find(a => a.value === value)
       if (analista) {
+        // Armazenar temporariamente o analista selecionado sem atualizar o formData ainda
         setSelectedAnalista(analista)
-        setFormData((prev: any) => ({ ...prev, [name]: value }))
+        // Mostrar o modal de confirmação imediatamente
+        setShowAnalistaConfirmation(true)
+        // Não atualizamos o formData aqui, isso será feito apenas após a confirmação
       }
     } else {
       setFormData((prev: any) => ({ ...prev, [name]: value }))
@@ -380,6 +383,20 @@ export function EditarTratativaModal({
       return false
     }
 
+    setShowAnalistaConfirmation(false)
+    return true
+  }
+
+  // Função para confirmar a seleção do analista após digitar o nome completo
+  const confirmAnalistaSelection = () => {
+    if (!selectedAnalista) return false
+    
+    // Atualizar o formData com o analista selecionado após confirmação
+    setFormData((prev: any) => ({ 
+      ...prev, 
+      analista: selectedAnalista.value 
+    }))
+    
     setShowAnalistaConfirmation(false)
     return true
   }
@@ -711,14 +728,7 @@ export function EditarTratativaModal({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (formData.analista && selectedAnalista) {
-                setShowConfirmDialog(false);
-                setShowAnalistaConfirmation(true);
-              } else {
-                handleSubmit();
-              }
-            }}>
+            <AlertDialogAction onClick={handleSubmit}>
               Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -730,6 +740,10 @@ export function EditarTratativaModal({
         if (!open) {
           setConfirmationNome("");
           setConfirmationError("");
+          // Se foi fechado sem confirmar, limpar o analista selecionado temporariamente
+          if (formData.analista !== selectedAnalista?.value) {
+            setSelectedAnalista(analistasData.find(a => a.value === formData.analista) || null);
+          }
         }
         setShowAnalistaConfirmation(open);
       }}>
@@ -762,17 +776,17 @@ export function EditarTratativaModal({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUpdating}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isUpdating}>Voltar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (handleAnalistaConfirm()) {
-                  handleSubmit();
+                  confirmAnalistaSelection();
                 }
               }}
               disabled={isUpdating || !confirmationNome}
               className="bg-green-600 hover:bg-green-700 focus:ring-green-600"
             >
-              {isUpdating ? "Processando..." : "Confirmar Responsabilidade"}
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

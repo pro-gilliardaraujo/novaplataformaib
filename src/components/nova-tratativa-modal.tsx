@@ -216,8 +216,11 @@ export function NovaTratativaModal({
     } else if (name === "analista") {
       const analista = analistasData.find(a => a.value === value)
       if (analista) {
+        // Apenas armazenar temporariamente o analista selecionado
         setSelectedAnalista(analista)
-        setFormData((prev) => ({ ...prev, [name]: value }))
+        // Mostrar o modal de confirmação imediatamente
+        setShowAnalistaConfirmation(true)
+        // Não atualizamos o formData aqui, isso será feito após a confirmação
       }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
@@ -241,6 +244,19 @@ export function NovaTratativaModal({
     }
 
     setShowAnalistaConfirmation(false)
+    return true
+  }
+
+  // Função para confirmar a seleção do analista após digitar o nome completo
+  const confirmAnalistaSelection = () => {
+    if (!selectedAnalista) return false
+    
+    // Atualizar o formData com o analista selecionado após confirmação
+    setFormData((prev) => ({ 
+      ...prev, 
+      analista: selectedAnalista.value 
+    }))
+    
     return true
   }
 
@@ -911,6 +927,10 @@ export function NovaTratativaModal({
         if (!open) {
           setConfirmationNome("");
           setConfirmationError("");
+          // Se foi fechado sem confirmar, limpar o analista selecionado temporariamente
+          if (formData.analista !== selectedAnalista?.value) {
+            setSelectedAnalista(null);
+          }
         }
         setShowAnalistaConfirmation(open);
       }}>
@@ -943,17 +963,17 @@ export function NovaTratativaModal({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isLoading}>Voltar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (handleAnalistaConfirm()) {
-                  processSubmit();
+                  confirmAnalistaSelection();
                 }
               }}
               disabled={isLoading || !confirmationNome}
               className="bg-green-600 hover:bg-green-700 focus:ring-green-600"
             >
-              {isLoading ? "Processando..." : "Confirmar Responsabilidade"}
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
