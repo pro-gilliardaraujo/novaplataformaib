@@ -379,7 +379,7 @@ export function EditarTratativaModal({
     }
 
     if (confirmationNome !== selectedAnalista.displayName) {
-      setConfirmationError("O nome digitado não corresponde ao nome completo do analista selecionado")
+      setConfirmationError("O nome digitado não corresponde ao seu nome completo cadastrado no sistema")
       return false
     }
 
@@ -756,14 +756,15 @@ export function EditarTratativaModal({
               </p>
               {selectedAnalista && (
                 <div className="mt-4">
-                  <p>Para confirmar, digite o nome completo do analista <strong>{selectedAnalista.displayName}</strong> abaixo:</p>
+                  <p>Por questões de segurança, apenas o próprio analista deve saber seu nome completo.</p>
+                  <p className="mt-2">Digite seu <strong>nome completo</strong> abaixo para confirmar que você é realmente o analista <strong>{selectedAnalista.shortName}</strong>:</p>
                   <div className="mt-2">
                     <input
                       type="text"
                       value={confirmationNome}
                       onChange={handleAnalistaConfirmChange}
                       className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Digite o nome completo do analista"
+                      placeholder="Digite seu nome completo"
                       disabled={isUpdating}
                       autoFocus
                     />
