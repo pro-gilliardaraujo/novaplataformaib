@@ -383,7 +383,6 @@ export function EditarTratativaModal({
       return false
     }
 
-    setShowAnalistaConfirmation(false)
     return true
   }
 
@@ -391,13 +390,17 @@ export function EditarTratativaModal({
   const confirmAnalistaSelection = () => {
     if (!selectedAnalista) return false
     
+    if (!handleAnalistaConfirm()) {
+      return false // Se a validação falhar, não prossegue e não fecha o modal
+    }
+    
     // Atualizar o formData com o analista selecionado após confirmação
     setFormData((prev: any) => ({ 
       ...prev, 
       analista: selectedAnalista.value 
     }))
     
-    setShowAnalistaConfirmation(false)
+    setShowAnalistaConfirmation(false) // Fecha o modal apenas após sucesso
     return true
   }
 
@@ -740,8 +743,14 @@ export function EditarTratativaModal({
         if (!open) {
           setConfirmationNome("");
           setConfirmationError("");
-          // Se foi fechado sem confirmar, limpar o analista selecionado temporariamente
+          // Se foi fechado sem confirmar, consideramos que o usuário cancelou a seleção
           if (formData.analista !== selectedAnalista?.value) {
+            // Exibe um toast informando que a seleção foi cancelada
+            toast({
+              title: "Seleção cancelada",
+              description: "Você cancelou a seleção do analista",
+              duration: 3000,
+            });
             setSelectedAnalista(analistasData.find(a => a.value === formData.analista) || null);
           }
         }
@@ -776,7 +785,9 @@ export function EditarTratativaModal({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isUpdating}>Voltar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              onClick={(e) => {
+                // Previne o comportamento padrão que fecha o modal automaticamente
+                e.preventDefault()
                 if (handleAnalistaConfirm()) {
                   confirmAnalistaSelection();
                 }
