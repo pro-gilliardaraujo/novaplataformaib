@@ -313,7 +313,7 @@ const TratativasSemDocumento = () => {
         <div className="overflow-auto flex-1">
           <Table>
             <TableHeader className="bg-black sticky top-0">
-              <TableRow className="h-[47px]">
+              <TableRow className="h-[46px]">
                 {columns.map((column) => (
                   <TableHead key={column.key} className="text-white font-medium px-3">
                     <div className="flex items-center gap-1">
@@ -355,7 +355,7 @@ const TratativasSemDocumento = () => {
               ) : (
                 <>
                   {paginatedData.map((tratativa) => (
-                    <TableRow key={tratativa.id} className="h-[47px] hover:bg-gray-50 border-b border-gray-200">
+                    <TableRow key={tratativa.id} className="h-[46px] hover:bg-gray-50 border-b border-gray-200">
                       <TableCell className="px-3 py-0 border-x border-gray-100">{tratativa.numero_tratativa}</TableCell>
                       <TableCell className="px-3 py-0 border-x border-gray-100">{tratativa.funcionario}</TableCell>
                       <TableCell className="px-3 py-0 border-x border-gray-100">{tratativa.setor}</TableCell>
@@ -381,7 +381,7 @@ const TratativasSemDocumento = () => {
                   {/* Preencher com linhas vazias para manter altura fixa */}
                   {paginatedData.length < rowsPerPage && (
                     Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-                      <TableRow key={`empty-${index}`} className="h-[47px] border-b border-gray-200">
+                      <TableRow key={`empty-${index}`} className="h-[46px] border-b border-gray-200">
                         {Array(columns.length + 1).fill(0).map((_, colIndex) => (
                           <TableCell key={`empty-cell-${colIndex}`} className="px-3 py-0 border-x border-gray-100">&nbsp;</TableCell>
                         ))}
