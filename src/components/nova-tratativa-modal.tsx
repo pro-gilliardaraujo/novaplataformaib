@@ -18,6 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { storageService } from "@/services/storageService"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useAuth } from "@/contexts/AuthContext"
+import analistasData from "@/data/analistas.json"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -91,6 +92,10 @@ export function NovaTratativaModal({
   const { toast } = useToast()
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false)
   const [isFormDirty, setIsFormDirty] = useState(false)
+  const [showAnalistaConfirmation, setShowAnalistaConfirmation] = useState(false)
+  const [confirmationNome, setConfirmationNome] = useState("")
+  const [confirmationError, setConfirmationError] = useState("")
+  const [selectedAnalista, setSelectedAnalista] = useState<typeof analistasData[0] | null>(null)
 
   type FormDataType = {
     numero_tratativa: string
@@ -141,7 +146,7 @@ export function NovaTratativaModal({
       imagem_evidencia1: "",
       data_formatada: "",
       mock: false,
-      analista: user?.profile ? `${user.profile.nome || 'Usuário'} (${user.email})` : ''
+      analista: ""
     }
   })
 
@@ -149,18 +154,8 @@ export function NovaTratativaModal({
   useEffect(() => {
     console.log("[DEBUG] User object changed:", {
       email: user?.email,
-      profile: user?.profile,
-      formDataAnalista: formData.analista
+      profile: user?.profile
     })
-    
-    if (user?.email && user?.profile) {
-      const analistaValue = `${user.profile.nome || 'Usuário'} (${user.email})`
-      console.log("[DEBUG] Setting analista to:", analistaValue)
-      setFormData(prev => ({
-        ...prev,
-        analista: analistaValue
-      }))
-    }
   }, [user])
 
   // Debug effect for formData changes
@@ -191,17 +186,12 @@ export function NovaTratativaModal({
         
         if (mockData) {
           return { ...updatedForm, ...mockData }
-        } else if (user?.profile) {
-          return { 
-            ...updatedForm, 
-            analista: `${user.profile.nome || 'Usuário'} (${user.email})`
-          }
         }
         
         return updatedForm;
       });
     }
-  }, [open, lastDocumentNumber, mockData, user])
+  }, [open, lastDocumentNumber, mockData])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsFormDirty(true)
@@ -223,9 +213,35 @@ export function NovaTratativaModal({
     if (name === "penalidade") {
       const [code, description] = value.split(" - ")
       setFormData((prev) => ({ ...prev, [name]: `${code} - ${description}` }))
+    } else if (name === "analista") {
+      const analista = analistasData.find(a => a.value === value)
+      if (analista) {
+        setSelectedAnalista(analista)
+        setFormData((prev) => ({ ...prev, [name]: value }))
+      }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
     }
+  }
+
+  const handleAnalistaConfirmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmationNome(e.target.value)
+    if (confirmationError) setConfirmationError("")
+  }
+
+  const handleAnalistaConfirm = () => {
+    if (!selectedAnalista) {
+      setConfirmationError("Nenhum analista selecionado")
+      return false
+    }
+
+    if (confirmationNome !== selectedAnalista.displayName) {
+      setConfirmationError("O nome digitado não corresponde ao nome completo do analista selecionado")
+      return false
+    }
+
+    setShowAnalistaConfirmation(false)
+    return true
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -288,18 +304,24 @@ export function NovaTratativaModal({
     e.preventDefault()
     setError("")
 
+    // Validar se um analista foi selecionado
+    if (!formData.analista) {
+      setError("É necessário selecionar um analista responsável")
+      return
+    }
+
+    // Validar se há uma imagem anexada
     if (files.length === 0) {
       setError("É necessário anexar uma imagem para criar a tratativa.")
       return
     }
 
-    // Simplificar definição do analista - usar o usuário atual ou deixar em branco
-    let analistaValue = "";
-    if (user?.email) {
-      analistaValue = `${user.profile?.nome || 'Usuário'} (${user.email})`
-      console.log("[DEBUG] Usando usuário atual como analista:", analistaValue)
-    }
+    // Abrir o modal de confirmação do analista
+    setShowAnalistaConfirmation(true)
+  }
 
+  // Função para processar o envio após a confirmação do analista
+  const processSubmit = async () => {
     setIsLoading(true)
 
     try {
@@ -351,8 +373,7 @@ export function NovaTratativaModal({
         imagem_evidencia1: imageUrls[0] || "",
         advertido: advertidoStatus,
         data_formatada: formatarData(formData.data_infracao),
-        mock: formData.mock,
-        analista: analistaValue  // Usar o valor que definimos acima
+        mock: formData.mock
       }
 
       console.log("Submitting tratativa data:", tratativaData)
@@ -489,7 +510,8 @@ export function NovaTratativaModal({
 
       console.log("[DEBUG] Salvando temporariamente:", {
         numero_tratativa: documentNumber,
-        status: "À CONFIRMAR"
+        status: "À CONFIRMAR",
+        analista: formData.analista
       });
 
       // Tentar salvar no Supabase
@@ -581,11 +603,14 @@ export function NovaTratativaModal({
       imagem_evidencia1: "",
       data_formatada: "",
       mock: false,
-      analista: user?.profile ? `${user.profile.nome || 'Usuário'} (${user.email})` : ''
+      analista: ""
     })
     setFiles([])
     setError("")
     setIsFormDirty(false)
+    setSelectedAnalista(null)
+    setConfirmationNome("")
+    setConfirmationError("")
   }
 
   return (
@@ -754,6 +779,34 @@ export function NovaTratativaModal({
                     />
                   </div>
                 </div>
+
+                <SectionTitle title="Analista Responsável" />
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <Label htmlFor="analista">Selecione o Analista</Label>
+                    <Select
+                      value={formData.analista}
+                      onValueChange={(value) => handleSelectChange("analista", value)}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o analista responsável" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {analistasData.map((analista) => (
+                          <SelectItem key={analista.id} value={analista.value}>
+                            {analista.shortName} - {analista.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedAnalista && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Analista selecionado: {selectedAnalista.displayName}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <SectionTitle title="Anexo (Máximo 1 imagem)" />
@@ -802,9 +855,16 @@ export function NovaTratativaModal({
           </ScrollArea>
           <div className="border-t bg-gray-50 p-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 flex items-center">
-                Analista: {formData.analista || 'Não definido'}
-              </span>
+              {selectedAnalista && (
+                <span className="text-sm text-gray-600 flex items-center">
+                  Analista: {selectedAnalista.shortName} ({selectedAnalista.email})
+                </span>
+              )}
+              {!selectedAnalista && (
+                <span className="text-sm text-gray-500 flex items-center">
+                  Selecione um analista responsável
+                </span>
+              )}
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -818,7 +878,7 @@ export function NovaTratativaModal({
                   type="submit" 
                   className="bg-black hover:bg-black/90"
                   onClick={handleSubmit} 
-                  disabled={isLoading || files.length === 0}
+                  disabled={isLoading || files.length === 0 || !formData.analista}
                 >
                   {isLoading ? "Gerando Tratativa..." : "Gerar Tratativa"}
                 </Button>
@@ -828,6 +888,7 @@ export function NovaTratativaModal({
         </DialogContent>
       </Dialog>
 
+      {/* Modal de confirmação de fechamento */}
       <AlertDialog open={showCloseConfirmation} onOpenChange={setShowCloseConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -840,6 +901,59 @@ export function NovaTratativaModal({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleCloseConfirmed}>
               Sim, descartar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal de confirmação do analista */}
+      <AlertDialog open={showAnalistaConfirmation} onOpenChange={(open) => {
+        if (!open) {
+          setConfirmationNome("");
+          setConfirmationError("");
+        }
+        setShowAnalistaConfirmation(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Responsabilidade</AlertDialogTitle>
+            <AlertDialogDescription>
+              <p className="mb-4">
+                Confirmando a tratativa, está ciente de que se torna sua responsabilidade acompanhar o mesmo.
+              </p>
+              {selectedAnalista && (
+                <div className="mt-4">
+                  <p>Para confirmar, digite o nome completo do analista <strong>{selectedAnalista.displayName}</strong> abaixo:</p>
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={confirmationNome}
+                      onChange={handleAnalistaConfirmChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Digite o nome completo do analista"
+                      disabled={isLoading}
+                      autoFocus
+                    />
+                  </div>
+                  {confirmationError && (
+                    <p className="text-red-500 text-sm mt-2">{confirmationError}</p>
+                  )}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (handleAnalistaConfirm()) {
+                  processSubmit();
+                }
+              }}
+              disabled={isLoading || !confirmationNome}
+              className="bg-green-600 hover:bg-green-700 focus:ring-green-600"
+            >
+              {isLoading ? "Processando..." : "Confirmar Responsabilidade"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

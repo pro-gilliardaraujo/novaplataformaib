@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { formatCPF } from "@/utils/formatters"
+import analistasData from "@/data/analistas.json"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -91,54 +92,24 @@ export function EditarTratativaModal({
   const [isUpdating, setIsUpdating] = useState(false)
   const [isSavingTemp, setIsSavingTemp] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [usuarios, setUsuarios] = useState<{id: number, nome: string, email: string}[]>([])
+  const [selectedAnalista, setSelectedAnalista] = useState<typeof analistasData[0] | null>(null)
+  const [showAnalistaConfirmation, setShowAnalistaConfirmation] = useState(false)
+  const [confirmationNome, setConfirmationNome] = useState("")
+  const [confirmationError, setConfirmationError] = useState("")
   const { toast } = useToast()
 
   useEffect(() => {
     console.log("[DEBUG] TratativaData recebida na edição:", tratativaData)
     setFormData(tratativaData)
-    fetchUsuarios()
-  }, [tratativaData])
-
-  const fetchUsuarios = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id, nome, email')
-        .order('nome', { ascending: true })
-      
-      if (error) throw error
-      
-      if (data) {
-        console.log("[DEBUG] Usuários carregados na edição:", data.length)
-        setUsuarios(data)
-        
-        // Se não tiver analista definido, define o primeiro usuário como padrão
-        if ((!formData.analista || formData.analista === '') && data.length > 0) {
-          const defaultAnalista = `${data[0].nome} (${data[0].email})`
-          console.log("[DEBUG] Definindo analista padrão na edição:", defaultAnalista)
-          setFormData((prev: any) => ({
-            ...prev,
-            analista: defaultAnalista
-          }))
-        }
+    
+    // Encontrar o analista correspondente ao valor salvo na tratativa
+    if (tratativaData.analista) {
+      const analista = analistasData.find(a => a.value === tratativaData.analista)
+      if (analista) {
+        setSelectedAnalista(analista)
       }
-    } catch (error) {
-      console.error('Erro ao buscar usuários:', error)
     }
-  }
-
-  // Effect para monitorar quando usuários são carregados e verificar se o analista está definido
-  useEffect(() => {
-    if (usuarios.length > 0 && (!formData.analista || formData.analista === '')) {
-      const defaultAnalista = `${usuarios[0].nome} (${usuarios[0].email})`
-      console.log("[DEBUG] Definindo analista após carregar usuários na edição:", defaultAnalista)
-      setFormData((prev: any) => ({
-        ...prev,
-        analista: defaultAnalista
-      }))
-    }
-  }, [usuarios, formData.analista])
+  }, [tratativaData])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -158,6 +129,12 @@ export function EditarTratativaModal({
     if (name === "penalidade") {
       const [code, description] = value.split(" - ")
       setFormData((prev: any) => ({ ...prev, [name]: `${code} - ${description}` }))
+    } else if (name === "analista") {
+      const analista = analistasData.find(a => a.value === value)
+      if (analista) {
+        setSelectedAnalista(analista)
+        setFormData((prev: any) => ({ ...prev, [name]: value }))
+      }
     } else {
       setFormData((prev: any) => ({ ...prev, [name]: value }))
     }
@@ -387,6 +364,26 @@ export function EditarTratativaModal({
     }
   }
 
+  const handleAnalistaConfirmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmationNome(e.target.value)
+    if (confirmationError) setConfirmationError("")
+  }
+
+  const handleAnalistaConfirm = () => {
+    if (!selectedAnalista) {
+      setConfirmationError("Nenhum analista selecionado")
+      return false
+    }
+
+    if (confirmationNome !== selectedAnalista.displayName) {
+      setConfirmationError("O nome digitado não corresponde ao nome completo do analista selecionado")
+      return false
+    }
+
+    setShowAnalistaConfirmation(false)
+    return true
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -567,22 +564,22 @@ export function EditarTratativaModal({
                   <div>
                     <Label htmlFor="analista">Selecione o Analista</Label>
                     <Select
-                      value={formData.analista || ""}
+                      value={formData.analista}
                       onValueChange={(value) => handleSelectChange("analista", value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o analista responsável" />
                       </SelectTrigger>
                       <SelectContent>
-                        {usuarios.map((usuario) => (
-                          <SelectItem key={usuario.id} value={`${usuario.nome} (${usuario.email})`}>
-                            {usuario.nome} ({usuario.email})
+                        {analistasData.map((analista) => (
+                          <SelectItem key={analista.id} value={analista.value}>
+                            {analista.shortName} - {analista.email}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <div className="text-xs text-gray-500 mt-1">
-                      {`Analista selecionado: ${formData.analista || 'Nenhum'}`}
+                      {selectedAnalista ? `Analista selecionado: ${selectedAnalista.displayName}` : 'Nenhum analista selecionado'}
                     </div>
                   </div>
                 </div>
@@ -714,8 +711,68 @@ export function EditarTratativaModal({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSubmit}>
+            <AlertDialogAction onClick={() => {
+              if (formData.analista && selectedAnalista) {
+                setShowConfirmDialog(false);
+                setShowAnalistaConfirmation(true);
+              } else {
+                handleSubmit();
+              }
+            }}>
               Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal de confirmação do analista */}
+      <AlertDialog open={showAnalistaConfirmation} onOpenChange={(open) => {
+        if (!open) {
+          setConfirmationNome("");
+          setConfirmationError("");
+        }
+        setShowAnalistaConfirmation(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Responsabilidade</AlertDialogTitle>
+            <AlertDialogDescription>
+              <p className="mb-4">
+                Confirmando a tratativa, está ciente de que se torna sua responsabilidade acompanhar o mesmo.
+              </p>
+              {selectedAnalista && (
+                <div className="mt-4">
+                  <p>Para confirmar, digite o nome completo do analista <strong>{selectedAnalista.displayName}</strong> abaixo:</p>
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={confirmationNome}
+                      onChange={handleAnalistaConfirmChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Digite o nome completo do analista"
+                      disabled={isUpdating}
+                      autoFocus
+                    />
+                  </div>
+                  {confirmationError && (
+                    <p className="text-red-500 text-sm mt-2">{confirmationError}</p>
+                  )}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isUpdating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (handleAnalistaConfirm()) {
+                  handleSubmit();
+                }
+              }}
+              disabled={isUpdating || !confirmationNome}
+              className="bg-green-600 hover:bg-green-700 focus:ring-green-600"
+            >
+              {isUpdating ? "Processando..." : "Confirmar Responsabilidade"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

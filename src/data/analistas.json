@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "displayName": "Everaldo Henrique da Silva Júnior",
+    "shortName": "Everaldo",
+    "email": "everaldo@ib.logistica",
+    "value": "Everaldo(everaldo@ib.logistica)"
+  },
+  {
+    "id": 2,
+    "displayName": "Gilliard Pereira Araújo",
+    "shortName": "Gilliard",
+    "email": "gilliard@ib.logistica",
+    "value": "Gilliard(gilliard@ib.logistica)"
+  },
+  {
+    "id": 3,
+    "displayName": "Jean Júnior dos Santos Cruz",
+    "shortName": "Jean",
+    "email": "jean@ib.logistica",
+    "value": "Jean(jean@ib.logistica)"
+  },
+  {
+    "id": 4,
+    "displayName": "Tielsi Woginski Teles",
+    "shortName": "Tielsi",
+    "email": "tielsi@ib.logistica",
+    "value": "Tielsi(tielsi@ib.logistica)"
+  }
+] 
