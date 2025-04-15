@@ -132,11 +132,10 @@ export function EditarTratativaModal({
     } else if (name === "analista") {
       const analista = analistasData.find(a => a.value === value)
       if (analista) {
-        // Armazenar temporariamente o analista selecionado sem atualizar o formData ainda
+        // Armazenar o analista selecionado
         setSelectedAnalista(analista)
-        // Mostrar o modal de confirmação imediatamente
-        setShowAnalistaConfirmation(true)
-        // Não atualizamos o formData aqui, isso será feito apenas após a confirmação
+        // Atualizar diretamente o formData sem pedir confirmação
+        setFormData((prev: any) => ({ ...prev, [name]: value }))
       }
     } else {
       setFormData((prev: any) => ({ ...prev, [name]: value }))
@@ -374,8 +373,8 @@ export function EditarTratativaModal({
 
   const handleAnalistaConfirm = () => {
     if (!selectedAnalista) {
-      setConfirmationError("Nenhum analista selecionado")
-      return false
+      // Não exigir mais um analista, retornar true mesmo sem analista
+      return true
     }
 
     if (confirmationNome !== selectedAnalista.displayName) {
@@ -388,7 +387,11 @@ export function EditarTratativaModal({
 
   // Função para confirmar a seleção do analista após digitar o nome completo
   const confirmAnalistaSelection = () => {
-    if (!selectedAnalista) return false
+    if (!selectedAnalista) {
+      // Se não há analista selecionado, apenas fechar o modal e retornar true
+      setShowAnalistaConfirmation(false);
+      return true;
+    }
     
     if (!handleAnalistaConfirm()) {
       return false // Se a validação falhar, não prossegue e não fecha o modal
@@ -699,6 +702,7 @@ export function EditarTratativaModal({
                       className="bg-green-600 hover:bg-green-700 text-white hover:text-white"
                       onClick={() => {
                         setFormData((prev: any) => ({...prev, status: "ENVIADA"}));
+                        // Não precisa confirmar o analista de novo, vamos direto para o diálogo de confirmação
                         setShowConfirmDialog(true);
                       }}
                       disabled={isUpdating || isSavingTemp}
