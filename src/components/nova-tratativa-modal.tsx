@@ -336,8 +336,8 @@ export function NovaTratativaModal({
       return
     }
 
-    // Abrir o modal de confirmação do analista
-    setShowAnalistaConfirmation(true)
+    // Processar o envio diretamente
+    await processSubmit()
   }
 
   // Função para processar o envio após a confirmação do analista
