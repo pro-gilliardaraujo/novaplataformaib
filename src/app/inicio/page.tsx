@@ -5,11 +5,10 @@ export default function Home() {
     <main className="h-[calc(100vh)] p-4">
       <div className="h-full w-full bg-white rounded-lg shadow-sm">
         <iframe 
-          src="https://www.meteoblue.com/pt/tempo/mapas/widget?windAnimation=1&gust=1&satellite=1&cloudsAndPrecipitation=1&temperature=1&sunshine=1&extremeForecastIndex=1&geoloc=detect&tempunit=C&windunit=km%252Fh&lengthunit=metric&zoom=7&autowidth=auto" 
-          frameBorder="0" 
-          scrolling="no" 
-          allowTransparency={true}
-          sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox" 
+          width="100%" 
+          height="100%" 
+          src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=km/h&zoom=3&overlay=wind&product=ecmwf&level=surface&lat=-36.598&lon=-50.977&message=true" 
+          frameBorder="0"
           className="w-full h-full"
         />
       </div>
