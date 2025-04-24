@@ -1,0 +1,348 @@
+{
+  "tiposRelatorio": [
+    {
+      "id": "colheita-diario",
+      "nome": "Colheita - Diário",
+      "frentes": [
+        {
+          "id": "frente1",
+          "nome": "BP Ituiutaba",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente2",
+          "nome": "CMAA Canápolis",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente3",
+          "nome": "Alexandrita",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente4",
+          "nome": "Zirleno",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "colheita-semanal",
+      "nome": "Colheita - Semanal",
+      "frentes": [
+        {
+          "id": "frente1",
+          "nome": "BP Ituiutaba",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente2",
+          "nome": "CMAA Canápolis",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente3",
+          "nome": "Alexandrita",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente4",
+          "nome": "Zirleno",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "transbordo-diario",
+      "nome": "Transbordo - Diário",
+      "frentes": [
+        {
+          "id": "frente1",
+          "nome": "BP Ituiutaba",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente2",
+          "nome": "CMAA Canápolis",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente3",
+          "nome": "Alexandrita",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente4",
+          "nome": "Zirleno",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "transbordo-semanal",
+      "nome": "Transbordo - Semanal",
+      "frentes": [
+        {
+          "id": "frente1",
+          "nome": "BP Ituiutaba",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente2",
+          "nome": "CMAA Canápolis",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente3",
+          "nome": "Alexandrita",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        },
+        {
+          "id": "frente4",
+          "nome": "Zirleno",
+          "visualizacoes": {
+            "colheita": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "horaElevador": true,
+              "motorOcioso": true,
+              "usoGPS": true
+            },
+            "transbordo": {
+              "disponibilidadeMecanica": true,
+              "eficienciaEnergetica": true,
+              "motorOcioso": true,
+              "faltaApontamento": true,
+              "usoGPS": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+} 

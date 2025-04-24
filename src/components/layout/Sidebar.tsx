@@ -284,7 +284,7 @@ export default function Sidebar() {
     const categories = menuData[section]
 
     return (
-      <div className="h-[45%] overflow-y-auto border-t">
+      <div className={`h-[${section === 'reports' ? '35' : '55'}%] overflow-y-auto border-t`}>
         <div className="px-3 py-4">
           <h2 className="text-sm font-semibold text-black uppercase tracking-wider mb-3 px-2">
             {section === 'reports' ? 'Visualizações' : 'Gerenciamento'}
@@ -391,10 +391,10 @@ export default function Sidebar() {
         </div>
       ) : (
         <div className="flex flex-col h-[90%]">
-          {/* Relatórios - 45% */}
+          {/* Relatórios - 35% */}
           {renderSection('reports')}
 
-          {/* Gerenciamento - 45% */}
+          {/* Gerenciamento - 55% */}
           {renderSection('management')}
 
           {/* Configurações - 10% */}
