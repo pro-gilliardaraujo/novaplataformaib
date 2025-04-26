@@ -107,3 +107,37 @@
 .card {
   @apply rounded-lg border bg-card text-card-foreground shadow-sm;
 }
+
+/* Chakra UI e Tailwind CSS - Estilos de Integração */
+/* Contornar conflitos de reset CSS */
+.chakra-ui-light a:not([data-chakra-link]), 
+.chakra-ui-dark a:not([data-chakra-link]) {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+/* Impedir que estilos Tailwind afetem componentes Chakra */
+[data-theme="chakra"] * {
+  @apply !font-[inherit] !text-[inherit];
+}
+
+/* Estilos específicos para componentes do relatório */
+.report-print-area {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm;
+  margin: 0 auto;
+  background: white;
+}
+
+@media print {
+  .report-print-area {
+    padding: 0;
+    margin: 0;
+  }
+  
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+}

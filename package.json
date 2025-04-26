@@ -45,9 +45,10 @@
     "@radix-ui/react-toggle-group": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@supabase/auth-helpers-nextjs": "^0.9.0",
+    "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/supabase-js": "^2.49.1",
     "@tanstack/react-query": "^5.67.3",
-    "@tanstack/react-table": "^8.21.2",
+    "@tanstack/react-table": "^8.21.3",
     "@vercel/analytics": "^1.5.0",
     "boxicons": "^2.1.4",
     "chart.js": "^4.4.8",
@@ -78,7 +79,9 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^9.0.1",
     "vaul": "^1.1.2",
-    "zod": "^3.24.2"
+    "xlsx": "^0.18.5",
+    "zod": "^3.24.2",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/node": "^20",

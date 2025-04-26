@@ -4,6 +4,8 @@ import { useState } from "react"
 import Sidebar from "@/components/layout/Sidebar"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+// Removendo temporariamente o ChakraProvider
+// import { ChakraProvider } from "@/contexts/ChakraProvider"
 
 export function LayoutContent({ children }: { children: React.ReactNode }) {
   return (
@@ -37,6 +39,7 @@ export default function ClientLayout({
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        {/* Removendo temporariamente o ChakraProvider */}
         <LayoutContent>
           {children}
         </LayoutContent>
