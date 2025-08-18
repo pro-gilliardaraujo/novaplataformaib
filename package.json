@@ -11,6 +11,9 @@
     "vercel-build": "npm run typecheck && next build"
   },
   "dependencies": {
+    "@chakra-ui/react": "^2.8.2",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -56,6 +59,7 @@
     "cmdk": "^1.0.4",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.5.2",
+    "framer-motion": "^6.5.1",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.344.0",
     "material-symbols": "^0.29.1",

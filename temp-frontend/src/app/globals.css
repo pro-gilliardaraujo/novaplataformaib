@@ -1,0 +1,58 @@
+/* Estilos de impressão */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .report-content {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+  
+  .print-button {
+    display: none;
+  }
+  
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Garantir que o footer seja visível e impresso corretamente */
+  .last-page > div > div:last-child {
+    position: relative !important;
+    padding-bottom: 13mm !important;
+    overflow: visible !important;
+  }
+  
+  /* Estilo específico para o footer de horas por frota */
+  .horas-por-frota-footer {
+    display: block !important;
+    visibility: visible !important;
+    position: fixed !important;
+    bottom: 10mm !important;
+    left: 10mm !important;
+    right: 10mm !important;
+    z-index: 9999 !important;
+    background-color: white !important;
+  }
+
+  /* Evita que o navegador adicione uma página em branco no final */
+  @page :last {
+    page-break-after: avoid;
+  }
+  
+  /* Controle a quebra de página apenas no que for necessário */
+  .last-page {
+    page-break-after: avoid;
+  }
+} 

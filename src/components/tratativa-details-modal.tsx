@@ -190,7 +190,7 @@ export default function TratativaDetailsModal({
         },
         body: JSON.stringify({
           id: tratativa.id,
-          folhaUnica
+          folhaUnica: false  // Todas as penalidades geram duas folhas
         }),
       });
       

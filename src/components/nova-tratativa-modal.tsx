@@ -283,18 +283,14 @@ export function NovaTratativaModal({
 
   const callPdfTaskApi = async (id: string, folhaUnica: boolean = false) => {
     try {
-      // Usar rota específica para folha única quando folhaUnica for true
-      const endpoint = folhaUnica 
-        ? "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks/single"
-        : "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
+      // Todas as penalidades usam o endpoint padrão para duas folhas
+      const endpoint = "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
       
-      const requestBody = folhaUnica ? { id } : { id, folhaUnica };
+      const requestBody = { id, folhaUnica: false };
       
       console.log("[DEBUG] Chamando API PDF", { 
         endpoint, 
-        requestBody, 
-        folhaUnica,
-        usandoRotaSingle: folhaUnica === true
+        requestBody
       });
       
       const response = await fetch(endpoint, {
@@ -411,15 +407,12 @@ export function NovaTratativaModal({
         if (penalidade && ["P1", "P2", "P3", "P4", "P5", "P6"].includes(penalidade.trim())) {
           console.log("Chamando API PDF para tratativa:", newEntryId)
           try {
-            // Para P1, enviamos parâmetro adicional indicando que é apenas a folha 1
-            const folhaUnica = penalidade.trim() === "P1"
-            console.log("[DEBUG] Verificação de penalidade P1:", { 
-              penalidade: penalidade.trim(), 
-              éP1: penalidade.trim() === "P1", 
-              folhaUnica 
+            // Todas as penalidades geram duas folhas - P1 terá "Advertido" na segunda folha
+            console.log("[DEBUG] Gerando PDF para penalidade:", { 
+              penalidade: penalidade.trim()
             });
             
-            const pdfResult = await callPdfTaskApi(newEntryId.toString(), folhaUnica)
+            const pdfResult = await callPdfTaskApi(newEntryId.toString(), false)
             console.log("PDF generation result:", pdfResult)
           } catch (pdfError) {
             console.error("Error in PDF generation:", pdfError)

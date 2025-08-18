@@ -1,0 +1,33 @@
+@media print {
+  /* Configurações gerais de impressão */
+  body {
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Esconder elementos não imprimíveis */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Configurar margens e tamanho da página */
+  @page {
+    size: auto;
+    margin: 0mm;
+  }
+
+  /* Garantir que o conteúdo do relatório ocupe toda a página */
+  .report-content {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Configuração para nome do arquivo na impressão */
+  body[data-file-name]::before {
+    content: attr(data-file-name);
+    display: none;
+  }
+} 
