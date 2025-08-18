@@ -183,7 +183,7 @@ const TratativasSemDocumento = () => {
         },
         body: JSON.stringify({
           id: tratativa.id,
-          folhaUnica
+          folhaUnica: false  // Todas as penalidades geram duas folhas
         }),
       });
       

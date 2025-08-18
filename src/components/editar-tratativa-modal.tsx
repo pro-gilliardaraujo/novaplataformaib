@@ -239,15 +239,12 @@ export function EditarTratativaModal({
 
       if (shouldCallPdfTask && formData.status === "DEVOLVIDA") {
         try {
-          // Para P1, enviamos parâmetro adicional indicando que é apenas a folha 1
-          const folhaUnica = penalidade.trim() === "P1"
-          console.log("[DEBUG] Verificação de penalidade P1 na edição:", { 
-            penalidade: penalidade.trim(), 
-            éP1: penalidade.trim() === "P1", 
-            folhaUnica 
+          // Todas as penalidades geram duas folhas - P1 terá "Advertido" na segunda folha
+          console.log("[DEBUG] Gerando PDF para penalidade na edição:", { 
+            penalidade: penalidade.trim()
           });
           
-          await callPdfTaskApi(formData.id, folhaUnica)
+          await callPdfTaskApi(formData.id, false)
         } catch (pdfError) {
           console.error("Erro ao gerar PDF:", pdfError)
         }
@@ -324,17 +321,13 @@ export function EditarTratativaModal({
 
   const callPdfTaskApi = async (id: string | number, folhaUnica: boolean = false) => {
     try {
-      // Usar rota específica para folha única quando folhaUnica for true
-      const endpoint = folhaUnica 
-        ? "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks/single"
-        : "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
+      // Todas as penalidades usam o endpoint padrão para duas folhas
+      const endpoint = "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
       
-      const requestBody = folhaUnica ? { id: id.toString() } : { id: id.toString(), folhaUnica };
+      const requestBody = { id: id.toString(), folhaUnica: false };
       console.log('[DEBUG] Chamando API PDF na edição:', { 
         endpoint, 
-        requestBody, 
-        folhaUnica, 
-        usandoRotaSingle: folhaUnica === true
+        requestBody
       });
 
       const response = await fetch(endpoint, {
