@@ -20,6 +20,8 @@ import { storageService } from "@/services/storageService"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useAuth } from "@/contexts/AuthContext"
 import analistasData from "@/data/analistas.json"
+import { funcionariosService } from "@/services/funcionariosService"
+import { FuncionarioSearchResult } from "@/types/funcionarios"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -101,6 +103,12 @@ export function NovaTratativaModal({
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set())
   const [showErrorAnimation, setShowErrorAnimation] = useState(false)
+  
+  // Estados para autocomplete de funcionários
+  const [funcionarioSuggestions, setFuncionarioSuggestions] = useState<FuncionarioSearchResult[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [selectedFuncionario, setSelectedFuncionario] = useState<FuncionarioSearchResult | null>(null)
 
   type FormDataType = {
     numero_tratativa: string
@@ -214,6 +222,11 @@ export function NovaTratativaModal({
       }
       return newData
     })
+
+    // Busca dinâmica para o campo funcionário
+    if (name === "funcionario") {
+      handleFuncionarioSearch(value)
+    }
   }
 
   const handleSelectChange = (name: string, value: string) => {
@@ -236,6 +249,58 @@ export function NovaTratativaModal({
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
     }
+  }
+
+  // Função para buscar funcionários
+  const handleFuncionarioSearch = async (query: string) => {
+    if (!query || query.trim().length < 2) {
+      setFuncionarioSuggestions([])
+      setShowSuggestions(false)
+      setSelectedFuncionario(null)
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const suggestions = await funcionariosService.buscarFuncionarios(query)
+      setFuncionarioSuggestions(suggestions)
+      setShowSuggestions(suggestions.length > 0)
+    } catch (error) {
+      console.error("Erro ao buscar funcionários:", error)
+      setFuncionarioSuggestions([])
+      setShowSuggestions(false)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  // Função para selecionar um funcionário
+  const handleFuncionarioSelect = (funcionario: FuncionarioSearchResult) => {
+    setSelectedFuncionario(funcionario)
+    setShowSuggestions(false)
+    
+    // Preencher todos os campos relacionados
+    setFormData((prev) => ({
+      ...prev,
+      funcionario: funcionario.nome,
+      cpf: funcionario.cpf,
+      funcao: funcionario.funcao,
+      setor: funcionario.unidade
+    }))
+  }
+
+  // Função para limpar a busca
+  const handleClearFuncionarioSearch = () => {
+    setSelectedFuncionario(null)
+    setFuncionarioSuggestions([])
+    setShowSuggestions(false)
+    setFormData((prev) => ({
+      ...prev,
+      funcionario: "",
+      cpf: "",
+      funcao: "",
+      setor: ""
+    }))
   }
 
   const handleAnalistaConfirmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -729,6 +794,10 @@ export function NovaTratativaModal({
     setIsDragOver(false)
     setFieldErrors(new Set())
     setShowErrorAnimation(false)
+    setFuncionarioSuggestions([])
+    setShowSuggestions(false)
+    setSelectedFuncionario(null)
+    setIsSearching(false)
   }
 
   return (
@@ -780,17 +849,77 @@ export function NovaTratativaModal({
                       className={getErrorClass('hora_infracao')}
                     />
                   </div>
-                  <div>
+                  <div className="relative">
                     <Label htmlFor="funcionario">Nome do Funcionário</Label>
-                    <Input
-                      id="funcionario"
-                      name="funcionario"
-                      type="text"
-                      value={formData.funcionario}
-                      onChange={handleInputChange}
-                      required
-                      className={getErrorClass('funcionario')}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="funcionario"
+                        name="funcionario"
+                        type="text"
+                        value={formData.funcionario}
+                        onChange={handleInputChange}
+                        onFocus={() => {
+                          if (formData.funcionario.length >= 2) {
+                            setShowSuggestions(funcionarioSuggestions.length > 0)
+                          }
+                        }}
+                        onBlur={() => {
+                          // Delay para permitir clique nas sugestões
+                          setTimeout(() => setShowSuggestions(false), 200)
+                        }}
+                        placeholder="Digite o nome do funcionário..."
+                        required
+                        className={getErrorClass('funcionario')}
+                        autoComplete="off"
+                      />
+                      
+                      {/* Botão para limpar quando há funcionário selecionado */}
+                      {selectedFuncionario && (
+                        <button
+                          type="button"
+                          onClick={handleClearFuncionarioSearch}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+
+                      {/* Loading indicator */}
+                      {isSearching && (
+                        <div className="absolute right-8 top-1/2 transform -translate-y-1/2">
+                          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        </div>
+                      )}
+
+                      {/* Lista de sugestões */}
+                      {showSuggestions && funcionarioSuggestions.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {funcionarioSuggestions.map((funcionario) => (
+                            <button
+                              key={funcionario.id}
+                              type="button"
+                              onClick={() => handleFuncionarioSelect(funcionario)}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 focus:bg-gray-50 focus:outline-none"
+                            >
+                              <div className="font-medium text-gray-900">{funcionario.nome}</div>
+                              <div className="text-sm text-gray-500">
+                                CPF: {funcionario.cpf} • {funcionario.funcao}
+                              </div>
+                              <div className="text-xs text-gray-400">{funcionario.unidade}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Mensagem quando não há resultados */}
+                      {showSuggestions && funcionarioSuggestions.length === 0 && formData.funcionario.length >= 2 && !isSearching && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                          <div className="px-4 py-3 text-gray-500 text-center">
+                            Nenhum funcionário encontrado
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
