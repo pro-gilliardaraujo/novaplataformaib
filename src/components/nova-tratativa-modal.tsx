@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { X } from "lucide-react"
+import { ArrowsPointingOutIcon } from "@heroicons/react/24/outline"
 import { useToast } from "@/components/ui/use-toast"
 import { createClient } from "@supabase/supabase-js"
 import { v4 as uuidv4 } from "uuid"
@@ -96,6 +97,10 @@ export function NovaTratativaModal({
   const [confirmationNome, setConfirmationNome] = useState("")
   const [confirmationError, setConfirmationError] = useState("")
   const [selectedAnalista, setSelectedAnalista] = useState<typeof analistasData[0] | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [showFullscreen, setShowFullscreen] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set())
+  const [showErrorAnimation, setShowErrorAnimation] = useState(false)
 
   type FormDataType = {
     numero_tratativa: string
@@ -130,7 +135,7 @@ export function NovaTratativaModal({
       cpf: "",
       funcao: "",
       setor: "",
-      data_infracao: "",
+      data_infracao: new Date().toISOString().split('T')[0],
       hora_infracao: "",
       codigo_infracao: "",
       descricao_infracao: "",
@@ -196,6 +201,9 @@ export function NovaTratativaModal({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsFormDirty(true)
     const { name, value } = e.target
+    
+
+    
     setFormData((prev) => {
       const newData = { ...prev, [name]: value || "" }
       if (name === "data_infracao") {
@@ -210,6 +218,9 @@ export function NovaTratativaModal({
 
   const handleSelectChange = (name: string, value: string) => {
     setIsFormDirty(true)
+    
+
+    
     if (name === "penalidade") {
       const [code, description] = value.split(" - ")
       setFormData((prev) => ({ ...prev, [name]: `${code} - ${description}` }))
@@ -264,21 +275,76 @@ export function NovaTratativaModal({
     return true
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setIsFormDirty(true)
-    const selectedFiles = Array.from(e.target.files || [])
-    const imageFile = selectedFiles.find((file) => file.type.startsWith("image/"))
-    if (imageFile) {
-      setFiles([imageFile])
-    }
-  }
+
 
   const handleRemoveFile = (index: number) => {
-    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index))
+    setFiles((prevFiles) => {
+      const fileToRemove = prevFiles[index]
+      if (fileToRemove) {
+        // Liberar URL object para evitar memory leak
+        URL.revokeObjectURL(URL.createObjectURL(fileToRemove))
+      }
+      return prevFiles.filter((_, i) => i !== index)
+    })
   }
 
   const handleUploadClick = () => {
     fileInputRef.current?.click()
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (files.length < 1) {
+      setIsDragOver(true)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsFormDirty(true)
+    const uploadedFiles = e.target.files
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      const imageFile = uploadedFiles[0]
+      if (imageFile.type.startsWith("image/")) {
+        setFiles([imageFile])
+
+      } else {
+        toast({
+          title: "Erro",
+          description: "Por favor, anexe apenas arquivos de imagem.",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    setIsFormDirty(true)
+
+    if (files.length >= 1) return
+
+    const droppedFiles = Array.from(e.dataTransfer.files)
+    const imageFile = droppedFiles.find((file) => file.type.startsWith("image/"))
+    
+    if (imageFile) {
+      setFiles([imageFile])
+
+    } else {
+      toast({
+        title: "Erro",
+        description: "Por favor, anexe apenas arquivos de imagem.",
+        variant: "destructive",
+      })
+    }
   }
 
   const callPdfTaskApi = async (id: string, folhaUnica: boolean = false) => {
@@ -316,19 +382,50 @@ export function NovaTratativaModal({
     }
   }
 
+  const getErrorClass = (fieldName: string) => {
+    if (!showErrorAnimation || !fieldErrors.has(fieldName)) return ''
+    return 'border-red-500 border-2 animate-pulse'
+  }
+
+  const validateRequiredFields = () => {
+    const errors = new Set<string>()
+    const requiredFields = [
+      'data_infracao', 'hora_infracao', 'cpf', 'funcionario', 'funcao', 'setor',
+      'lider', 'codigo_infracao', 'descricao_infracao', 'penalidade', 'analista'
+    ]
+
+    requiredFields.forEach(field => {
+      const value = formData[field as keyof typeof formData]
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        errors.add(field)
+      }
+    })
+
+    if (files.length === 0) {
+      errors.add('anexo')
+    }
+
+    setFieldErrors(errors)
+    
+    // Se houver erros, ativar a animação por 2 segundos
+    if (errors.size > 0) {
+      setShowErrorAnimation(true)
+      setTimeout(() => {
+        setShowErrorAnimation(false)
+        setFieldErrors(new Set()) // Limpar os erros após a animação
+      }, 2000)
+    }
+    
+    return errors.size === 0
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    // Validar se um analista foi selecionado
-    if (!formData.analista) {
-      setError("É necessário selecionar um analista responsável")
-      return
-    }
-
-    // Validar se há uma imagem anexada
-    if (files.length === 0) {
-      setError("É necessário anexar uma imagem para criar a tratativa.")
+    // Validar todos os campos obrigatórios
+    if (!validateRequiredFields()) {
+      setError("Por favor, preencha todos os campos obrigatórios destacados em vermelho.")
       return
     }
 
@@ -594,13 +691,18 @@ export function NovaTratativaModal({
   }
 
   const resetFormAndStates = () => {
+    // Limpar URLs de preview para evitar memory leaks
+    files.forEach(file => {
+      URL.revokeObjectURL(URL.createObjectURL(file))
+    })
+    
     setFormData({
       numero_tratativa: "",
       funcionario: "",
       cpf: "",
       funcao: "",
       setor: "",
-      data_infracao: "",
+      data_infracao: new Date().toISOString().split('T')[0],
       hora_infracao: "",
       codigo_infracao: "",
       descricao_infracao: "",
@@ -624,12 +726,15 @@ export function NovaTratativaModal({
     setSelectedAnalista(null)
     setConfirmationNome("")
     setConfirmationError("")
+    setIsDragOver(false)
+    setFieldErrors(new Set())
+    setShowErrorAnimation(false)
   }
 
   return (
     <>
       <Dialog open={open} onOpenChange={handleCloseAttempt}>
-        <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
+        <DialogContent className="sm:max-w-[1400px] p-0 flex flex-col h-[90vh]">
           <div className="flex items-center px-4 h-12 border-b relative">
             <div className="flex-1 text-center">
               <span className="text-base font-medium">Nova Tratativa - Documento {formData.numero_tratativa || documentNumber}</span>
@@ -644,8 +749,10 @@ export function NovaTratativaModal({
               </Button>
             </DialogClose>
           </div>
-          <ScrollArea className="flex-grow px-6 py-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-grow">
+            {/* Coluna da esquerda - Formulário */}
+            <ScrollArea className="flex-grow px-6 py-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-4">
                 <SectionTitle title="Informações Básicas" />
                 <div className="grid grid-cols-3 gap-4">
@@ -658,6 +765,7 @@ export function NovaTratativaModal({
                       value={formData.data_infracao}
                       onChange={handleInputChange}
                       required
+                      className={getErrorClass('data_infracao')}
                     />
                   </div>
                   <div>
@@ -669,8 +777,25 @@ export function NovaTratativaModal({
                       value={formData.hora_infracao}
                       onChange={handleInputChange}
                       required
+                      className={getErrorClass('hora_infracao')}
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="funcionario">Nome do Funcionário</Label>
+                    <Input
+                      id="funcionario"
+                      name="funcionario"
+                      type="text"
+                      value={formData.funcionario}
+                      onChange={handleInputChange}
+                      required
+                      className={getErrorClass('funcionario')}
+                    />
+                  </div>
+                </div>
+
+                <SectionTitle title="Dados do Funcionário" />
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="cpf">CPF</Label>
                     <Input
@@ -681,21 +806,7 @@ export function NovaTratativaModal({
                       onChange={handleInputChange}
                       required
                       maxLength={14}
-                    />
-                  </div>
-                </div>
-
-                <SectionTitle title="Dados do Funcionário" />
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="funcionario">Nome do Funcionário</Label>
-                    <Input
-                      id="funcionario"
-                      name="funcionario"
-                      type="text"
-                      value={formData.funcionario}
-                      onChange={handleInputChange}
-                      required
+                      className={getErrorClass('cpf')}
                     />
                   </div>
                   <div>
@@ -707,6 +818,7 @@ export function NovaTratativaModal({
                       value={formData.funcao}
                       onChange={handleInputChange}
                       required
+                      className={getErrorClass('funcao')}
                     />
                   </div>
                   <div>
@@ -718,6 +830,7 @@ export function NovaTratativaModal({
                       value={formData.setor}
                       onChange={handleInputChange}
                       required
+                      className={getErrorClass('setor')}
                     />
                   </div>
                 </div>
@@ -733,6 +846,7 @@ export function NovaTratativaModal({
                       value={formData.lider}
                       onChange={handleInputChange}
                       required
+                      className={getErrorClass('lider')}
                     />
                   </div>
                   <div>
@@ -744,6 +858,7 @@ export function NovaTratativaModal({
                       value={formData.codigo_infracao}
                       onChange={handleInputChange}
                       required
+                      className={getErrorClass('codigo_infracao')}
                     />
                   </div>
                   <div>
@@ -755,6 +870,7 @@ export function NovaTratativaModal({
                       value={formData.descricao_infracao}
                       onChange={handleInputChange}
                       required
+                      className={getErrorClass('descricao_infracao')}
                     />
                   </div>
                 </div>
@@ -767,7 +883,7 @@ export function NovaTratativaModal({
                       value={formData.penalidade}
                       onValueChange={(value) => handleSelectChange("penalidade", value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={getErrorClass('penalidade')}>
                         <SelectValue placeholder="Selecione a penalidade" />
                       </SelectTrigger>
                       <SelectContent>
@@ -802,7 +918,7 @@ export function NovaTratativaModal({
                       onValueChange={(value) => handleSelectChange("analista", value)}
                       required
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={getErrorClass('analista')}>
                         <SelectValue placeholder="Selecione o analista responsável" />
                       </SelectTrigger>
                       <SelectContent>
@@ -822,50 +938,106 @@ export function NovaTratativaModal({
                 </div>
               </div>
 
-              <SectionTitle title="Anexo (Máximo 1 imagem)" />
-              <div className="space-y-2">
-                <div className="flex items-center space-x-4">
-                  <div
-                    className={`border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer ${
-                      files.length >= 1 ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
-                    onClick={files.length < 1 ? handleUploadClick : undefined}
-                  >
-                    <Input
-                      id="file-upload"
-                      type="file"
-                      onChange={handleFileChange}
-                      accept="image/*"
-                      ref={fileInputRef}
-                      className="hidden"
-                      disabled={files.length >= 1}
-                    />
-                    <span className="text-gray-500">{files.length < 1 ? "Procurar imagem" : "Imagem selecionada"}</span>
-                  </div>
-                  {files.length > 0 && (
-                    <div className="flex-1">
-                      <p className="font-medium">Arquivos anexados:</p>
-                      {files.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between mt-1">
-                          <span>{file.name}</span>
-                          <Button type="button" onClick={() => handleRemoveFile(index)} variant="destructive" size="sm">
-                            Remover
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {files.length === 0 && (
-                  <p className="text-sm text-red-500">
-                    É necessário anexar uma imagem para gerar a tratativa definitiva
-                  </p>
-                )}
-              </div>
-
               {error && <div className="text-red-500">{error}</div>}
             </form>
           </ScrollArea>
+          
+          {/* Coluna da direita - Anexo */}
+          <div className="w-[400px] border-l bg-white p-4 flex flex-col">
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-center">Anexo</h3>
+              
+              {/* Botão de Upload Compacto */}
+              <div className="flex flex-col items-center space-y-2">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-2 cursor-pointer transition-colors ${
+                    files.length >= 1 
+                      ? "opacity-50 cursor-not-allowed border-gray-300" 
+                      : showErrorAnimation && fieldErrors.has('anexo')
+                        ? "border-red-500 bg-red-50 animate-pulse"
+                        : isDragOver 
+                          ? "border-blue-400 bg-blue-50" 
+                          : "border-gray-300 hover:border-blue-300"
+                  }`}
+                  onClick={files.length < 1 ? handleUploadClick : undefined}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    ref={fileInputRef}
+                    className="hidden"
+                    disabled={files.length >= 1}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="pointer-events-none"
+                    disabled={files.length >= 1}
+                  >
+                    📎 {files.length > 0 ? "Anexado" : "Anexar Imagem"}
+                  </Button>
+                </div>
+                
+                {files.length === 0 && (
+                  <p className="text-xs text-gray-500 text-center">
+                    {isDragOver ? "Solte aqui" : "Clique ou arraste"}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            {/* Preview da Imagem */}
+            {files.length > 0 && (
+              <div className="space-y-3 mt-4">
+                {files.map((file, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="relative group">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt="Preview"
+                        className="w-full max-h-[500px] object-contain rounded-lg border bg-white shadow-sm"
+                      />
+                      {/* Botão Fullscreen */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 hover:bg-white"
+                        onClick={() => setShowFullscreen(true)}
+                      >
+                        <ArrowsPointingOutIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600 truncate flex-1">{file.name}</span>
+                      <Button 
+                        type="button" 
+                        onClick={() => handleRemoveFile(index)} 
+                        variant="destructive" 
+                        size="sm"
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {files.length === 0 && (
+              <p className="text-xs text-red-500 text-center mt-4">
+                Imagem obrigatória para gerar tratativa
+              </p>
+            )}
+          </div>
+          </div>
           <div className="border-t bg-gray-50 p-4">
             <div className="flex justify-between items-center">
               {selectedAnalista && (
@@ -879,6 +1051,7 @@ export function NovaTratativaModal({
                 </span>
               )}
               <div className="flex gap-2">
+                {/* Botão Salvar Temporariamente - Temporariamente comentado
                 <Button
                   variant="outline"
                   className="bg-orange-500 hover:bg-orange-600 text-white hover:text-white"
@@ -887,11 +1060,13 @@ export function NovaTratativaModal({
                 >
                   {isLoading ? "Salvando..." : "Salvar Temporariamente"}
                 </Button>
+                */}
                 <Button 
                   type="submit" 
                   className="bg-black hover:bg-black/90"
-                  onClick={handleSubmit} 
-                  disabled={isLoading || files.length === 0 || !formData.analista}
+                  onClick={handleSubmit}
+
+                  disabled={isLoading}
                 >
                   {isLoading ? "Gerando Tratativa..." : "Gerar Tratativa"}
                 </Button>
@@ -981,6 +1156,32 @@ export function NovaTratativaModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal Fullscreen para Imagem */}
+      {showFullscreen && files.length > 0 && (
+        <Dialog open={showFullscreen} onOpenChange={setShowFullscreen}>
+          <DialogContent className="max-w-fit max-h-[95vh] p-2">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Preview da Imagem</DialogTitle>
+            </DialogHeader>
+            <div className="relative flex items-center justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="absolute top-2 right-2 z-10 bg-white/90 hover:bg-white"
+                onClick={() => setShowFullscreen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <img
+                src={URL.createObjectURL(files[0])}
+                alt="Preview Fullscreen"
+                className="max-w-[90vw] max-h-[calc(90vh-4rem)] object-contain"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }

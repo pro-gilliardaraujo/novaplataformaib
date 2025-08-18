@@ -1,0 +1,5 @@
+[33m217ab1a5[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m enviando alteração que corrige geraçao de p1 com duas folhas
+[33mf3670155[m[33m ([m[1;32mdesenvolvimento[m[33m)[m Atualiza página inicial com novo iframe do Windy e corrige problemas de sessionStorage
+[33m7a8621da[m Fix: removida confirmação duplicada de analista ao gerar tratativa
+[33m62b525c4[m Removido modal de confirmação do analista ao gerar tratativa e tornada seleção de analista opcional
+[33m64a7fed7[m Reduzido altura das linhas da tabela na aba Sem documento de 47px para 46px
