@@ -109,6 +109,9 @@ export function NovaTratativaModal({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [selectedFuncionario, setSelectedFuncionario] = useState<FuncionarioSearchResult | null>(null)
+  
+  // Estado para URLs das imagens
+  const [imageUrls, setImageUrls] = useState<string[]>([])
 
   type FormDataType = {
     numero_tratativa: string
@@ -179,6 +182,13 @@ export function NovaTratativaModal({
       userEmail: user?.email
     })
   }, [formData, user])
+
+  // Cleanup das URLs quando o componente é desmontado
+  useEffect(() => {
+    return () => {
+      imageUrls.forEach(url => URL.revokeObjectURL(url))
+    }
+  }, [imageUrls])
 
   useEffect(() => {
     if (open) {
@@ -343,14 +353,13 @@ export function NovaTratativaModal({
 
 
   const handleRemoveFile = (index: number) => {
-    setFiles((prevFiles) => {
-      const fileToRemove = prevFiles[index]
-      if (fileToRemove) {
-        // Liberar URL object para evitar memory leak
-        URL.revokeObjectURL(URL.createObjectURL(fileToRemove))
-      }
-      return prevFiles.filter((_, i) => i !== index)
-    })
+    // Liberar URL object para evitar memory leak
+    if (imageUrls[index]) {
+      URL.revokeObjectURL(imageUrls[index])
+    }
+    
+    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index))
+    setImageUrls((prevUrls) => prevUrls.filter((_, i) => i !== index))
   }
 
   const handleUploadClick = () => {
@@ -377,8 +386,14 @@ export function NovaTratativaModal({
     if (uploadedFiles && uploadedFiles.length > 0) {
       const imageFile = uploadedFiles[0]
       if (imageFile.type.startsWith("image/")) {
+        // Limpar URLs anteriores
+        imageUrls.forEach(url => URL.revokeObjectURL(url))
+        
+        // Criar nova URL para o arquivo
+        const newUrl = URL.createObjectURL(imageFile)
+        
         setFiles([imageFile])
-
+        setImageUrls([newUrl])
       } else {
         toast({
           title: "Erro",
@@ -387,6 +402,9 @@ export function NovaTratativaModal({
         })
       }
     }
+    
+    // Resetar o input para permitir upload do mesmo arquivo novamente
+    e.target.value = ""
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -401,8 +419,14 @@ export function NovaTratativaModal({
     const imageFile = droppedFiles.find((file) => file.type.startsWith("image/"))
     
     if (imageFile) {
+      // Limpar URLs anteriores
+      imageUrls.forEach(url => URL.revokeObjectURL(url))
+      
+      // Criar nova URL para o arquivo
+      const newUrl = URL.createObjectURL(imageFile)
+      
       setFiles([imageFile])
-
+      setImageUrls([newUrl])
     } else {
       toast({
         title: "Erro",
@@ -757,8 +781,8 @@ export function NovaTratativaModal({
 
   const resetFormAndStates = () => {
     // Limpar URLs de preview para evitar memory leaks
-    files.forEach(file => {
-      URL.revokeObjectURL(URL.createObjectURL(file))
+    imageUrls.forEach(url => {
+      URL.revokeObjectURL(url)
     })
     
     setFormData({
@@ -798,6 +822,7 @@ export function NovaTratativaModal({
     setShowSuggestions(false)
     setSelectedFuncionario(null)
     setIsSearching(false)
+    setImageUrls([])
   }
 
   return (
@@ -1128,7 +1153,7 @@ export function NovaTratativaModal({
                   <div key={index} className="space-y-2">
                     <div className="relative group">
                       <img
-                        src={URL.createObjectURL(file)}
+                        src={imageUrls[index]}
                         alt="Preview"
                         className="w-full max-h-[500px] object-contain rounded-lg border bg-white shadow-sm"
                       />
@@ -1303,7 +1328,7 @@ export function NovaTratativaModal({
                 <X className="h-4 w-4" />
               </Button>
               <img
-                src={URL.createObjectURL(files[0])}
+                src={imageUrls[0]}
                 alt="Preview Fullscreen"
                 className="max-w-[90vw] max-h-[calc(90vh-4rem)] object-contain"
               />
