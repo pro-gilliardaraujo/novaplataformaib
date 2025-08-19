@@ -1196,77 +1196,120 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
                         const resumoElement = document.getElementById('resumo-cav')
                         if (!resumoElement) return
-                        
-                        // Criar um clone oculto que mantém a formatação exata
+
+                        // Criar um clone oculto preservando a estrutura exata
                         const clone = resumoElement.cloneNode(true) as HTMLElement
                         
-                        // Configurar o clone para ser invisível mas manter a formatação exata
+                        // Configurar o clone para ser invisível
                         clone.style.position = 'absolute'
                         clone.style.left = '-9999px'
                         clone.style.top = '-9999px'
-                        clone.style.width = resumoElement.offsetWidth + 'px' // Mesma largura do original
+                        
+                        // Preservar dimensões exatas
+                        const originalWidth = resumoElement.offsetWidth
+                        clone.style.width = originalWidth + 'px'
+                        clone.style.maxWidth = originalWidth + 'px'
+                        
+                        // Preservar estilo visual
                         clone.style.backgroundColor = '#ffffff'
-                        clone.style.padding = window.getComputedStyle(resumoElement).padding
+                        clone.style.boxSizing = 'border-box'
+                        clone.style.overflow = 'visible'
+                        
+                        // Preservar espaçamento
+                        const originalStyle = window.getComputedStyle(resumoElement)
+                        clone.style.padding = originalStyle.padding
                         clone.style.margin = '0'
-                        clone.style.border = window.getComputedStyle(resumoElement).border
-                        clone.style.borderRadius = window.getComputedStyle(resumoElement).borderRadius
-                        clone.style.fontFamily = window.getComputedStyle(resumoElement).fontFamily
-                        clone.style.fontSize = window.getComputedStyle(resumoElement).fontSize
-                        clone.style.lineHeight = window.getComputedStyle(resumoElement).lineHeight
+                        clone.style.border = originalStyle.border
+                        clone.style.borderRadius = originalStyle.borderRadius
+                        
+                        // Preservar tipografia
+                        clone.style.fontFamily = originalStyle.fontFamily
+                        clone.style.fontSize = originalStyle.fontSize
+                        clone.style.lineHeight = originalStyle.lineHeight
+                        clone.style.whiteSpace = originalStyle.whiteSpace
                         
                         // Adicionar o clone ao DOM (invisível)
                         document.body.appendChild(clone)
                         
-                        // Preservar a estrutura interna exata
-                        const originalStyles = new Map<HTMLElement, CSSStyleDeclaration>()
-                        
-                        // Função para copiar estilos computados
-                        const copyComputedStyles = (source: HTMLElement, target: HTMLElement) => {
-                          const sourceStyle = window.getComputedStyle(source)
+                        // Função para preservar layout exato de cada elemento
+                        const preserveExactLayout = (element: HTMLElement) => {
+                          const allElements = element.querySelectorAll('*')
                           
-                          // Preservar os estilos importantes
-                          target.style.display = sourceStyle.display
-                          target.style.padding = sourceStyle.padding
-                          target.style.margin = sourceStyle.margin
-                          target.style.border = sourceStyle.border
-                          target.style.fontFamily = sourceStyle.fontFamily
-                          target.style.fontSize = sourceStyle.fontSize
-                          target.style.fontWeight = sourceStyle.fontWeight
-                          target.style.color = sourceStyle.color
-                          target.style.backgroundColor = sourceStyle.backgroundColor
-                          target.style.textAlign = sourceStyle.textAlign
-                          target.style.lineHeight = sourceStyle.lineHeight
-                          
-                          // Garantir que o conteúdo seja visível
-                          target.style.overflow = 'visible'
-                          target.style.maxHeight = 'none'
-                          target.style.height = 'auto'
+                          allElements.forEach((el) => {
+                            if (el instanceof HTMLElement) {
+                              const originalEl = document.querySelector(`#${resumoElement.id} #${el.id}`) || 
+                                                document.querySelector(`#${resumoElement.id} .${Array.from(el.classList).join('.')}`)
+                              
+                              if (originalEl instanceof HTMLElement) {
+                                const style = window.getComputedStyle(originalEl)
+                                
+                                // Preservar layout
+                                el.style.display = style.display
+                                el.style.position = style.position
+                                el.style.width = style.width
+                                el.style.maxWidth = style.maxWidth
+                                el.style.height = style.height
+                                el.style.maxHeight = 'none'
+                                
+                                // Preservar espaçamento
+                                el.style.margin = style.margin
+                                el.style.padding = style.padding
+                                el.style.boxSizing = 'border-box'
+                                
+                                // Preservar texto
+                                el.style.whiteSpace = style.whiteSpace
+                                el.style.textAlign = style.textAlign
+                                el.style.fontWeight = style.fontWeight
+                                el.style.fontSize = style.fontSize
+                                el.style.lineHeight = style.lineHeight
+                                
+                                // Preservar cores
+                                el.style.color = style.color
+                                el.style.backgroundColor = style.backgroundColor
+                                
+                                // Garantir que o conteúdo seja visível
+                                el.style.overflow = 'visible'
+                              }
+                            }
+                          })
                         }
                         
-                        // Copiar estilos de todos os elementos internos
-                        const originalElements = resumoElement.querySelectorAll('*')
-                        const cloneElements = clone.querySelectorAll('*')
-                        
-                        for (let i = 0; i < Math.min(originalElements.length, cloneElements.length); i++) {
-                          if (originalElements[i] instanceof HTMLElement && cloneElements[i] instanceof HTMLElement) {
-                            copyComputedStyles(originalElements[i] as HTMLElement, cloneElements[i] as HTMLElement)
-                          }
-                        }
+                        // Aplicar preservação de layout
+                        preserveExactLayout(clone)
                         
                         // Importar html2canvas dinamicamente
                         const html2canvas = (await import('html2canvas')).default
                         
                         // Dar tempo para o DOM renderizar completamente
-                        await new Promise(resolve => setTimeout(resolve, 300))
+                        await new Promise(resolve => setTimeout(resolve, 500))
                         
                         try {
-                          // Capturar o clone (invisível)
+                          // Capturar o clone (invisível) com configurações para preservar layout
                           const canvas = await html2canvas(clone, {
                             backgroundColor: '#ffffff',
-                            scale: 2, // Boa resolução sem exagero
+                            scale: 2,
                             useCORS: true,
                             allowTaint: true,
-                            logging: false
+                            logging: false,
+                            width: originalWidth,
+                            windowWidth: originalWidth,
+                            foreignObjectRendering: false, // Melhor compatibilidade
+                            onclone: (doc, elm) => {
+                              // Força layout compacto no clone final
+                              const allElements = elm.querySelectorAll('*')
+                              allElements.forEach(el => {
+                                if (el instanceof HTMLElement) {
+                                  // Prevenir quebras de linha indesejadas
+                                  if (el.style.display !== 'flex' && 
+                                      el.style.display !== 'grid' && 
+                                      !el.style.display.includes('table')) {
+                                    el.style.display = window.getComputedStyle(el).display
+                                  }
+                                  // Garantir que textos não quebrem onde não devem
+                                  el.style.whiteSpace = window.getComputedStyle(el).whiteSpace
+                                }
+                              })
+                            }
                           })
                           
                           // Remover o clone
@@ -1288,12 +1331,63 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                               return
                             }
                             
-                            // Copiar para área de transferência
+                            // Copiar para área de transferência com método alternativo
                             try {
-                              // Criar um item de clipboard com a imagem
-                              const clipboardItem = new ClipboardItem({ 'image/png': blob })
-                              await navigator.clipboard.write([clipboardItem])
-                              console.log("Imagem copiada para a área de transferência")
+                              // Método 1: API Clipboard moderna
+                              if (navigator.clipboard && navigator.clipboard.write) {
+                                const clipboardItem = new ClipboardItem({ 'image/png': blob })
+                                await navigator.clipboard.write([clipboardItem])
+                                console.log("Imagem copiada para clipboard via API moderna")
+                              }
+                              // Método 2: Fallback usando canvas
+                              else {
+                                // Criar uma imagem temporária no DOM
+                                const tempImg = document.createElement('img')
+                                tempImg.src = URL.createObjectURL(blob)
+                                tempImg.style.position = 'absolute'
+                                tempImg.style.left = '-9999px'
+                                tempImg.style.top = '-9999px'
+                                document.body.appendChild(tempImg)
+                                
+                                // Esperar a imagem carregar
+                                await new Promise(resolve => {
+                                  tempImg.onload = resolve
+                                })
+                                
+                                // Tentar usar execCommand (compatibilidade)
+                                const tempCanvas = document.createElement('canvas')
+                                tempCanvas.width = canvas.width
+                                tempCanvas.height = canvas.height
+                                const ctx = tempCanvas.getContext('2d')
+                                if (ctx) {
+                                  ctx.drawImage(tempImg, 0, 0)
+                                  tempCanvas.toBlob(blob => {
+                                    // Forçar foco em um elemento
+                                    tempCanvas.setAttribute('tabindex', '0')
+                                    tempCanvas.focus()
+                                    
+                                    try {
+                                      // Selecionar o canvas
+                                      const range = document.createRange()
+                                      range.selectNode(tempCanvas)
+                                      const selection = window.getSelection()
+                                      if (selection) {
+                                        selection.removeAllRanges()
+                                        selection.addRange(range)
+                                        document.execCommand('copy')
+                                        selection.removeAllRanges()
+                                      }
+                                    } catch (e) {
+                                      console.error("Fallback de clipboard falhou:", e)
+                                    }
+                                    
+                                    // Limpar recursos
+                                    if (tempImg.parentNode) document.body.removeChild(tempImg)
+                                    URL.revokeObjectURL(tempImg.src)
+                                  })
+                                }
+                                console.log("Tentativa de cópia via método alternativo")
+                              }
                               
                               // Notificar o usuário
                               toast({
@@ -1302,6 +1396,10 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                               })
                             } catch (clipboardError) {
                               console.error("Erro ao copiar para clipboard:", clipboardError)
+                              toast({
+                                title: "Atenção",
+                                description: "Não foi possível copiar para a área de transferência, mas o download foi realizado"
+                              })
                             }
                             
                             // Sempre fazer o download também
