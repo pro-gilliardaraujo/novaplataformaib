@@ -8,9 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Plus, Calculator } from "lucide-react"
+import { Trash2, Plus, Calculator, X, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { CavFormData, CavFrotaData, CavTurnoData, FRENTES_CONFIG } from "@/types/cav"
+import { funcionariosService } from "@/services/funcionariosService"
+import { FuncionarioSearchResult } from "@/types/funcionarios"
+import { v4 as uuidv4 } from "uuid"
 
 interface NovoCavModalProps {
   open: boolean
@@ -22,12 +25,18 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   
+  // Data padrão: ontem
+  const getYesterday = () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    return yesterday.toISOString().split('T')[0]
+  }
+
   // Estados do formulário
   const [formData, setFormData] = useState<CavFormData>({
-    data: new Date().toISOString().split('T')[0], // Data atual
-    codigo: "",
+    data: getYesterday(),
     frente: "",
-    lamina_alvo: 2.5, // Valor padrão, usuário pode alterar
+    lamina_alvo: 2.5,
     total_viagens_feitas: 0,
     frotas: []
   })
@@ -36,12 +45,19 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({})
   const [showErrorAnimation, setShowErrorAnimation] = useState(false)
 
+  // Estados para busca de funcionários (por turno)
+  const [funcionarioStates, setFuncionarioStates] = useState<Record<string, {
+    suggestions: FuncionarioSearchResult[]
+    showSuggestions: boolean
+    isSearching: boolean
+    selectedFuncionario: FuncionarioSearchResult | null
+  }>>({})
+
   // Resetar formulário quando modal abre/fecha
   useEffect(() => {
     if (open) {
       setFormData({
-        data: new Date().toISOString().split('T')[0],
-        codigo: "",
+        data: getYesterday(),
         frente: "",
         lamina_alvo: 2.5,
         total_viagens_feitas: 0,
@@ -49,21 +65,22 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
       })
       setFieldErrors({})
       setShowErrorAnimation(false)
+      setFuncionarioStates({})
     }
   }, [open])
 
   // Atualizar frotas quando frente muda
   const handleFrenteChange = (frente: string) => {
     const config = FRENTES_CONFIG.find(f => f.nome === frente)
-    const frotasPadrao = config?.frotas_padrao || 1
+    const frotasPadrao = config?.frotas_padrao || [0]
 
-    // Criar frotas padrão com turnos vazios
-    const novasFrotas: CavFrotaData[] = Array.from({ length: frotasPadrao }, (_, index) => ({
-      frota: 0, // Usuário vai preencher
+    // Criar frotas padrão com turnos A, B, C
+    const novasFrotas: CavFrotaData[] = frotasPadrao.map(numeroFrota => ({
+      frota: numeroFrota,
       turnos: [
-        { turno: 'A', operador: '', producao: 0 },
-        { turno: 'B', operador: '', producao: 0 },
-        { turno: 'C', operador: '', producao: 0 }
+        { id: uuidv4(), turno: 'A', operador: '', producao: 0 },
+        { id: uuidv4(), turno: 'B', operador: '', producao: 0 },
+        { id: uuidv4(), turno: 'C', operador: '', producao: 0 }
       ]
     }))
 
@@ -79,9 +96,9 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     const novaFrota: CavFrotaData = {
       frota: 0,
       turnos: [
-        { turno: 'A', operador: '', producao: 0 },
-        { turno: 'B', operador: '', producao: 0 },
-        { turno: 'C', operador: '', producao: 0 }
+        { id: uuidv4(), turno: 'A', operador: '', producao: 0 },
+        { id: uuidv4(), turno: 'B', operador: '', producao: 0 },
+        { id: uuidv4(), turno: 'C', operador: '', producao: 0 }
       ]
     }
 
@@ -99,6 +116,39 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     }))
   }
 
+  // Adicionar turno a uma frota
+  const adicionarTurno = (frotaIndex: number) => {
+    const novoTurno: CavTurnoData = {
+      id: uuidv4(),
+      turno: 'D', // Padrão para turnos extras
+      operador: '',
+      producao: 0
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      frotas: prev.frotas.map((frota, index) => 
+        index === frotaIndex ? {
+          ...frota,
+          turnos: [...frota.turnos, novoTurno]
+        } : frota
+      )
+    }))
+  }
+
+  // Remover turno
+  const removerTurno = (frotaIndex: number, turnoId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      frotas: prev.frotas.map((frota, index) => 
+        index === frotaIndex ? {
+          ...frota,
+          turnos: frota.turnos.filter(turno => turno.id !== turnoId)
+        } : frota
+      )
+    }))
+  }
+
   // Atualizar dados da frota
   const atualizarFrota = (frotaIndex: number, campo: keyof CavFrotaData, valor: any) => {
     setFormData(prev => ({
@@ -110,18 +160,81 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
   }
 
   // Atualizar dados do turno
-  const atualizarTurno = (frotaIndex: number, turnoIndex: number, campo: keyof CavTurnoData, valor: any) => {
+  const atualizarTurno = (frotaIndex: number, turnoId: string, campo: keyof CavTurnoData, valor: any) => {
     setFormData(prev => ({
       ...prev,
       frotas: prev.frotas.map((frota, fIndex) => 
         fIndex === frotaIndex ? {
           ...frota,
-          turnos: frota.turnos.map((turno, tIndex) => 
-            tIndex === turnoIndex ? { ...turno, [campo]: valor } : turno
+          turnos: frota.turnos.map(turno => 
+            turno.id === turnoId ? { ...turno, [campo]: valor } : turno
           )
         } : frota
       )
     }))
+  }
+
+  // Busca dinâmica de funcionários
+  const handleFuncionarioSearch = async (turnoId: string, query: string) => {
+    if (!query || query.trim().length < 2) {
+      setFuncionarioStates(prev => ({
+        ...prev,
+        [turnoId]: {
+          suggestions: [],
+          showSuggestions: false,
+          isSearching: false,
+          selectedFuncionario: null
+        }
+      }))
+      return
+    }
+
+    setFuncionarioStates(prev => ({
+      ...prev,
+      [turnoId]: {
+        ...prev[turnoId],
+        isSearching: true
+      }
+    }))
+
+    try {
+      const suggestions = await funcionariosService.buscarFuncionarios(query)
+      setFuncionarioStates(prev => ({
+        ...prev,
+        [turnoId]: {
+          suggestions,
+          showSuggestions: suggestions.length > 0,
+          isSearching: false,
+          selectedFuncionario: prev[turnoId]?.selectedFuncionario || null
+        }
+      }))
+    } catch (error) {
+      console.error("Erro ao buscar funcionários:", error)
+      setFuncionarioStates(prev => ({
+        ...prev,
+        [turnoId]: {
+          suggestions: [],
+          showSuggestions: false,
+          isSearching: false,
+          selectedFuncionario: null
+        }
+      }))
+    }
+  }
+
+  // Selecionar funcionário
+  const handleFuncionarioSelect = (frotaIndex: number, turnoId: string, funcionario: FuncionarioSearchResult) => {
+    setFuncionarioStates(prev => ({
+      ...prev,
+      [turnoId]: {
+        ...prev[turnoId],
+        selectedFuncionario: funcionario,
+        showSuggestions: false
+      }
+    }))
+
+    // Atualizar operador no turno
+    atualizarTurno(frotaIndex, turnoId, 'operador', funcionario.nome)
   }
 
   // Calcular totais para preview
@@ -140,7 +253,6 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     const erros: Record<string, boolean> = {}
 
     if (!formData.data) erros.data = true
-    if (!formData.codigo.trim()) erros.codigo = true
     if (!formData.frente) erros.frente = true
     if (formData.lamina_alvo <= 0) erros.lamina_alvo = true
     if (formData.total_viagens_feitas <= 0) erros.total_viagens_feitas = true
@@ -236,8 +348,8 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
         <div className="flex gap-6 flex-1 min-h-0">
           {/* Seção principal - esquerda */}
           <div className="flex-1 flex flex-col space-y-4 min-h-0">
-            {/* Campos principais */}
-            <div className="grid grid-cols-5 gap-4 flex-shrink-0">
+            {/* Campos do cabeçalho */}
+            <div className="grid grid-cols-4 gap-4 flex-shrink-0">
               <div>
                 <Label htmlFor="data">Data</Label>
                 <Input
@@ -251,18 +363,6 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
               </div>
 
               <div>
-                <Label htmlFor="codigo">Código</Label>
-                <Input
-                  id="codigo"
-                  placeholder="12345-6789"
-                  value={formData.codigo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, codigo: e.target.value }))}
-                  className={getErrorClass("codigo")}
-                  required
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="frente">Frente</Label>
                 <Select value={formData.frente} onValueChange={handleFrenteChange} required>
                   <SelectTrigger className={getErrorClass("frente")}>
@@ -271,7 +371,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                   <SelectContent>
                     {FRENTES_CONFIG.map((config) => (
                       <SelectItem key={config.nome} value={config.nome}>
-                        {config.nome} ({config.frotas_padrao} frotas)
+                        {config.nome} ({config.frotas_padrao.length} frotas)
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -293,7 +393,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
               </div>
 
               <div>
-                <Label htmlFor="total_viagens_feitas">Total Viagens Feitas</Label>
+                <Label htmlFor="total_viagens_feitas">Viagens Feitas</Label>
                 <Input
                   id="total_viagens_feitas"
                   type="number"
@@ -311,7 +411,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
             {formData.frente && (
               <div className="flex-1 flex flex-col space-y-4 min-h-0">
                 <div className="flex items-center justify-between flex-shrink-0">
-                  <h3 className="text-lg font-semibold">Frotas da {formData.frente}</h3>
+                  <h3 className="text-lg font-semibold">Dados de Produção</h3>
                   <Button
                     type="button"
                     variant="outline"
@@ -341,15 +441,10 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                     <Card key={frotaIndex} className={`${getErrorClass(`frota_${frotaIndex}`)}`}>
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-base">
-                            Frota {frotaIndex + 1}
-                            {frota.frota > 0 && (
-                              <Badge variant="outline" className="ml-2">
-                                #{frota.frota}
-                              </Badge>
-                            )}
-                          </CardTitle>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
+                            <Label className="text-base font-semibold">
+                              Frota {frotaIndex + 1}
+                            </Label>
                             <Input
                               type="number"
                               placeholder="Número da frota"
@@ -358,6 +453,18 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                               className="w-32"
                               min="1"
                             />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => adicionarTurno(frotaIndex)}
+                              className="flex items-center gap-1"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Turno
+                            </Button>
                             {formData.frotas.length > 1 && (
                               <Button
                                 type="button"
@@ -377,49 +484,174 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                         )}
                       </CardHeader>
                       <CardContent>
-                        {/* Tabela de turnos */}
-                        <div className="grid grid-cols-4 gap-2 mb-2">
-                          <div className="font-semibold text-center">Turno</div>
-                          <div className="font-semibold text-center">Operador</div>
-                          <div className="font-semibold text-center">Produção (ha)</div>
-                          <div className="font-semibold text-center">Total Turno</div>
+                        {/* Cabeçalho da tabela */}
+                        <div className="grid grid-cols-5 gap-2 mb-3 font-semibold text-sm">
+                          <div className="text-center">Turno</div>
+                          <div className="text-center">Operador</div>
+                          <div className="text-center">Produção (ha)</div>
+                          <div className="text-center">Total</div>
+                          <div className="text-center">Ações</div>
                         </div>
                         
-                        {frota.turnos.map((turno, turnoIndex) => (
-                          <div key={turno.turno} className="grid grid-cols-4 gap-2 mb-2">
-                            <div className="flex items-center justify-center">
-                              <Badge variant="outline">{turno.turno}</Badge>
+                        {/* Turnos */}
+                        {frota.turnos.map((turno, turnoIndex) => {
+                          const turnoKey = `${frotaIndex}-${turno.id}`
+                          const funcionarioState = funcionarioStates[turnoKey] || {
+                            suggestions: [],
+                            showSuggestions: false,
+                            isSearching: false,
+                            selectedFuncionario: null
+                          }
+
+                          return (
+                            <div key={turno.id} className="grid grid-cols-5 gap-2 mb-2">
+                              {/* Turno editável */}
+                              <div className="flex items-center justify-center">
+                                <Input
+                                  value={turno.turno}
+                                  onChange={(e) => atualizarTurno(frotaIndex, turno.id, 'turno', e.target.value)}
+                                  className="w-12 text-center font-semibold"
+                                  maxLength={2}
+                                />
+                              </div>
+
+                              {/* Operador com busca dinâmica */}
+                              <div className="relative">
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    placeholder="Digite o nome..."
+                                    value={turno.operador}
+                                    onChange={(e) => {
+                                      atualizarTurno(frotaIndex, turno.id, 'operador', e.target.value)
+                                      handleFuncionarioSearch(turnoKey, e.target.value)
+                                    }}
+                                    onFocus={() => {
+                                      if (turno.operador.length >= 2) {
+                                        setFuncionarioStates(prev => ({
+                                          ...prev,
+                                          [turnoKey]: {
+                                            ...prev[turnoKey],
+                                            showSuggestions: funcionarioState.suggestions.length > 0
+                                          }
+                                        }))
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      setTimeout(() => {
+                                        setFuncionarioStates(prev => ({
+                                          ...prev,
+                                          [turnoKey]: {
+                                            ...prev[turnoKey],
+                                            showSuggestions: false
+                                          }
+                                        }))
+                                      }, 200)
+                                    }}
+                                    className="text-center"
+                                    autoComplete="off"
+                                  />
+
+                                  {/* Botão de limpar */}
+                                  {funcionarioState.selectedFuncionario && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => {
+                                        setFuncionarioStates(prev => ({
+                                          ...prev,
+                                          [turnoKey]: {
+                                            suggestions: [],
+                                            showSuggestions: false,
+                                            isSearching: false,
+                                            selectedFuncionario: null
+                                          }
+                                        }))
+                                        atualizarTurno(frotaIndex, turno.id, 'operador', '')
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
+
+                                  {/* Loading spinner */}
+                                  {funcionarioState.isSearching && (
+                                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                                  )}
+                                </div>
+
+                                {/* Lista de sugestões */}
+                                {funcionarioState.showSuggestions && funcionarioState.suggestions.length > 0 && (
+                                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                                    {funcionarioState.suggestions.map((funcionario) => (
+                                      <button
+                                        key={funcionario.id}
+                                        type="button"
+                                        className="w-full px-3 py-2 text-left hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                                        onClick={() => handleFuncionarioSelect(frotaIndex, turno.id, funcionario)}
+                                      >
+                                        <div className="font-medium">{funcionario.nome}</div>
+                                        <div className="text-sm text-gray-500">{funcionario.funcao} - {funcionario.unidade}</div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Mensagem quando não há resultados */}
+                                {funcionarioState.showSuggestions && funcionarioState.suggestions.length === 0 && turno.operador.length >= 2 && !funcionarioState.isSearching && (
+                                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                    <div className="px-4 py-3 text-gray-500 text-center">
+                                      Nenhum funcionário encontrado
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Produção */}
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="0.00"
+                                value={turno.producao || ""}
+                                onChange={(e) => atualizarTurno(frotaIndex, turno.id, 'producao', Number(e.target.value))}
+                                className="text-center"
+                              />
+
+                              {/* Total */}
+                              <div className="flex items-center justify-center font-mono text-sm">
+                                {turno.producao.toFixed(2)} ha
+                              </div>
+
+                              {/* Ações */}
+                              <div className="flex items-center justify-center">
+                                {frota.turnos.length > 3 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removerTurno(frotaIndex, turno.id)}
+                                    className="h-6 w-6 p-0 text-red-600"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-                            <Input
-                              placeholder="Nome do operador"
-                              value={turno.operador}
-                              onChange={(e) => atualizarTurno(frotaIndex, turnoIndex, 'operador', e.target.value)}
-                              className="text-center"
-                            />
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              placeholder="0.00"
-                              value={turno.producao || ""}
-                              onChange={(e) => atualizarTurno(frotaIndex, turnoIndex, 'producao', Number(e.target.value))}
-                              className="text-center"
-                            />
-                            <div className="flex items-center justify-center font-mono">
-                              {turno.producao.toFixed(2)} ha
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                         
                         {/* Total da frota */}
-                        <div className="border-t pt-2 mt-2">
-                          <div className="grid grid-cols-4 gap-2">
+                        <div className="border-t pt-3 mt-3">
+                          <div className="grid grid-cols-5 gap-2">
                             <div></div>
                             <div></div>
                             <div className="font-semibold text-center">Total Frota:</div>
                             <div className="font-bold text-center text-blue-600">
                               {frota.turnos.reduce((sum, turno) => sum + turno.producao, 0).toFixed(2)} ha
                             </div>
+                            <div></div>
                           </div>
                         </div>
                       </CardContent>

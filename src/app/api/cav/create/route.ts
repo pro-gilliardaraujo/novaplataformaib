@@ -8,8 +8,13 @@ export async function POST(request: NextRequest) {
 
     console.log("Recebendo dados do CAV:", formData)
 
+    // Gerar código automaticamente baseado na data e frente
+    const dataFormatada = formData.data.replace(/-/g, '')
+    const frenteSlug = formData.frente.toLowerCase().replace(/\s+/g, '-')
+    const codigo = `${dataFormatada}-${frenteSlug}`
+
     // Validações básicas
-    if (!formData.data || !formData.codigo || !formData.frente || !formData.frotas?.length) {
+    if (!formData.data || !formData.frente || !formData.frotas?.length) {
       return NextResponse.json(
         { error: "Dados obrigatórios não informados" },
         { status: 400 }
@@ -28,7 +33,7 @@ export async function POST(request: NextRequest) {
         if (turnoData.producao > 0 || turnoData.operador !== "Não Op.") {
           dadosGranulares.push({
             data: formData.data,
-            codigo: formData.codigo,
+            codigo: codigo,
             frente: formData.frente,
             frota: frotaData.frota,
             turno: turnoData.turno,
@@ -65,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     const dadosAgregados: Omit<BoletimCavAgregado, 'id' | 'created_at' | 'updated_at'> = {
       data: formData.data,
-      codigo: formData.codigo,
+      codigo: codigo,
       frente: formData.frente,
       total_producao: Number(total_producao.toFixed(2)),
       total_viagens_feitas: Number(total_viagens_feitas.toFixed(2)),

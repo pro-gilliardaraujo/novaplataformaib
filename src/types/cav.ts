@@ -33,7 +33,6 @@ export interface BoletimCavAgregado {
 // Interface para o formulário frontend
 export interface CavFormData {
   data: string
-  codigo: string
   frente: string
   lamina_alvo: number // Usuário informa este valor
   total_viagens_feitas: number // Usuário informa este valor
@@ -46,21 +45,23 @@ export interface CavFrotaData {
 }
 
 export interface CavTurnoData {
-  turno: 'A' | 'B' | 'C'
+  id: string // UUID para identificar turnos únicos
+  turno: string // Pode ser A, B, C ou customizado
   operador: string
   producao: number
 }
 
-// Configurações de frentes (apenas quantidade padrão de frotas)
+// Configurações de frentes com frotas padrão
 export interface FrenteConfig {
   nome: string
-  frotas_padrao: number
+  frotas_padrao: number[]
 }
 
 export const FRENTES_CONFIG: FrenteConfig[] = [
-  { nome: "Frente 1", frotas_padrao: 2 },
-  { nome: "Frente 4", frotas_padrao: 1 },
-  { nome: "Ouroeste", frotas_padrao: 2 },
-  { nome: "Frente 2", frotas_padrao: 2 },
-  { nome: "Frente 3", frotas_padrao: 2 }
+  { nome: "Frente 1", frotas_padrao: [6127, 6130] },
+  { nome: "Frente 2", frotas_padrao: [6131, 6132] },
+  { nome: "Frente 3", frotas_padrao: [6125, 6134] },
+  { nome: "Frente 4", frotas_padrao: [6114] },
+  { nome: "Iturama", frotas_padrao: [6144] },
+  { nome: "Ouroeste", frotas_padrao: [6137, 6138] }
 ]
