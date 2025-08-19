@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { CavFormData, CavFrotaData, CavTurnoData, FRENTES_CONFIG } from "@/types/cav"
 import { funcionariosService } from "@/services/funcionariosService"
 import { FuncionarioSearchResult } from "@/types/funcionarios"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { v4 as uuidv4 } from "uuid"
 
 interface NovoCavModalProps {
@@ -36,7 +37,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
   const [formData, setFormData] = useState<CavFormData>({
     data: getYesterday(),
     frente: "",
-    lamina_alvo: 2.5,
+    lamina_alvo: 0,
     total_viagens_feitas: 0,
     frotas: []
   })
@@ -53,16 +54,30 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     selectedFuncionario: FuncionarioSearchResult | null
   }>>({})
 
+  // Estados para confirmação de exclusão
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    type: 'frota' | 'turno'
+    frotaIndex?: number
+    turnoId?: string
+    frotaNumero?: number
+  }>({
+    open: false,
+    type: 'frota'
+  })
+
   // Resetar formulário quando modal abre/fecha
   useEffect(() => {
     if (open) {
-      setFormData({
+      const newFormData = {
         data: getYesterday(),
         frente: "",
-        lamina_alvo: 2.5,
+        lamina_alvo: 0,
         total_viagens_feitas: 0,
         frotas: []
-      })
+      }
+      console.log("Resetando formulário com lamina_alvo:", newFormData.lamina_alvo)
+      setFormData(newFormData)
       setFieldErrors({})
       setShowErrorAnimation(false)
       setFuncionarioStates({})
@@ -108,12 +123,26 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     }))
   }
 
+  // Confirmar remoção de frota
+  const confirmarRemoverFrota = (index: number) => {
+    const frota = formData.frotas[index]
+    setDeleteDialog({
+      open: true,
+      type: 'frota',
+      frotaIndex: index,
+      frotaNumero: frota.frota
+    })
+  }
+
   // Remover frota
-  const removerFrota = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      frotas: prev.frotas.filter((_, i) => i !== index)
-    }))
+  const removerFrota = () => {
+    if (deleteDialog.frotaIndex !== undefined) {
+      setFormData(prev => ({
+        ...prev,
+        frotas: prev.frotas.filter((_, i) => i !== deleteDialog.frotaIndex)
+      }))
+    }
+    setDeleteDialog({ open: false, type: 'frota' })
   }
 
   // Adicionar turno a uma frota
@@ -136,17 +165,33 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     }))
   }
 
+  // Confirmar remoção de turno
+  const confirmarRemoverTurno = (frotaIndex: number, turnoId: string) => {
+    const frota = formData.frotas[frotaIndex]
+    const turno = frota.turnos.find(t => t.id === turnoId)
+    setDeleteDialog({
+      open: true,
+      type: 'turno',
+      frotaIndex,
+      turnoId,
+      frotaNumero: frota.frota
+    })
+  }
+
   // Remover turno
-  const removerTurno = (frotaIndex: number, turnoId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      frotas: prev.frotas.map((frota, index) => 
-        index === frotaIndex ? {
-          ...frota,
-          turnos: frota.turnos.filter(turno => turno.id !== turnoId)
-        } : frota
-      )
-    }))
+  const removerTurno = () => {
+    if (deleteDialog.frotaIndex !== undefined && deleteDialog.turnoId) {
+      setFormData(prev => ({
+        ...prev,
+        frotas: prev.frotas.map((frota, index) => 
+          index === deleteDialog.frotaIndex ? {
+            ...frota,
+            turnos: frota.turnos.filter(turno => turno.id !== deleteDialog.turnoId)
+          } : frota
+        )
+      }))
+    }
+    setDeleteDialog({ open: false, type: 'turno' })
   }
 
   // Atualizar dados da frota
@@ -340,16 +385,16 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-3">
+        <DialogHeader className="flex-shrink-0 pb-1">
           <DialogTitle>Novo Boletim CAV</DialogTitle>
         </DialogHeader>
 
-        <div className="flex gap-6 flex-1 min-h-0">
+        <div className="flex gap-3 flex-1 min-h-0">
           {/* Seção principal - esquerda */}
-          <div className="flex-1 flex flex-col space-y-4 min-h-0">
+          <div className="flex-1 flex flex-col space-y-2 min-h-0">
             {/* Campos do cabeçalho */}
-            <div className="grid grid-cols-4 gap-4 flex-shrink-0">
+            <div className="grid grid-cols-4 gap-2 flex-shrink-0">
               <div>
                 <Label htmlFor="data">Data</Label>
                 <Input
@@ -371,7 +416,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                   <SelectContent>
                     {FRENTES_CONFIG.map((config) => (
                       <SelectItem key={config.nome} value={config.nome}>
-                        {config.nome} ({config.frotas_padrao.length} frotas)
+                        {config.nome}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -409,7 +454,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
             {/* Seção de Frotas */}
             {formData.frente && (
-              <div className="flex-1 flex flex-col space-y-4 min-h-0">
+              <div className="flex-1 flex flex-col space-y-2 min-h-0">
                 <div className="flex items-center justify-between flex-shrink-0">
                   <h3 className="text-lg font-semibold">Dados de Produção</h3>
                   <Button
@@ -436,12 +481,12 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                   </div>
                 )}
 
-                <div className="space-y-4 overflow-y-auto flex-1">
+                <div className="space-y-2 overflow-y-auto flex-1">
                   {formData.frotas.map((frota, frotaIndex) => (
                     <Card key={frotaIndex} className={`${getErrorClass(`frota_${frotaIndex}`)}`}>
-                      <CardContent className="pt-4">
+                      <CardContent className="pt-2 pb-2">
                         {/* Cabeçalho da frota integrado com os inputs */}
-                        <div className="grid grid-cols-4 gap-2 mb-3">
+                        <div className="grid grid-cols-[auto_1.5fr_1fr_auto] gap-2 mb-1">
                           {/* Coluna 1: Label + Input da Frota */}
                           <div className="flex items-center gap-2">
                             <Label className="text-sm font-semibold whitespace-nowrap">
@@ -457,12 +502,12 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                             />
                           </div>
 
-                          {/* Coluna 2: Label Operador */}
+                          {/* Coluna 2: Label Operador (50% maior) */}
                           <div className="text-center font-semibold text-sm">
                             Operador
                           </div>
 
-                          {/* Coluna 3: Label Produção */}
+                          {/* Coluna 3: Label Produção (50% menor) */}
                           <div className="text-center font-semibold text-sm">
                             Produção (ha)
                           </div>
@@ -484,17 +529,17 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                                 type="button"
                                 variant="destructive"
                                 size="sm"
-                                onClick={() => removerFrota(frotaIndex)}
+                                onClick={() => confirmarRemoverFrota(frotaIndex)}
                                 className="px-2 py-1"
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
                           </div>
                         </div>
 
                         {fieldErrors[`frota_${frotaIndex}_sem_producao`] && (
-                          <div className="text-red-500 text-sm mb-3">
+                          <div className="text-red-500 text-sm mb-1">
                             Pelo menos um turno deve ter produção maior que 0
                           </div>
                         )}
@@ -510,7 +555,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                           }
 
                           return (
-                            <div key={turno.id} className="grid grid-cols-4 gap-2 mb-2">
+                            <div key={turno.id} className="grid grid-cols-[auto_1.5fr_1fr_auto] gap-2 mb-1">
                               {/* Turno selecionável - alinhado com label da frota */}
                               <div className="flex items-center justify-start pl-2">
                                 <Select
@@ -642,7 +687,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => removerTurno(frotaIndex, turno.id)}
+                                    onClick={() => confirmarRemoverTurno(frotaIndex, turno.id)}
                                     className="h-6 w-6 p-0 text-red-600"
                                   >
                                     <Trash2 className="h-3 w-3" />
@@ -654,10 +699,10 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                         })}
                         
                         {/* Total da frota */}
-                        <div className="border-t pt-3 mt-3">
-                          <div className="grid grid-cols-4 gap-2">
+                        <div className="border-t pt-1 mt-1">
+                          <div className="grid grid-cols-[auto_1.5fr_1fr_auto] gap-2">
                             <div></div>
-                            <div className="font-semibold text-center">Total Frota:</div>
+                            <div className="font-semibold text-center text-sm">Total Frota:</div>
                             <div className="font-bold text-center text-blue-600">
                               {frota.turnos.reduce((sum, turno) => sum + turno.producao, 0).toFixed(2)} ha
                             </div>
@@ -672,7 +717,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
             )}
 
             {/* Botões */}
-            <div className="flex justify-end gap-3 pt-4 border-t flex-shrink-0">
+            <div className="flex justify-end gap-3 pt-2 border-t flex-shrink-0">
               <Button
                 type="button"
                 variant="outline"
@@ -694,78 +739,113 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
           {/* Resumo parcial - direita */}
           {formData.frente && (
-            <div className="w-80 flex-shrink-0">
-              <Card className="bg-blue-50 h-full flex flex-col">
+            <div className="w-80 flex-shrink-0 flex flex-col max-h-full">
+              <Card className="bg-blue-50 flex-1 flex flex-col min-h-0">
                 <CardHeader className="pb-3 flex-shrink-0">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Calculator className="h-5 w-5" />
                     Resumo Parcial
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col space-y-4">
-                  {/* Valores principais */}
-                  <div className="space-y-3">
-                    <div className="text-center p-4 bg-white rounded-lg">
-                      <div className="text-3xl font-bold text-blue-600">{totalFrotas}</div>
-                      <div className="text-sm text-gray-600 font-medium">Frotas</div>
-                    </div>
+                <CardContent className="flex-1 flex flex-col space-y-3 min-h-0">
+                  {/* Resumo em formato texto */}
+                  <div className="bg-white p-3 rounded-lg border font-mono text-xs leading-relaxed select-all flex-1 overflow-y-auto">
+                    <div className="font-bold text-center mb-2 text-sm">📋 BOLETIM CAV</div>
                     
-                    <div className="text-center p-4 bg-white rounded-lg">
-                      <div className="text-3xl font-bold text-green-600">{totalProducao.toFixed(2)}</div>
-                      <div className="text-sm text-gray-600 font-medium">Hectares Aplicados</div>
+                    {/* Cabeçalho */}
+                    <div className="mb-2">
+                      <strong>📅 Data:</strong> {new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR')}<br/>
+                      <strong>🏭 Frente:</strong> {formData.frente}<br/>
+                      <strong>💧 Lâmina Alvo:</strong> {formData.lamina_alvo} mm
                     </div>
-                    
-                    <div className="text-center p-4 bg-white rounded-lg">
-                      <div className="text-3xl font-bold text-purple-600">{formData.lamina_alvo}</div>
-                      <div className="text-sm text-gray-600 font-medium">Lâmina Alvo</div>
+
+                    {/* Frotas */}
+                    {formData.frotas.map((frota, index) => {
+                      const totalFrota = frota.turnos.reduce((sum, turno) => sum + turno.producao, 0)
+                      return (
+                        <div key={index} className="mb-2 border-l-2 border-blue-300 pl-2">
+                          <strong>🚜 Frota {frota.frota}:</strong><br/>
+                          {frota.turnos.map((turno, tIndex) => (
+                            turno.producao > 0 && (
+                              <div key={tIndex} className="ml-2">
+                                • Turno {turno.turno}: {turno.operador} - {turno.producao.toFixed(2)} ha<br/>
+                              </div>
+                            )
+                          ))}
+                          <div className="ml-2 font-semibold text-blue-600">
+                            📊 Total Frota: {totalFrota.toFixed(2)} ha
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Total Geral */}
+                    <div className="border-t pt-2 mt-2">
+                      <strong className="text-green-600">🎯 TOTAL GERAL: {totalProducao.toFixed(2)} ha</strong>
                     </div>
-                    
-                    <div className="text-center p-4 bg-white rounded-lg">
-                      <div className="text-3xl font-bold text-orange-600">{formData.total_viagens_feitas}</div>
-                      <div className="text-sm text-gray-600 font-medium">Viagens Feitas</div>
-                    </div>
+
+                    {/* Cálculos */}
+                    {totalProducao > 0 && formData.total_viagens_feitas > 0 && formData.lamina_alvo > 0 && (
+                      <div className="border-t pt-2 mt-2">
+                        <div className="font-bold mb-1">📈 ANÁLISE:</div>
+                        
+                        {/* Lâminas */}
+                        <div className="mb-1">
+                          <strong>Lâmina Orçada:</strong> {formData.lamina_alvo} mm<br/>
+                          <strong>Lâmina Aplicada:</strong> {((formData.total_viagens_feitas * 60) / totalProducao).toFixed(2)} mm<br/>
+                          <strong>Diferença:</strong> {(((formData.total_viagens_feitas * 60) / totalProducao) - formData.lamina_alvo).toFixed(2)} mm ({((1 - formData.lamina_alvo / ((formData.total_viagens_feitas * 60) / totalProducao)) * 100).toFixed(1)}%)
+                        </div>
+                        
+                        {/* Viagens */}
+                        <div>
+                          <strong>Viagens Orçadas:</strong> {((totalProducao * formData.lamina_alvo) / 60).toFixed(2)}<br/>
+                          <strong>Viagens Feitas:</strong> {formData.total_viagens_feitas}<br/>
+                          <strong>Diferença:</strong> {(formData.total_viagens_feitas - ((totalProducao * formData.lamina_alvo) / 60)).toFixed(2)} ({((1 - ((totalProducao * formData.lamina_alvo) / 60) / formData.total_viagens_feitas) * 100).toFixed(1)}%)
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Cálculos de preview */}
-                  {totalProducao > 0 && formData.total_viagens_feitas > 0 && (
-                    <div className="border-t pt-4 space-y-3 flex-1">
-                      <h4 className="font-semibold text-center">Cálculos Preview</h4>
-                      
-                      <div className="text-center p-3 bg-white rounded-lg border">
-                        <div className="text-lg font-bold text-indigo-600">
-                          {((totalProducao * formData.lamina_alvo) / 60).toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-600">Viagens Orçadas</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-white rounded-lg border">
-                        <div className="text-lg font-bold text-teal-600">
-                          {((formData.total_viagens_feitas * 60) / totalProducao).toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-600">Lâmina Aplicada</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-white rounded-lg border">
-                        <div className="text-lg font-bold text-red-600">
-                          {((1 - ((totalProducao * formData.lamina_alvo) / 60) / formData.total_viagens_feitas) * 100).toFixed(1)}%
-                        </div>
-                        <div className="text-xs text-gray-600">Dif. Viagens %</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-white rounded-lg border">
-                        <div className="text-lg font-bold text-amber-600">
-                          {((1 - formData.lamina_alvo / ((formData.total_viagens_feitas * 60) / totalProducao)) * 100).toFixed(1)}%
-                        </div>
-                        <div className="text-xs text-gray-600">Dif. Lâmina %</div>
-                      </div>
-                    </div>
-                  )}
+                  {/* Botão para copiar */}
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      const resumoElement = document.querySelector('.select-all')
+                      if (resumoElement) {
+                        navigator.clipboard.writeText(resumoElement.textContent || '')
+                        toast({
+                          title: "Copiado!",
+                          description: "Resumo copiado para a área de transferência",
+                        })
+                      }
+                    }}
+                    className="w-full"
+                  >
+                    📋 Copiar Resumo
+                  </Button>
                 </CardContent>
               </Card>
             </div>
           )}
         </div>
       </DialogContent>
+
+      {/* Modal de confirmação de exclusão */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog(prev => ({ ...prev, open }))}
+        title={deleteDialog.type === 'frota' ? 'Excluir Frota' : 'Excluir Turno'}
+        description={
+          deleteDialog.type === 'frota' 
+            ? `Tem certeza que deseja excluir a Frota ${deleteDialog.frotaNumero || ''}? Todos os turnos desta frota serão removidos.`
+            : `Tem certeza que deseja excluir este turno da Frota ${deleteDialog.frotaNumero || ''}?`
+        }
+        onConfirm={deleteDialog.type === 'frota' ? removerFrota : removerTurno}
+        confirmText="Excluir"
+        variant="destructive"
+      />
     </Dialog>
   )
 }
