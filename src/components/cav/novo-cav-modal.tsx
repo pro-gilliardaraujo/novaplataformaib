@@ -1190,42 +1190,66 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                       try {
                         const resumoElement = document.getElementById('resumo-cav')
                         if (resumoElement) {
+                          // Mostrar toast de processamento
+                          toast({
+                            title: "Processando...",
+                            description: "Capturando o resumo completo",
+                          })
+                          
                           // Salvar estado original
                           const originalScrollTop = resumoElement.scrollTop
                           const originalOverflow = resumoElement.style.overflow
                           const originalHeight = resumoElement.style.height
                           const originalMaxHeight = resumoElement.style.maxHeight
+                          const originalPosition = resumoElement.style.position
+                          const originalZIndex = resumoElement.style.zIndex
+                          const originalTop = resumoElement.style.top
+                          const originalLeft = resumoElement.style.left
+                          const originalTransform = resumoElement.style.transform
                           
-                          // Remover scroll temporariamente para capturar todo o conteúdo
-                          resumoElement.style.overflow = 'visible'
-                          resumoElement.style.height = 'auto'
-                          resumoElement.style.maxHeight = 'none'
-                          resumoElement.scrollTop = 0
+                          // Criar um clone para capturar
+                          const clone = resumoElement.cloneNode(true) as HTMLElement
+                          document.body.appendChild(clone)
+                          
+                          // Estilizar o clone para captura completa
+                          clone.style.position = 'absolute'
+                          clone.style.top = '0'
+                          clone.style.left = '0'
+                          clone.style.transform = 'none'
+                          clone.style.width = resumoElement.scrollWidth + 'px'
+                          clone.style.height = 'auto'
+                          clone.style.maxHeight = 'none'
+                          clone.style.overflow = 'visible'
+                          clone.style.zIndex = '-9999'
+                          clone.style.opacity = '0'
                           
                           // Importar html2canvas dinamicamente
                           const html2canvas = (await import('html2canvas')).default
                           
-                          const canvas = await html2canvas(resumoElement, {
+                          // Dar tempo para o DOM renderizar completamente
+                          await new Promise(resolve => setTimeout(resolve, 100))
+                          
+                          // Capturar o clone
+                          const canvas = await html2canvas(clone, {
                             backgroundColor: '#ffffff',
                             scale: 2,
                             useCORS: true,
                             allowTaint: true,
-                            height: resumoElement.scrollHeight,
-                            width: resumoElement.scrollWidth,
-                            scrollX: 0,
-                            scrollY: 0
+                            logging: false,
+                            windowWidth: document.documentElement.offsetWidth,
+                            windowHeight: document.documentElement.offsetHeight,
+                            width: clone.scrollWidth,
+                            height: clone.scrollHeight
                           })
                           
-                          // Restaurar estado original
-                          resumoElement.style.overflow = originalOverflow
-                          resumoElement.style.height = originalHeight
-                          resumoElement.style.maxHeight = originalMaxHeight
-                          resumoElement.scrollTop = originalScrollTop
+                          // Remover o clone
+                          document.body.removeChild(clone)
                           
-                          // Converter para blob
+                          // Converter para blob com melhor qualidade
                           canvas.toBlob(async (blob) => {
                             if (blob) {
                               try {
+                                // Tentar copiar para a área de transferência
                                 await navigator.clipboard.write([
                                   new ClipboardItem({ 'image/png': blob })
                                 ])
@@ -1234,7 +1258,8 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                                   description: "Resumo completo copiado como PNG",
                                 })
                               } catch (err) {
-                                // Fallback: download da imagem
+                                console.log("Erro ao copiar para clipboard, fazendo download:", err)
+                                // Fallback: sempre fazer download também
                                 const url = URL.createObjectURL(blob)
                                 const link = document.createElement('a')
                                 link.href = url
@@ -1248,7 +1273,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                                 })
                               }
                             }
-                          }, 'image/png')
+                          }, 'image/png', 1.0) // Qualidade máxima
                         }
                       } catch (error) {
                         console.error('Erro ao copiar como PNG:', error)
