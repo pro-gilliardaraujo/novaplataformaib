@@ -439,26 +439,42 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                 <div className="space-y-4 overflow-y-auto flex-1">
                   {formData.frotas.map((frota, frotaIndex) => (
                     <Card key={frotaIndex} className={`${getErrorClass(`frota_${frotaIndex}`)}`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center gap-4">
-                          <Label className="text-base font-semibold whitespace-nowrap">
-                            Frota {frotaIndex + 1}
-                          </Label>
-                          <Input
-                            type="number"
-                            placeholder="Número da frota"
-                            value={frota.frota || ""}
-                            onChange={(e) => atualizarFrota(frotaIndex, 'frota', Number(e.target.value))}
-                            className="w-32"
-                            min="1"
-                          />
-                          <div className="flex items-center gap-2 ml-auto">
+                      <CardContent className="pt-4">
+                        {/* Cabeçalho da frota integrado com os inputs */}
+                        <div className="grid grid-cols-4 gap-2 mb-3">
+                          {/* Coluna 1: Label + Input da Frota */}
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm font-semibold whitespace-nowrap">
+                              Frota {frotaIndex + 1}:
+                            </Label>
+                            <Input
+                              type="number"
+                              placeholder="Número"
+                              value={frota.frota || ""}
+                              onChange={(e) => atualizarFrota(frotaIndex, 'frota', Number(e.target.value))}
+                              className="w-20 text-center font-semibold"
+                              min="1"
+                            />
+                          </div>
+
+                          {/* Coluna 2: Label Operador */}
+                          <div className="text-center font-semibold text-sm">
+                            Operador
+                          </div>
+
+                          {/* Coluna 3: Label Produção */}
+                          <div className="text-center font-semibold text-sm">
+                            Produção (ha)
+                          </div>
+
+                          {/* Coluna 4: Botões */}
+                          <div className="flex items-center justify-center gap-1">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => adicionarTurno(frotaIndex)}
-                              className="flex items-center gap-1"
+                              className="flex items-center gap-1 text-xs px-2 py-1"
                             >
                               <Plus className="h-3 w-3" />
                               Turno
@@ -469,26 +485,19 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                                 variant="destructive"
                                 size="sm"
                                 onClick={() => removerFrota(frotaIndex)}
+                                className="px-2 py-1"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             )}
                           </div>
                         </div>
+
                         {fieldErrors[`frota_${frotaIndex}_sem_producao`] && (
-                          <div className="text-red-500 text-sm">
+                          <div className="text-red-500 text-sm mb-3">
                             Pelo menos um turno deve ter produção maior que 0
                           </div>
                         )}
-                      </CardHeader>
-                      <CardContent>
-                        {/* Cabeçalho da tabela */}
-                        <div className="grid grid-cols-4 gap-2 mb-3 font-semibold text-sm">
-                          <div className="text-center">Turno</div>
-                          <div className="text-center">Operador</div>
-                          <div className="text-center">Produção (ha)</div>
-                          <div className="text-center">Ações</div>
-                        </div>
                         
                         {/* Turnos */}
                         {frota.turnos.map((turno, turnoIndex) => {
@@ -502,8 +511,8 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
                           return (
                             <div key={turno.id} className="grid grid-cols-4 gap-2 mb-2">
-                              {/* Turno selecionável */}
-                              <div className="flex items-center justify-center">
+                              {/* Turno selecionável - alinhado com label da frota */}
+                              <div className="flex items-center justify-start pl-2">
                                 <Select
                                   value={turno.turno}
                                   onValueChange={(value) => atualizarTurno(frotaIndex, turno.id, 'turno', value)}
@@ -662,81 +671,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
               </div>
             )}
 
-            {/* Resumo parcial - dentro do container principal */}
-            {formData.frente && (
-              <div className="flex-shrink-0 mt-4">
-                <Card className="bg-blue-50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Calculator className="h-5 w-5" />
-                      Resumo Parcial
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Valores principais em linha */}
-                    <div className="grid grid-cols-4 gap-4 mb-4">
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">{totalFrotas}</div>
-                        <div className="text-xs text-gray-600 font-medium">Frotas</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">{totalProducao.toFixed(2)}</div>
-                        <div className="text-xs text-gray-600 font-medium">Hectares Aplicados</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-2xl font-bold text-purple-600">{formData.lamina_alvo}</div>
-                        <div className="text-xs text-gray-600 font-medium">Lâmina Alvo</div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <div className="text-2xl font-bold text-orange-600">{formData.total_viagens_feitas}</div>
-                        <div className="text-xs text-gray-600 font-medium">Viagens Feitas</div>
-                      </div>
-                    </div>
-
-                    {/* Cálculos de preview em linha */}
-                    {totalProducao > 0 && formData.total_viagens_feitas > 0 && (
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold text-center mb-3">Cálculos Preview</h4>
-                        <div className="grid grid-cols-4 gap-4">
-                          <div className="text-center p-3 bg-white rounded-lg border">
-                            <div className="text-lg font-bold text-indigo-600">
-                              {((totalProducao * formData.lamina_alvo) / 60).toFixed(2)}
-                            </div>
-                            <div className="text-xs text-gray-600">Viagens Orçadas</div>
-                          </div>
-                          
-                          <div className="text-center p-3 bg-white rounded-lg border">
-                            <div className="text-lg font-bold text-teal-600">
-                              {((formData.total_viagens_feitas * 60) / totalProducao).toFixed(2)}
-                            </div>
-                            <div className="text-xs text-gray-600">Lâmina Aplicada</div>
-                          </div>
-                          
-                          <div className="text-center p-3 bg-white rounded-lg border">
-                            <div className="text-lg font-bold text-red-600">
-                              {((1 - ((totalProducao * formData.lamina_alvo) / 60) / formData.total_viagens_feitas) * 100).toFixed(1)}%
-                            </div>
-                            <div className="text-xs text-gray-600">Dif. Viagens %</div>
-                          </div>
-                          
-                          <div className="text-center p-3 bg-white rounded-lg border">
-                            <div className="text-lg font-bold text-amber-600">
-                              {((1 - formData.lamina_alvo / ((formData.total_viagens_feitas * 60) / totalProducao)) * 100).toFixed(1)}%
-                            </div>
-                            <div className="text-xs text-gray-600">Dif. Lâmina %</div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Botões na extrema direita */}
+            {/* Botões */}
             <div className="flex justify-end gap-3 pt-4 border-t flex-shrink-0">
               <Button
                 type="button"
@@ -756,6 +691,79 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
               </Button>
             </div>
           </div>
+
+          {/* Resumo parcial - direita */}
+          {formData.frente && (
+            <div className="w-80 flex-shrink-0">
+              <Card className="bg-blue-50 h-full flex flex-col">
+                <CardHeader className="pb-3 flex-shrink-0">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Calculator className="h-5 w-5" />
+                    Resumo Parcial
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col space-y-4">
+                  {/* Valores principais */}
+                  <div className="space-y-3">
+                    <div className="text-center p-4 bg-white rounded-lg">
+                      <div className="text-3xl font-bold text-blue-600">{totalFrotas}</div>
+                      <div className="text-sm text-gray-600 font-medium">Frotas</div>
+                    </div>
+                    
+                    <div className="text-center p-4 bg-white rounded-lg">
+                      <div className="text-3xl font-bold text-green-600">{totalProducao.toFixed(2)}</div>
+                      <div className="text-sm text-gray-600 font-medium">Hectares Aplicados</div>
+                    </div>
+                    
+                    <div className="text-center p-4 bg-white rounded-lg">
+                      <div className="text-3xl font-bold text-purple-600">{formData.lamina_alvo}</div>
+                      <div className="text-sm text-gray-600 font-medium">Lâmina Alvo</div>
+                    </div>
+                    
+                    <div className="text-center p-4 bg-white rounded-lg">
+                      <div className="text-3xl font-bold text-orange-600">{formData.total_viagens_feitas}</div>
+                      <div className="text-sm text-gray-600 font-medium">Viagens Feitas</div>
+                    </div>
+                  </div>
+
+                  {/* Cálculos de preview */}
+                  {totalProducao > 0 && formData.total_viagens_feitas > 0 && (
+                    <div className="border-t pt-4 space-y-3 flex-1">
+                      <h4 className="font-semibold text-center">Cálculos Preview</h4>
+                      
+                      <div className="text-center p-3 bg-white rounded-lg border">
+                        <div className="text-lg font-bold text-indigo-600">
+                          {((totalProducao * formData.lamina_alvo) / 60).toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-600">Viagens Orçadas</div>
+                      </div>
+                      
+                      <div className="text-center p-3 bg-white rounded-lg border">
+                        <div className="text-lg font-bold text-teal-600">
+                          {((formData.total_viagens_feitas * 60) / totalProducao).toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-600">Lâmina Aplicada</div>
+                      </div>
+                      
+                      <div className="text-center p-3 bg-white rounded-lg border">
+                        <div className="text-lg font-bold text-red-600">
+                          {((1 - ((totalProducao * formData.lamina_alvo) / 60) / formData.total_viagens_feitas) * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-600">Dif. Viagens %</div>
+                      </div>
+                      
+                      <div className="text-center p-3 bg-white rounded-lg border">
+                        <div className="text-lg font-bold text-amber-600">
+                          {((1 - formData.lamina_alvo / ((formData.total_viagens_feitas * 60) / totalProducao)) * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-600">Dif. Lâmina %</div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
