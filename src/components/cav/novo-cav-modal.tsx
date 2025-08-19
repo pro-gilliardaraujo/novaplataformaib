@@ -1194,126 +1194,98 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                           description: "Capturando o resumo completo",
                         })
 
+                        // Abordagem alternativa: capturar diretamente o elemento original
                         const resumoElement = document.getElementById('resumo-cav')
                         if (!resumoElement) return
-
-                        // Criar um clone oculto preservando a estrutura exata
-                        const clone = resumoElement.cloneNode(true) as HTMLElement
-                        
-                        // Configurar o clone para ser invisível
-                        clone.style.position = 'absolute'
-                        clone.style.left = '-9999px'
-                        clone.style.top = '-9999px'
-                        
-                        // Preservar dimensões exatas
-                        const originalWidth = resumoElement.offsetWidth
-                        clone.style.width = originalWidth + 'px'
-                        clone.style.maxWidth = originalWidth + 'px'
-                        
-                        // Preservar estilo visual
-                        clone.style.backgroundColor = '#ffffff'
-                        clone.style.boxSizing = 'border-box'
-                        clone.style.overflow = 'visible'
-                        
-                        // Preservar espaçamento
-                        const originalStyle = window.getComputedStyle(resumoElement)
-                        clone.style.padding = originalStyle.padding
-                        clone.style.margin = '0'
-                        clone.style.border = originalStyle.border
-                        clone.style.borderRadius = originalStyle.borderRadius
-                        
-                        // Preservar tipografia
-                        clone.style.fontFamily = originalStyle.fontFamily
-                        clone.style.fontSize = originalStyle.fontSize
-                        clone.style.lineHeight = originalStyle.lineHeight
-                        clone.style.whiteSpace = originalStyle.whiteSpace
-                        
-                        // Adicionar o clone ao DOM (invisível)
-                        document.body.appendChild(clone)
-                        
-                        // Função para preservar layout exato de cada elemento
-                        const preserveExactLayout = (element: HTMLElement) => {
-                          const allElements = element.querySelectorAll('*')
-                          
-                          allElements.forEach((el) => {
-                            if (el instanceof HTMLElement) {
-                              const originalEl = document.querySelector(`#${resumoElement.id} #${el.id}`) || 
-                                                document.querySelector(`#${resumoElement.id} .${Array.from(el.classList).join('.')}`)
-                              
-                              if (originalEl instanceof HTMLElement) {
-                                const style = window.getComputedStyle(originalEl)
-                                
-                                // Preservar layout
-                                el.style.display = style.display
-                                el.style.position = style.position
-                                el.style.width = style.width
-                                el.style.maxWidth = style.maxWidth
-                                el.style.height = style.height
-                                el.style.maxHeight = 'none'
-                                
-                                // Preservar espaçamento
-                                el.style.margin = style.margin
-                                el.style.padding = style.padding
-                                el.style.boxSizing = 'border-box'
-                                
-                                // Preservar texto
-                                el.style.whiteSpace = style.whiteSpace
-                                el.style.textAlign = style.textAlign
-                                el.style.fontWeight = style.fontWeight
-                                el.style.fontSize = style.fontSize
-                                el.style.lineHeight = style.lineHeight
-                                
-                                // Preservar cores
-                                el.style.color = style.color
-                                el.style.backgroundColor = style.backgroundColor
-                                
-                                // Garantir que o conteúdo seja visível
-                                el.style.overflow = 'visible'
-                              }
-                            }
-                          })
-                        }
-                        
-                        // Aplicar preservação de layout
-                        preserveExactLayout(clone)
                         
                         // Importar html2canvas dinamicamente
                         const html2canvas = (await import('html2canvas')).default
                         
+                        // Salvar estado original do elemento
+                        const originalStyles = {
+                          overflow: resumoElement.style.overflow,
+                          maxHeight: resumoElement.style.maxHeight,
+                          height: resumoElement.style.height,
+                          width: resumoElement.style.width,
+                          position: resumoElement.style.position,
+                          border: resumoElement.style.border,
+                          boxShadow: resumoElement.style.boxShadow
+                        }
+                        
+                        // Preparar elemento para captura perfeita
+                        resumoElement.style.overflow = 'visible'
+                        resumoElement.style.maxHeight = 'none'
+                        resumoElement.style.height = 'auto'
+                        resumoElement.style.border = '1px solid #e2e8f0'
+                        resumoElement.style.boxShadow = 'none'
+                        
+                        // Forçar layout compacto em todos os elementos internos
+                        const allElements = resumoElement.querySelectorAll('*')
+                        const originalElementStyles: {el: HTMLElement, styles: Record<string, string>}[] = []
+                        
+                        allElements.forEach(el => {
+                          if (el instanceof HTMLElement) {
+                            // Guardar estilos originais
+                            originalElementStyles.push({
+                              el,
+                              styles: {
+                                display: el.style.display,
+                                whiteSpace: el.style.whiteSpace,
+                                overflow: el.style.overflow,
+                                maxHeight: el.style.maxHeight,
+                                height: el.style.height
+                              }
+                            })
+                            
+                            // Aplicar estilos que forçam layout compacto
+                            const computedStyle = window.getComputedStyle(el)
+                            
+                            // Manter display original, mas garantir que não quebre linhas indesejadamente
+                            if (computedStyle.display.includes('flex') || 
+                                computedStyle.display.includes('grid') || 
+                                computedStyle.display.includes('table')) {
+                              // Manter layouts flexbox/grid/table
+                              el.style.display = computedStyle.display
+                            } else if (computedStyle.display === 'block') {
+                              // Blocos devem manter-se como blocos
+                              el.style.display = 'block'
+                            } else if (el.tagName === 'SPAN' || el.tagName === 'STRONG' || el.tagName === 'EM') {
+                              // Elementos inline devem ficar inline
+                              el.style.display = 'inline'
+                            }
+                            
+                            // Impedir quebras de texto
+                            if (el.textContent && el.textContent.trim().length > 0) {
+                              el.style.whiteSpace = 'normal'
+                            }
+                            
+                            // Garantir que todo conteúdo seja visível
+                            el.style.overflow = 'visible'
+                            el.style.maxHeight = 'none'
+                            el.style.height = 'auto'
+                          }
+                        })
+                        
                         // Dar tempo para o DOM renderizar completamente
-                        await new Promise(resolve => setTimeout(resolve, 500))
+                        await new Promise(resolve => setTimeout(resolve, 300))
                         
                         try {
-                          // Capturar o clone (invisível) com configurações para preservar layout
-                          const canvas = await html2canvas(clone, {
+                          // Capturar o elemento original com todas as otimizações
+                          const canvas = await html2canvas(resumoElement, {
                             backgroundColor: '#ffffff',
                             scale: 2,
                             useCORS: true,
                             allowTaint: true,
                             logging: false,
-                            width: originalWidth,
-                            windowWidth: originalWidth,
-                            foreignObjectRendering: false, // Melhor compatibilidade
+                            windowWidth: document.documentElement.clientWidth,
                             onclone: (doc, elm) => {
-                              // Força layout compacto no clone final
-                              const allElements = elm.querySelectorAll('*')
-                              allElements.forEach(el => {
-                                if (el instanceof HTMLElement) {
-                                  // Prevenir quebras de linha indesejadas
-                                  if (el.style.display !== 'flex' && 
-                                      el.style.display !== 'grid' && 
-                                      !el.style.display.includes('table')) {
-                                    el.style.display = window.getComputedStyle(el).display
-                                  }
-                                  // Garantir que textos não quebrem onde não devem
-                                  el.style.whiteSpace = window.getComputedStyle(el).whiteSpace
-                                }
-                              })
+                              // Ajustes finais no clone gerado pelo html2canvas
+                              if (elm instanceof HTMLElement) {
+                                elm.style.width = resumoElement.offsetWidth + 'px'
+                                elm.style.boxSizing = 'border-box'
+                              }
                             }
                           })
-                          
-                          // Remover o clone
-                          document.body.removeChild(clone)
                           
                           // Gerar um nome de arquivo significativo
                           const dataFormatada = new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR').replace(/\//g, '-')
@@ -1421,12 +1393,39 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                               title: "Download concluído!",
                               description: `Arquivo salvo como ${nomeArquivo}`,
                             })
+                            
+                            // Restaurar os estilos originais do elemento
+                            // Isso deve ser feito após a captura para não afetar a UI
+                            Object.entries(originalStyles).forEach(([prop, value]) => {
+                              // @ts-ignore - Acesso dinâmico a propriedades
+                              resumoElement.style[prop] = value
+                            })
+                            
+                            // Restaurar os estilos originais de todos os elementos internos
+                            originalElementStyles.forEach(({el, styles}) => {
+                              Object.entries(styles).forEach(([prop, value]) => {
+                                // @ts-ignore - Acesso dinâmico a propriedades
+                                el.style[prop] = value
+                              })
+                            })
                           }, 'image/png', 1.0) // Qualidade máxima
                         } catch (renderError) {
                           console.error("Erro na renderização:", renderError)
-                          if (clone.parentNode) {
-                            document.body.removeChild(clone)
-                          }
+                          
+                          // Restaurar os estilos originais em caso de erro
+                          Object.entries(originalStyles).forEach(([prop, value]) => {
+                            // @ts-ignore - Acesso dinâmico a propriedades
+                            resumoElement.style[prop] = value
+                          })
+                          
+                          // Restaurar os estilos originais de todos os elementos internos
+                          originalElementStyles.forEach(({el, styles}) => {
+                            Object.entries(styles).forEach(([prop, value]) => {
+                              // @ts-ignore - Acesso dinâmico a propriedades
+                              el.style[prop] = value
+                            })
+                          })
+                          
                           throw renderError
                         }
                       } catch (error) {
