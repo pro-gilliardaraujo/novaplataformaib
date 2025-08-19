@@ -1005,7 +1005,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
           {/* Resumo parcial - direita */}
           {formData.frente && (
-            <div className="w-96 flex-shrink-0 flex flex-col max-h-full">
+            <div className="w-[24rem] flex-shrink-0 flex flex-col max-h-full">
               <Card className="bg-gray-50 flex-1 flex flex-col min-h-0">
                 <CardContent className="flex-1 flex flex-col min-h-0 p-2">
                   {/* Resumo em formato texto simples */}
@@ -1188,92 +1188,120 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                     size="sm" 
                     onClick={async () => {
                       try {
+                        // Mostrar toast de processamento
+                        toast({
+                          title: "Processando...",
+                          description: "Capturando o resumo completo",
+                        })
+
                         const resumoElement = document.getElementById('resumo-cav')
-                        if (resumoElement) {
-                          // Mostrar toast de processamento
-                          toast({
-                            title: "Processando...",
-                            description: "Capturando o resumo completo",
-                          })
-                          
-                          // Salvar estado original
-                          const originalScrollTop = resumoElement.scrollTop
-                          const originalOverflow = resumoElement.style.overflow
-                          const originalHeight = resumoElement.style.height
-                          const originalMaxHeight = resumoElement.style.maxHeight
-                          const originalPosition = resumoElement.style.position
-                          const originalZIndex = resumoElement.style.zIndex
-                          const originalTop = resumoElement.style.top
-                          const originalLeft = resumoElement.style.left
-                          const originalTransform = resumoElement.style.transform
-                          
-                          // Criar um clone para capturar
-                          const clone = resumoElement.cloneNode(true) as HTMLElement
-                          document.body.appendChild(clone)
-                          
-                          // Estilizar o clone para captura completa
-                          clone.style.position = 'absolute'
-                          clone.style.top = '0'
-                          clone.style.left = '0'
-                          clone.style.transform = 'none'
-                          clone.style.width = resumoElement.scrollWidth + 'px'
-                          clone.style.height = 'auto'
-                          clone.style.maxHeight = 'none'
-                          clone.style.overflow = 'visible'
-                          clone.style.zIndex = '-9999'
-                          clone.style.opacity = '0'
-                          
-                          // Importar html2canvas dinamicamente
-                          const html2canvas = (await import('html2canvas')).default
-                          
-                          // Dar tempo para o DOM renderizar completamente
-                          await new Promise(resolve => setTimeout(resolve, 100))
-                          
-                          // Capturar o clone
-                          const canvas = await html2canvas(clone, {
+                        if (!resumoElement) return
+                        
+                        // Método 1: Abordagem direta com renderização visível
+                        // Criar um elemento temporário visível para renderização
+                        const tempDiv = document.createElement('div')
+                        tempDiv.style.position = 'fixed'
+                        tempDiv.style.left = '0'
+                        tempDiv.style.top = '0'
+                        tempDiv.style.width = '840px' // Largura fixa para melhor renderização (5% maior)
+                        tempDiv.style.backgroundColor = '#ffffff'
+                        tempDiv.style.zIndex = '9999'
+                        tempDiv.style.padding = '20px'
+                        tempDiv.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)'
+                        
+                        // Copiar o conteúdo para o elemento temporário
+                        tempDiv.innerHTML = resumoElement.innerHTML
+                        document.body.appendChild(tempDiv)
+                        
+                        // Formatação para garantir que tudo seja visível
+                        const allElements = tempDiv.querySelectorAll('*')
+                        allElements.forEach(el => {
+                          if (el instanceof HTMLElement) {
+                            el.style.display = 'block'
+                            el.style.overflow = 'visible'
+                            el.style.maxHeight = 'none'
+                            el.style.height = 'auto'
+                          }
+                        })
+                        
+                        // Importar html2canvas dinamicamente
+                        const html2canvas = (await import('html2canvas')).default
+                        
+                        // Dar tempo para o DOM renderizar completamente
+                        await new Promise(resolve => setTimeout(resolve, 500))
+                        
+                        try {
+                          // Capturar o elemento temporário
+                          const canvas = await html2canvas(tempDiv, {
                             backgroundColor: '#ffffff',
-                            scale: 2,
+                            scale: 3, // Alta resolução
                             useCORS: true,
                             allowTaint: true,
-                            logging: false,
-                            windowWidth: document.documentElement.offsetWidth,
-                            windowHeight: document.documentElement.offsetHeight,
-                            width: clone.scrollWidth,
-                            height: clone.scrollHeight
+                            logging: true,
+                            onclone: (doc, elm) => {
+                              console.log("Clone criado com sucesso", elm)
+                            }
                           })
                           
-                          // Remover o clone
-                          document.body.removeChild(clone)
+                          // Remover o elemento temporário
+                          document.body.removeChild(tempDiv)
                           
-                          // Converter para blob com melhor qualidade
+                          // Gerar um nome de arquivo significativo
+                          const dataFormatada = new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR').replace(/\//g, '-')
+                          const frenteFormatada = formData.frente.replace(/\s+/g, '_')
+                          const codigoFormatado = formData.frotas
+                            .flatMap(f => f.turnos)
+                            .find(t => t.codigo_fazenda)?.codigo_fazenda || 'sem-codigo'
+                          
+                          const nomeArquivo = `Boletim_${frenteFormatada}_${dataFormatada}_${codigoFormatado}.png`
+                          
+                          // Primeiro copiar para a área de transferência
                           canvas.toBlob(async (blob) => {
-                            if (blob) {
-                              try {
-                                // Tentar copiar para a área de transferência
-                                await navigator.clipboard.write([
-                                  new ClipboardItem({ 'image/png': blob })
-                                ])
-                                toast({
-                                  title: "Copiado!",
-                                  description: "Resumo completo copiado como PNG",
-                                })
-                              } catch (err) {
-                                console.log("Erro ao copiar para clipboard, fazendo download:", err)
-                                // Fallback: sempre fazer download também
-                                const url = URL.createObjectURL(blob)
-                                const link = document.createElement('a')
-                                link.href = url
-                                link.download = `resumo-cav-${formData.data}-${formData.frente.toLowerCase().replace(/\s+/g, '-')}.png`
-                                link.click()
-                                URL.revokeObjectURL(url)
-                                
-                                toast({
-                                  title: "Download iniciado!",
-                                  description: "Resumo completo salvo como PNG",
-                                })
-                              }
+                            if (!blob) {
+                              console.error("Falha ao gerar blob")
+                              return
                             }
+                            
+                            // Copiar para área de transferência
+                            try {
+                              // Criar um item de clipboard com a imagem
+                              const clipboardItem = new ClipboardItem({ 'image/png': blob })
+                              await navigator.clipboard.write([clipboardItem])
+                              console.log("Imagem copiada para a área de transferência")
+                              
+                              // Notificar o usuário
+                              toast({
+                                title: "Copiado!",
+                                description: "Imagem copiada para a área de transferência",
+                              })
+                            } catch (clipboardError) {
+                              console.error("Erro ao copiar para clipboard:", clipboardError)
+                            }
+                            
+                            // Sempre fazer o download também
+                            const url = URL.createObjectURL(blob)
+                            const link = document.createElement('a')
+                            link.href = url
+                            link.download = nomeArquivo
+                            link.style.display = 'none'
+                            document.body.appendChild(link)
+                            link.click()
+                            
+                            // Limpar recursos
+                            setTimeout(() => {
+                              URL.revokeObjectURL(url)
+                              document.body.removeChild(link)
+                            }, 100)
+                            
+                            toast({
+                              title: "Download concluído!",
+                              description: `Arquivo salvo como ${nomeArquivo}`,
+                            })
                           }, 'image/png', 1.0) // Qualidade máxima
+                        } catch (renderError) {
+                          console.error("Erro na renderização:", renderError)
+                          document.body.removeChild(tempDiv)
+                          throw renderError
                         }
                       } catch (error) {
                         console.error('Erro ao copiar como PNG:', error)
