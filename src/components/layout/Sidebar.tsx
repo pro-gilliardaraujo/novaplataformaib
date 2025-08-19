@@ -290,6 +290,21 @@ export default function Sidebar() {
             {section === 'reports' ? 'Visualizações' : 'Gerenciamento'}
           </h2>
           <nav className="space-y-1">
+            {/* Entrada estática para CAV */}
+            {section === 'management' && (
+              <Link
+                href="/gerenciamento/cav"
+                className={`flex items-center px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 ${
+                  pathname === '/gerenciamento/cav' ? 'bg-gray-100' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <CavIcon className="h-5 w-5 text-gray-500" />
+                  <span>CAV</span>
+                </div>
+              </Link>
+            )}
+            
             {categories?.map((category) => {
               // Link direto para categorias que são páginas únicas no gerenciamento
               if (section === 'management' && (!category.pages || category.pages.length === 0 || (category.pages.length === 1 && category.pages[0].slug === category.slug))) {
@@ -391,7 +406,7 @@ export default function Sidebar() {
         </div>
       ) : (
         <div className="flex flex-col h-[90%]">
-          {/* Relatórios - 45% */}
+          {/* CAV - 45% */}
           {renderSection('reports')}
 
           {/* Gerenciamento - 45% */}

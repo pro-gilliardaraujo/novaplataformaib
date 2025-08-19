@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RelatoriosVisaoGeral } from "@/components/relatorios/visao-geral"
-import { RelatoriosListaDetalhada } from "@/components/relatorios/lista-detalhada"
+import { CavVisaoGeral } from "@/components/cav/visao-geral"
+import { CavListaDetalhada } from "@/components/cav/lista-detalhada"
 
-export default function RelatoriosPage() {
+export default function CavPage() {
   const [activeTab, setActiveTab] = useState("visao-geral")
 
   return (
@@ -32,11 +32,11 @@ export default function RelatoriosPage() {
 
         <div className="flex-1 p-2">
           <TabsContent value="visao-geral" className="h-full m-0">
-            <RelatoriosVisaoGeral />
+            <CavVisaoGeral />
           </TabsContent>
           
           <TabsContent value="lista-detalhada" className="h-full m-0">
-            <RelatoriosListaDetalhada />
+            <CavListaDetalhada />
           </TabsContent>
         </div>
       </Tabs>

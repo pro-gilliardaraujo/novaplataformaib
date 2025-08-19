@@ -4,19 +4,19 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, FileText, Calendar, TrendingUp } from "lucide-react"
 
-interface RelatorioStats {
-  totalRelatorios: number
-  relatoriosRecentes: number
-  relatoriosPendentes: number
-  relatoriosFinalizados: number
+interface CavStats {
+  totalCavs: number
+  cavsRecentes: number
+  cavsPendentes: number
+  cavsFinalizados: number
 }
 
-export function RelatoriosVisaoGeral() {
-  const [stats, setStats] = useState<RelatorioStats>({
-    totalRelatorios: 0,
-    relatoriosRecentes: 0,
-    relatoriosPendentes: 0,
-    relatoriosFinalizados: 0
+export function CavVisaoGeral() {
+  const [stats, setStats] = useState<CavStats>({
+    totalCavs: 0,
+    cavsRecentes: 0,
+    cavsPendentes: 0,
+    cavsFinalizados: 0
   })
   const [isLoading, setIsLoading] = useState(true)
 
@@ -27,10 +27,10 @@ export function RelatoriosVisaoGeral() {
         // TODO: Implementar busca real de dados
         // Por enquanto, dados mockados
         setStats({
-          totalRelatorios: 156,
-          relatoriosRecentes: 12,
-          relatoriosPendentes: 8,
-          relatoriosFinalizados: 136
+          totalCavs: 156,
+          cavsRecentes: 12,
+          cavsPendentes: 8,
+          cavsFinalizados: 136
         })
       } catch (error) {
         console.error("Erro ao buscar estatísticas:", error)
@@ -56,13 +56,13 @@ export function RelatoriosVisaoGeral() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Relatórios</CardTitle>
+            <CardTitle className="text-sm font-medium">Total de CAVs</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalRelatorios}</div>
+            <div className="text-2xl font-bold">{stats.totalCavs}</div>
             <p className="text-xs text-muted-foreground">
-              Todos os relatórios gerados
+              Todos os CAVs gerados
             </p>
           </CardContent>
         </Card>
@@ -73,7 +73,7 @@ export function RelatoriosVisaoGeral() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.relatoriosRecentes}</div>
+            <div className="text-2xl font-bold">{stats.cavsRecentes}</div>
             <p className="text-xs text-muted-foreground">
               Gerados na última semana
             </p>
@@ -86,7 +86,7 @@ export function RelatoriosVisaoGeral() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.relatoriosPendentes}</div>
+            <div className="text-2xl font-bold">{stats.cavsPendentes}</div>
             <p className="text-xs text-muted-foreground">
               Aguardando processamento
             </p>
@@ -99,9 +99,9 @@ export function RelatoriosVisaoGeral() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.relatoriosFinalizados}</div>
+            <div className="text-2xl font-bold">{stats.cavsFinalizados}</div>
             <p className="text-xs text-muted-foreground">
-              Relatórios concluídos
+              CAVs concluídos
             </p>
           </CardContent>
         </Card>
@@ -118,8 +118,8 @@ export function RelatoriosVisaoGeral() {
               <div className="flex items-center space-x-3">
                 <FileText className="h-6 w-6 text-blue-600" />
                 <div>
-                  <h3 className="font-medium">Novo Relatório</h3>
-                  <p className="text-sm text-gray-500">Criar novo relatório personalizado</p>
+                  <h3 className="font-medium">Novo CAV</h3>
+                  <p className="text-sm text-gray-500">Criar novo CAV personalizado</p>
                 </div>
               </div>
             </div>
@@ -139,7 +139,7 @@ export function RelatoriosVisaoGeral() {
                 <Calendar className="h-6 w-6 text-purple-600" />
                 <div>
                   <h3 className="font-medium">Agendamentos</h3>
-                  <p className="text-sm text-gray-500">Programar relatórios automáticos</p>
+                  <p className="text-sm text-gray-500">Programar CAVs automáticos</p>
                 </div>
               </div>
             </div>
@@ -147,18 +147,18 @@ export function RelatoriosVisaoGeral() {
         </CardContent>
       </Card>
 
-      {/* Seção de Relatórios Recentes */}
+      {/* Seção de CAVs Recentes */}
       <Card>
         <CardHeader>
-          <CardTitle>Relatórios Recentes</CardTitle>
+          <CardTitle>CAVs Recentes</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {/* Placeholder para relatórios recentes */}
+            {/* Placeholder para CAVs recentes */}
             <div className="text-center text-gray-500 py-8">
               <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>Nenhum relatório encontrado</p>
-              <p className="text-sm">Os relatórios gerados aparecerão aqui</p>
+              <p>Nenhum CAV encontrado</p>
+              <p className="text-sm">Os CAVs gerados aparecerão aqui</p>
             </div>
           </div>
         </CardContent>

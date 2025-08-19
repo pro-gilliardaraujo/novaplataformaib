@@ -30,7 +30,7 @@ import {
   FileText
 } from "lucide-react"
 
-interface Relatorio {
+interface Cav {
   id: string
   nome: string
   tipo: string
@@ -40,22 +40,22 @@ interface Relatorio {
   criadoPor: string
 }
 
-export function RelatoriosListaDetalhada() {
-  const [relatorios, setRelatorios] = useState<Relatorio[]>([])
+export function CavListaDetalhada() {
+  const [cavs, setCavs] = useState<Cav[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [filtroStatus, setFiltroStatus] = useState<string>("todos")
 
   useEffect(() => {
-    const fetchRelatorios = async () => {
+    const fetchCavs = async () => {
       try {
         setIsLoading(true)
         // TODO: Implementar busca real de dados
         // Por enquanto, dados mockados
-        const mockRelatorios: Relatorio[] = [
+        const mockCavs: Cav[] = [
           {
             id: "1",
-            nome: "Relatório de Colheita - Janeiro 2024",
+            nome: "CAV de Colheita - Janeiro 2024",
             tipo: "Colheita",
             status: "Concluído",
             dataGeracao: "2024-01-15T10:30:00Z",
@@ -64,7 +64,7 @@ export function RelatoriosListaDetalhada() {
           },
           {
             id: "2", 
-            nome: "Relatório de Transbordo - Janeiro 2024",
+            nome: "CAV de Transbordo - Janeiro 2024",
             tipo: "Transbordo",
             status: "Concluído",
             dataGeracao: "2024-01-14T14:20:00Z",
@@ -73,7 +73,7 @@ export function RelatoriosListaDetalhada() {
           },
           {
             id: "3",
-            nome: "Relatório de Plantio - Janeiro 2024", 
+            nome: "CAV de Plantio - Janeiro 2024", 
             tipo: "Plantio",
             status: "Processando",
             dataGeracao: "2024-01-16T09:15:00Z",
@@ -81,15 +81,15 @@ export function RelatoriosListaDetalhada() {
             criadoPor: "Pedro Costa"
           }
         ]
-        setRelatorios(mockRelatorios)
+        setCavs(mockCavs)
       } catch (error) {
-        console.error("Erro ao buscar relatórios:", error)
+        console.error("Erro ao buscar CAVs:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchRelatorios()
+    fetchCavs()
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -117,18 +117,18 @@ export function RelatoriosListaDetalhada() {
     })
   }
 
-  const relatoriosFiltrados = relatorios.filter(relatorio => {
-    const matchSearch = Object.values(relatorio).some(value => 
+  const cavsFiltrados = cavs.filter(cav => {
+    const matchSearch = Object.values(cav).some(value => 
       value != null && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
     )
-    const matchStatus = filtroStatus === "todos" || relatorio.status === filtroStatus
+    const matchStatus = filtroStatus === "todos" || cav.status === filtroStatus
     return matchSearch && matchStatus
   })
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">Carregando relatórios...</div>
+        <div className="text-gray-500">Carregando CAVs...</div>
       </div>
     )
   }
@@ -141,7 +141,7 @@ export function RelatoriosListaDetalhada() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Buscar relatórios..."
+              placeholder="Buscar CAVs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -177,25 +177,25 @@ export function RelatoriosListaDetalhada() {
 
         <Button className="bg-black hover:bg-black/90 text-white">
           <Plus className="h-4 w-4 mr-2" />
-          Novo Relatório
+          Novo CAV
         </Button>
       </div>
 
-      {/* Tabela de Relatórios */}
+      {/* Tabela de CAVs */}
       <Card className="flex-1">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Relatórios ({relatoriosFiltrados.length})
+            CAVs ({cavsFiltrados.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {relatoriosFiltrados.length === 0 ? (
+          {cavsFiltrados.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500 mb-2">Nenhum relatório encontrado</p>
+              <p className="text-gray-500 mb-2">Nenhum CAV encontrado</p>
               <p className="text-sm text-gray-400">
-                {searchTerm ? "Tente ajustar os filtros de busca" : "Crie seu primeiro relatório"}
+                {searchTerm ? "Tente ajustar os filtros de busca" : "Crie seu primeiro CAV"}
               </p>
             </div>
           ) : (
@@ -212,27 +212,27 @@ export function RelatoriosListaDetalhada() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {relatoriosFiltrados.map((relatorio) => (
-                  <TableRow key={relatorio.id}>
+                {cavsFiltrados.map((cav) => (
+                  <TableRow key={cav.id}>
                     <TableCell className="font-medium">
-                      {relatorio.nome}
+                      {cav.nome}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{relatorio.tipo}</Badge>
+                      <Badge variant="outline">{cav.tipo}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(relatorio.status)}>
-                        {relatorio.status}
+                      <Badge className={getStatusColor(cav.status)}>
+                        {cav.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-gray-400" />
-                        {formatData(relatorio.dataGeracao)}
+                        {formatData(cav.dataGeracao)}
                       </div>
                     </TableCell>
-                    <TableCell>{relatorio.tamanho}</TableCell>
-                    <TableCell>{relatorio.criadoPor}</TableCell>
+                    <TableCell>{cav.tamanho}</TableCell>
+                    <TableCell>{cav.criadoPor}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
