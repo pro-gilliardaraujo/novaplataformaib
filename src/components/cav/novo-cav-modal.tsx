@@ -1005,7 +1005,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
           {/* Resumo parcial - direita */}
           {formData.frente && (
-            <div className="w-[24rem] flex-shrink-0 flex flex-col max-h-full">
+            <div className="w-[25.2rem] flex-shrink-0 flex flex-col max-h-full">
               <Card className="bg-gray-50 flex-1 flex flex-col min-h-0">
                 <CardContent className="flex-1 flex flex-col min-h-0 p-2">
                   {/* Resumo em formato texto simples */}
@@ -1197,54 +1197,80 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                         const resumoElement = document.getElementById('resumo-cav')
                         if (!resumoElement) return
                         
-                        // Método 1: Abordagem direta com renderização visível
-                        // Criar um elemento temporário visível para renderização
-                        const tempDiv = document.createElement('div')
-                        tempDiv.style.position = 'fixed'
-                        tempDiv.style.left = '0'
-                        tempDiv.style.top = '0'
-                        tempDiv.style.width = '840px' // Largura fixa para melhor renderização (5% maior)
-                        tempDiv.style.backgroundColor = '#ffffff'
-                        tempDiv.style.zIndex = '9999'
-                        tempDiv.style.padding = '20px'
-                        tempDiv.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)'
+                        // Criar um clone oculto que mantém a formatação exata
+                        const clone = resumoElement.cloneNode(true) as HTMLElement
                         
-                        // Copiar o conteúdo para o elemento temporário
-                        tempDiv.innerHTML = resumoElement.innerHTML
-                        document.body.appendChild(tempDiv)
+                        // Configurar o clone para ser invisível mas manter a formatação exata
+                        clone.style.position = 'absolute'
+                        clone.style.left = '-9999px'
+                        clone.style.top = '-9999px'
+                        clone.style.width = resumoElement.offsetWidth + 'px' // Mesma largura do original
+                        clone.style.backgroundColor = '#ffffff'
+                        clone.style.padding = window.getComputedStyle(resumoElement).padding
+                        clone.style.margin = '0'
+                        clone.style.border = window.getComputedStyle(resumoElement).border
+                        clone.style.borderRadius = window.getComputedStyle(resumoElement).borderRadius
+                        clone.style.fontFamily = window.getComputedStyle(resumoElement).fontFamily
+                        clone.style.fontSize = window.getComputedStyle(resumoElement).fontSize
+                        clone.style.lineHeight = window.getComputedStyle(resumoElement).lineHeight
                         
-                        // Formatação para garantir que tudo seja visível
-                        const allElements = tempDiv.querySelectorAll('*')
-                        allElements.forEach(el => {
-                          if (el instanceof HTMLElement) {
-                            el.style.display = 'block'
-                            el.style.overflow = 'visible'
-                            el.style.maxHeight = 'none'
-                            el.style.height = 'auto'
+                        // Adicionar o clone ao DOM (invisível)
+                        document.body.appendChild(clone)
+                        
+                        // Preservar a estrutura interna exata
+                        const originalStyles = new Map<HTMLElement, CSSStyleDeclaration>()
+                        
+                        // Função para copiar estilos computados
+                        const copyComputedStyles = (source: HTMLElement, target: HTMLElement) => {
+                          const sourceStyle = window.getComputedStyle(source)
+                          
+                          // Preservar os estilos importantes
+                          target.style.display = sourceStyle.display
+                          target.style.padding = sourceStyle.padding
+                          target.style.margin = sourceStyle.margin
+                          target.style.border = sourceStyle.border
+                          target.style.fontFamily = sourceStyle.fontFamily
+                          target.style.fontSize = sourceStyle.fontSize
+                          target.style.fontWeight = sourceStyle.fontWeight
+                          target.style.color = sourceStyle.color
+                          target.style.backgroundColor = sourceStyle.backgroundColor
+                          target.style.textAlign = sourceStyle.textAlign
+                          target.style.lineHeight = sourceStyle.lineHeight
+                          
+                          // Garantir que o conteúdo seja visível
+                          target.style.overflow = 'visible'
+                          target.style.maxHeight = 'none'
+                          target.style.height = 'auto'
+                        }
+                        
+                        // Copiar estilos de todos os elementos internos
+                        const originalElements = resumoElement.querySelectorAll('*')
+                        const cloneElements = clone.querySelectorAll('*')
+                        
+                        for (let i = 0; i < Math.min(originalElements.length, cloneElements.length); i++) {
+                          if (originalElements[i] instanceof HTMLElement && cloneElements[i] instanceof HTMLElement) {
+                            copyComputedStyles(originalElements[i] as HTMLElement, cloneElements[i] as HTMLElement)
                           }
-                        })
+                        }
                         
                         // Importar html2canvas dinamicamente
                         const html2canvas = (await import('html2canvas')).default
                         
                         // Dar tempo para o DOM renderizar completamente
-                        await new Promise(resolve => setTimeout(resolve, 500))
+                        await new Promise(resolve => setTimeout(resolve, 300))
                         
                         try {
-                          // Capturar o elemento temporário
-                          const canvas = await html2canvas(tempDiv, {
+                          // Capturar o clone (invisível)
+                          const canvas = await html2canvas(clone, {
                             backgroundColor: '#ffffff',
-                            scale: 3, // Alta resolução
+                            scale: 2, // Boa resolução sem exagero
                             useCORS: true,
                             allowTaint: true,
-                            logging: true,
-                            onclone: (doc, elm) => {
-                              console.log("Clone criado com sucesso", elm)
-                            }
+                            logging: false
                           })
                           
-                          // Remover o elemento temporário
-                          document.body.removeChild(tempDiv)
+                          // Remover o clone
+                          document.body.removeChild(clone)
                           
                           // Gerar um nome de arquivo significativo
                           const dataFormatada = new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR').replace(/\//g, '-')
@@ -1300,7 +1326,9 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                           }, 'image/png', 1.0) // Qualidade máxima
                         } catch (renderError) {
                           console.error("Erro na renderização:", renderError)
-                          document.body.removeChild(tempDiv)
+                          if (clone.parentNode) {
+                            document.body.removeChild(clone)
+                          }
                           throw renderError
                         }
                       } catch (error) {
