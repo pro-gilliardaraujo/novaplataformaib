@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { NovoCavModal } from "./novo-cav-modal"
 
 // Função auxiliar para cores de status
 const getStatusColor = (status: string) => {
@@ -629,35 +630,3 @@ function CavDetailsModal({
   )
 }
 
-// Modal de novo CAV - placeholder
-function NovoCavModal({
-  open,
-  onOpenChange,
-  onCavAdded
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onCavAdded: () => void
-}) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Novo CAV</AlertDialogTitle>
-          <AlertDialogDescription>
-            Modal de criação de novo CAV será implementado aqui.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={() => {
-            onCavAdded()
-            onOpenChange(false)
-          }}>
-            Criar CAV
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
