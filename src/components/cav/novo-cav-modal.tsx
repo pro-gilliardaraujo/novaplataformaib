@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,6 +24,108 @@ interface NovoCavModalProps {
 
 export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalProps) {
   const { toast } = useToast()
+
+  // Função para selecionar todo o texto ao focar (equivalente a Ctrl+A)
+  const handleFocusSelect = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select()
+  }
+
+  // Navegação tipo Excel
+  const getInputId = (frotaIndex: number, turnoId: string, campo: 'codigo' | 'lamina' | 'operador' | 'producao') => {
+    return `${campo}_${frotaIndex}_${turnoId}`
+  }
+
+  const getNextInput = (currentFrotaIndex: number, currentTurnoId: string, currentCampo: 'codigo' | 'lamina' | 'operador' | 'producao', direction: 'down' | 'up' | 'right' | 'left') => {
+    const campos = ['codigo', 'lamina', 'operador', 'producao'] as const
+    const currentCampoIndex = campos.indexOf(currentCampo)
+    
+    if (direction === 'right') {
+      // Tab: próximo campo na mesma linha
+      if (currentCampoIndex < campos.length - 1) {
+        return getInputId(currentFrotaIndex, currentTurnoId, campos[currentCampoIndex + 1])
+      } else {
+        // Se está no último campo, vai para o primeiro campo da próxima linha
+        const currentTurnoIndex = formData.frotas[currentFrotaIndex]?.turnos.findIndex(t => t.id === currentTurnoId) ?? -1
+        if (currentTurnoIndex < formData.frotas[currentFrotaIndex]?.turnos.length - 1) {
+          const nextTurno = formData.frotas[currentFrotaIndex].turnos[currentTurnoIndex + 1]
+          return getInputId(currentFrotaIndex, nextTurno.id, 'codigo')
+        } else if (currentFrotaIndex < formData.frotas.length - 1) {
+          const nextFrota = formData.frotas[currentFrotaIndex + 1]
+          return getInputId(currentFrotaIndex + 1, nextFrota.turnos[0].id, 'codigo')
+        }
+      }
+    } else if (direction === 'left') {
+      // Shift+Tab: campo anterior na mesma linha
+      if (currentCampoIndex > 0) {
+        return getInputId(currentFrotaIndex, currentTurnoId, campos[currentCampoIndex - 1])
+      } else {
+        // Se está no primeiro campo, vai para o último campo da linha anterior
+        const currentTurnoIndex = formData.frotas[currentFrotaIndex]?.turnos.findIndex(t => t.id === currentTurnoId) ?? -1
+        if (currentTurnoIndex > 0) {
+          const prevTurno = formData.frotas[currentFrotaIndex].turnos[currentTurnoIndex - 1]
+          return getInputId(currentFrotaIndex, prevTurno.id, 'producao')
+        } else if (currentFrotaIndex > 0) {
+          const prevFrota = formData.frotas[currentFrotaIndex - 1]
+          const lastTurno = prevFrota.turnos[prevFrota.turnos.length - 1]
+          return getInputId(currentFrotaIndex - 1, lastTurno.id, 'producao')
+        }
+      }
+    } else if (direction === 'down') {
+      // Enter: próximo turno na mesma coluna
+      const currentTurnoIndex = formData.frotas[currentFrotaIndex]?.turnos.findIndex(t => t.id === currentTurnoId) ?? -1
+      if (currentTurnoIndex < formData.frotas[currentFrotaIndex]?.turnos.length - 1) {
+        const nextTurno = formData.frotas[currentFrotaIndex].turnos[currentTurnoIndex + 1]
+        return getInputId(currentFrotaIndex, nextTurno.id, currentCampo)
+      } else if (currentFrotaIndex < formData.frotas.length - 1) {
+        const nextFrota = formData.frotas[currentFrotaIndex + 1]
+        return getInputId(currentFrotaIndex + 1, nextFrota.turnos[0].id, currentCampo)
+      }
+    } else if (direction === 'up') {
+      // Shift+Enter: turno anterior na mesma coluna
+      const currentTurnoIndex = formData.frotas[currentFrotaIndex]?.turnos.findIndex(t => t.id === currentTurnoId) ?? -1
+      if (currentTurnoIndex > 0) {
+        const prevTurno = formData.frotas[currentFrotaIndex].turnos[currentTurnoIndex - 1]
+        return getInputId(currentFrotaIndex, prevTurno.id, currentCampo)
+      } else if (currentFrotaIndex > 0) {
+        const prevFrota = formData.frotas[currentFrotaIndex - 1]
+        const lastTurno = prevFrota.turnos[prevFrota.turnos.length - 1]
+        return getInputId(currentFrotaIndex - 1, lastTurno.id, currentCampo)
+      }
+    }
+    
+    return null
+  }
+
+  const handleKeyNavigation = (e: React.KeyboardEvent, frotaIndex: number, turnoId: string, campo: 'codigo' | 'lamina' | 'operador' | 'producao') => {
+    let nextInputId: string | null = null
+
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (e.shiftKey) {
+        nextInputId = getNextInput(frotaIndex, turnoId, campo, 'up')
+      } else {
+        nextInputId = getNextInput(frotaIndex, turnoId, campo, 'down')
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      if (e.shiftKey) {
+        nextInputId = getNextInput(frotaIndex, turnoId, campo, 'left')
+      } else {
+        nextInputId = getNextInput(frotaIndex, turnoId, campo, 'right')
+      }
+    }
+
+    if (nextInputId) {
+      setTimeout(() => {
+        const nextInput = document.getElementById(nextInputId!) as HTMLInputElement
+        if (nextInput) {
+          nextInput.focus()
+          // Seleciona todo o texto na nova célula (equivalente a Ctrl+A)
+          nextInput.select()
+        }
+      }, 10)
+    }
+  }
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   // Data padrão: ontem
@@ -45,6 +147,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
   // Estados para validação
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({})
   const [showErrorAnimation, setShowErrorAnimation] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set())
 
   // Estados para busca de funcionários (por turno)
   const [funcionarioStates, setFuncionarioStates] = useState<Record<string, {
@@ -77,10 +180,11 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
         frotas: []
       }
       console.log("Resetando formulário com lamina_alvo:", newFormData.lamina_alvo)
-      setFormData(newFormData)
-      setFieldErrors({})
-      setShowErrorAnimation(false)
-      setFuncionarioStates({})
+              setFormData(newFormData)
+        setFieldErrors({})
+        setValidationErrors(new Set())
+        setShowErrorAnimation(false)
+        setFuncionarioStates({})
     }
   }, [open])
 
@@ -89,14 +193,21 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     const config = FRENTES_CONFIG.find(f => f.nome === frente)
     const frotasPadrao = config?.frotas_padrao || [0]
 
-    // Criar frotas padrão com turnos A, B, C
+    // Criar frotas padrão com turnos - Ouroeste inicia C, A, B; outros A, B, C
+    const turnosOrdem = frente.includes('Ouroeste') 
+      ? ['C', 'A', 'B'] 
+      : ['A', 'B', 'C']
+    
     const novasFrotas: CavFrotaData[] = frotasPadrao.map(numeroFrota => ({
       frota: numeroFrota,
-      turnos: [
-        { id: uuidv4(), turno: 'A', operador: '', producao: 0 },
-        { id: uuidv4(), turno: 'B', operador: '', producao: 0 },
-        { id: uuidv4(), turno: 'C', operador: '', producao: 0 }
-      ]
+      turnos: turnosOrdem.map(turno => ({
+        id: uuidv4(), 
+        turno, 
+        codigo_fazenda: '',
+        operador: '', 
+        producao: 0,
+        lamina_alvo: "" // Valor padrão de lâmina
+      }))
     }))
 
     setFormData(prev => ({
@@ -108,13 +219,21 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
   // Adicionar nova frota
   const adicionarFrota = () => {
+    // Usar mesma ordem de turnos baseada na frente selecionada
+    const turnosOrdem = formData.frente.includes('Ouroeste') 
+      ? ['C', 'A', 'B'] 
+      : ['A', 'B', 'C']
+    
     const novaFrota: CavFrotaData = {
       frota: 0,
-      turnos: [
-        { id: uuidv4(), turno: 'A', operador: '', producao: 0 },
-        { id: uuidv4(), turno: 'B', operador: '', producao: 0 },
-        { id: uuidv4(), turno: 'C', operador: '', producao: 0 }
-      ]
+      turnos: turnosOrdem.map(turno => ({
+        id: uuidv4(), 
+        turno, 
+        codigo_fazenda: '',
+        operador: '', 
+        producao: 0,
+        lamina_alvo: "" // Valor padrão de lâmina
+      }))
     }
 
     setFormData(prev => ({
@@ -149,9 +268,11 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
   const adicionarTurno = (frotaIndex: number) => {
     const novoTurno: CavTurnoData = {
       id: uuidv4(),
-      turno: 'D', // Padrão para turnos extras
+      turno: 'A', // Padrão A
+      codigo_fazenda: '',
       operador: '',
-      producao: 0
+      producao: 0,
+      lamina_alvo: "" // Valor padrão de lâmina
     }
 
     setFormData(prev => ({
@@ -295,13 +416,27 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
 
   // Validar formulário
   const validarFormulario = () => {
+    console.log('🔍 Validando formulário...')
+    console.log('📊 Dados do formulário:', formData)
+    
     const erros: Record<string, boolean> = {}
 
-    if (!formData.data) erros.data = true
-    if (!formData.frente) erros.frente = true
-    if (formData.lamina_alvo <= 0) erros.lamina_alvo = true
-    if (formData.total_viagens_feitas <= 0) erros.total_viagens_feitas = true
-    if (formData.frotas.length === 0) erros.frotas = true
+    if (!formData.data) {
+      console.log('❌ Data não preenchida')
+      erros.data = true
+    }
+    if (!formData.frente) {
+      console.log('❌ Frente não preenchida')
+      erros.frente = true
+    }
+    if (formData.total_viagens_feitas <= 0) {
+      console.log('❌ Total de viagens feitas inválido:', formData.total_viagens_feitas)
+      erros.total_viagens_feitas = true
+    }
+    if (formData.frotas.length === 0) {
+      console.log('❌ Nenhuma frota adicionada')
+      erros.frotas = true
+    }
 
     // Validar frotas
     formData.frotas.forEach((frota, fIndex) => {
@@ -326,19 +461,45 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     setFieldErrors(erros)
     
     if (Object.keys(erros).length > 0) {
+      console.log('❌ Erros de validação encontrados:', erros)
       setShowErrorAnimation(true)
       setTimeout(() => setShowErrorAnimation(false), 2000)
       return false
     }
     
+    console.log('✅ Formulário válido!')
     return true
   }
 
   // Submeter formulário
   const handleSubmit = async () => {
-    if (!validarFormulario()) return
+    console.log('🚀 Iniciando criação do boletim...')
+    
+    // Validar campos obrigatórios
+    if (!validateRequiredFields()) {
+      console.log('❌ Validação de campos obrigatórios falhou')
+      setShowErrorAnimation(true)
+      
+      // Remover animação após 2 segundos
+      setTimeout(() => {
+        setShowErrorAnimation(false)
+      }, 2000)
+      
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos destacados em vermelho.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!validarFormulario()) {
+      console.log('❌ Validação do formulário falhou')
+      return
+    }
 
     try {
+      console.log('✅ Validações passaram, enviando dados...')
       setIsSubmitting(true)
 
       const response = await fetch('/api/cav/create', {
@@ -349,12 +510,15 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
         body: JSON.stringify(formData)
       })
 
+      console.log('📡 Resposta recebida:', response.status)
       const result = await response.json()
+      console.log('📄 Dados da resposta:', result)
 
       if (!response.ok) {
         throw new Error(result.error || 'Erro ao criar boletim CAV')
       }
 
+      console.log('✅ Boletim criado com sucesso!')
       toast({
         title: "Sucesso!",
         description: `Boletim CAV criado com ${result.dados.registros_granulares} registros granulares`,
@@ -364,35 +528,102 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
       onOpenChange(false)
 
     } catch (error) {
-      console.error('Erro ao submeter CAV:', error)
+      console.error('❌ Erro ao submeter CAV:', error)
       toast({
         title: "Erro",
         description: error instanceof Error ? error.message : "Erro ao criar boletim CAV",
         variant: "destructive"
       })
     } finally {
+      console.log('🔄 Finalizando processo de criação')
       setIsSubmitting(false)
     }
   }
 
   const getErrorClass = (fieldName: string) => {
-    return fieldErrors[fieldName] && showErrorAnimation 
+    return validationErrors.has(fieldName) && showErrorAnimation 
       ? "border-red-500 border-2 animate-pulse" 
       : ""
+  }
+
+  // Validar todos os campos obrigatórios
+  const validateRequiredFields = () => {
+    const errors = new Set<string>()
+
+    // Campos do cabeçalho
+    if (!formData.data || formData.data.trim() === '') {
+      errors.add('data')
+    }
+    if (!formData.frente || formData.frente.trim() === '') {
+      errors.add('frente')
+    }
+    if (!formData.total_viagens_feitas || formData.total_viagens_feitas <= 0) {
+      errors.add('total_viagens_feitas')
+    }
+
+    // Validar frotas
+    if (formData.frotas.length === 0) {
+      errors.add('frotas')
+    }
+
+    formData.frotas.forEach((frota, frotaIndex) => {
+      // Validar número da frota
+      if (!frota.frota || frota.frota <= 0) {
+        errors.add(`frota_${frotaIndex}_numero`)
+      }
+
+      // Verificar se tem pelo menos um turno com operador preenchido
+      const temOperadorPreenchido = frota.turnos.some(turno => 
+        turno.operador && turno.operador.trim() !== "" && turno.operador !== "Não Op."
+      )
+      
+      if (!temOperadorPreenchido) {
+        errors.add(`frota_${frotaIndex}_sem_operador`)
+      }
+
+      // Validar cada turno
+      frota.turnos.forEach((turno) => {
+        const turnoKey = `frota_${frotaIndex}_turno_${turno.id}`
+        
+        // Se tem operador, deve ter código da fazenda
+        if (turno.operador && turno.operador.trim() !== "" && turno.operador !== "Não Op.") {
+          if (!turno.codigo_fazenda || turno.codigo_fazenda.trim() === '') {
+            errors.add(`${turnoKey}_codigo`)
+          }
+        }
+      })
+    })
+
+    setValidationErrors(errors)
+    return errors.size === 0
   }
 
   const { totalProducao, totalFrotas } = calcularTotais()
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-3">
-        <DialogHeader className="flex-shrink-0 pb-1">
-          <DialogTitle>Novo Boletim CAV</DialogTitle>
-        </DialogHeader>
+    <Dialog open={open} onOpenChange={(open) => open && onOpenChange(open)} modal>
+      <DialogContent 
+        className="max-w-[75vw] h-[90vh] flex flex-col p-0" 
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <div className="flex items-center px-4 h-12 border-b relative">
+          <div className="flex-1 text-center">
+            <span className="text-base font-medium">Novo Boletim CAV</span>
+          </div>
+          <DialogClose asChild>
+            <Button 
+              variant="outline"
+              className="h-8 w-8 p-0 absolute right-2 top-2"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogClose>
+        </div>
 
-        <div className="flex gap-3 flex-1 min-h-0">
+        <div className="flex gap-3 flex-1 min-h-0 p-3">
           {/* Seção principal - esquerda */}
-          <div className="flex-1 flex flex-col space-y-2 min-h-0">
+          <div className="flex-1 flex flex-col space-y-2 min-h-0 pr-3">
             {/* Campos do cabeçalho */}
             <div className="grid grid-cols-4 gap-2 flex-shrink-0">
               <div>
@@ -424,20 +655,6 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
               </div>
 
               <div>
-                <Label htmlFor="lamina_alvo">Lâmina Alvo</Label>
-                <Input
-                  id="lamina_alvo"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={formData.lamina_alvo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, lamina_alvo: Number(e.target.value) }))}
-                  className={getErrorClass("lamina_alvo")}
-                  required
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="total_viagens_feitas">Viagens Feitas</Label>
                 <Input
                   id="total_viagens_feitas"
@@ -446,6 +663,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                   min="0"
                   value={formData.total_viagens_feitas}
                   onChange={(e) => setFormData(prev => ({ ...prev, total_viagens_feitas: Number(e.target.value) }))}
+                  onFocus={handleFocusSelect}
                   className={getErrorClass("total_viagens_feitas")}
                   required
                 />
@@ -469,7 +687,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                   </Button>
                 </div>
 
-                {fieldErrors.frotas && (
+                {validationErrors.has('frotas') && (
                   <div className="text-red-500 text-sm flex-shrink-0">
                     Adicione pelo menos uma frota
                   </div>
@@ -485,35 +703,22 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                   {formData.frotas.map((frota, frotaIndex) => (
                     <Card key={frotaIndex} className={`${getErrorClass(`frota_${frotaIndex}`)}`}>
                       <CardContent className="pt-2 pb-2">
-                        {/* Cabeçalho da frota integrado com os inputs */}
-                        <div className="grid grid-cols-[auto_1.5fr_1fr_auto] gap-2 mb-1">
-                          {/* Coluna 1: Label + Input da Frota */}
+                        {/* Linha 1: Frota e Botões */}
+                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
                           <div className="flex items-center gap-2">
-                            <Label className="text-sm font-semibold whitespace-nowrap">
-                              Frota {frotaIndex + 1}:
-                            </Label>
+                            <Label className="text-sm font-bold">Frota:</Label>
                             <Input
                               type="number"
                               placeholder="Número"
                               value={frota.frota || ""}
                               onChange={(e) => atualizarFrota(frotaIndex, 'frota', Number(e.target.value))}
-                              className="w-20 text-center font-semibold"
+                              onFocus={handleFocusSelect}
+                              className={`w-20 text-center font-semibold ${getErrorClass(`frota_${frotaIndex}_numero`)}`}
                               min="1"
                             />
                           </div>
-
-                          {/* Coluna 2: Label Operador (50% maior) */}
-                          <div className="text-center font-semibold text-sm">
-                            Operador
-                          </div>
-
-                          {/* Coluna 3: Label Produção (50% menor) */}
-                          <div className="text-center font-semibold text-sm">
-                            Produção (ha)
-                          </div>
-
-                          {/* Coluna 4: Botões */}
-                          <div className="flex items-center justify-center gap-1">
+                          
+                          <div className="flex items-center gap-1">
                             <Button
                               type="button"
                               variant="outline"
@@ -538,9 +743,37 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                           </div>
                         </div>
 
-                        {fieldErrors[`frota_${frotaIndex}_sem_producao`] && (
+                        {/* Linha 2: Labels das Colunas */}
+                        <div className="grid grid-cols-[auto_1fr_1fr_1.5fr_1fr] gap-2 mb-2 items-center">
+                          {/* Coluna 1: Label Turno */}
+                          <div className="flex items-center justify-center text-center font-semibold text-sm">
+                            Turno
+                          </div>
+
+                          {/* Coluna 2: Label Código */}
+                          <div className="flex items-center justify-center text-center font-semibold text-sm">
+                            Código (faz)
+                          </div>
+
+                          {/* Coluna 3: Label Lâmina */}
+                          <div className="flex items-center justify-center text-center font-semibold text-sm">
+                            Lâmina (m³)
+                          </div>
+
+                          {/* Coluna 4: Label Operador */}
+                          <div className="flex items-center justify-center text-center font-semibold text-sm">
+                            Operador
+                          </div>
+
+                          {/* Coluna 5: Label Produção */}
+                          <div className="flex items-center justify-center text-center font-semibold text-sm">
+                            Produção (ha)
+                          </div>
+                        </div>
+
+                        {validationErrors.has(`frota_${frotaIndex}_sem_operador`) && (
                           <div className="text-red-500 text-sm mb-1">
-                            Pelo menos um turno deve ter produção maior que 0
+                            Pelo menos um turno deve ter operador preenchido
                           </div>
                         )}
                         
@@ -555,7 +788,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                           }
 
                           return (
-                            <div key={turno.id} className="grid grid-cols-[auto_1.5fr_1fr_auto] gap-2 mb-1">
+                            <div key={turno.id} className="grid grid-cols-[auto_1fr_1fr_1.5fr_1fr] gap-2 mb-1">
                               {/* Turno selecionável - alinhado com label da frota */}
                               <div className="flex items-center justify-start pl-2">
                                 <Select
@@ -569,17 +802,40 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                                     <SelectItem value="A">A</SelectItem>
                                     <SelectItem value="B">B</SelectItem>
                                     <SelectItem value="C">C</SelectItem>
-                                    <SelectItem value="D">D</SelectItem>
-                                    <SelectItem value="E">E</SelectItem>
-                                    <SelectItem value="F">F</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
+
+                              {/* Código da fazenda */}
+                              <Input
+                                id={getInputId(frotaIndex, turno.id, 'codigo')}
+                                placeholder="Código..."
+                                value={turno.codigo_fazenda || ""}
+                                onChange={(e) => atualizarTurno(frotaIndex, turno.id, 'codigo_fazenda', e.target.value)}
+                                onFocus={handleFocusSelect}
+                                onKeyDown={(e) => handleKeyNavigation(e, frotaIndex, turno.id, 'codigo')}
+                                className={`text-center ${getErrorClass(`frota_${frotaIndex}_turno_${turno.id}_codigo`)}`}
+                              />
+
+                              {/* Lâmina */}
+                              <Input
+                                id={getInputId(frotaIndex, turno.id, 'lamina')}
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="0.00"
+                                value={turno.lamina_alvo || ""}
+                                onChange={(e) => atualizarTurno(frotaIndex, turno.id, 'lamina_alvo', Number(e.target.value))}
+                                onFocus={handleFocusSelect}
+                                onKeyDown={(e) => handleKeyNavigation(e, frotaIndex, turno.id, 'lamina')}
+                                className="text-center"
+                              />
 
                               {/* Operador com busca dinâmica */}
                               <div className="relative">
                                 <div className="flex items-center gap-1">
                                   <Input
+                                    id={getInputId(frotaIndex, turno.id, 'operador')}
                                     placeholder="Digite o nome..."
                                     value={turno.operador}
                                     onChange={(e) => {
@@ -607,6 +863,12 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                                           }
                                         }))
                                       }, 200)
+                                    }}
+                                    onKeyDown={(e) => {
+                                      // Se não está mostrando sugestões, permite navegação
+                                      if (!funcionarioState.showSuggestions) {
+                                        handleKeyNavigation(e, frotaIndex, turno.id, 'operador')
+                                      }
                                     }}
                                     className="text-center"
                                     autoComplete="off"
@@ -670,25 +932,27 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                               </div>
 
                               {/* Produção */}
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="0.00"
-                                value={turno.producao || ""}
-                                onChange={(e) => atualizarTurno(frotaIndex, turno.id, 'producao', Number(e.target.value))}
-                                className="text-center"
-                              />
-
-                              {/* Ações */}
-                              <div className="flex items-center justify-center">
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  id={getInputId(frotaIndex, turno.id, 'producao')}
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="0.00"
+                                  value={turno.producao || ""}
+                                  onChange={(e) => atualizarTurno(frotaIndex, turno.id, 'producao', Number(e.target.value))}
+                                  onFocus={handleFocusSelect}
+                                  onKeyDown={(e) => handleKeyNavigation(e, frotaIndex, turno.id, 'producao')}
+                                  className="text-center"
+                                />
+                                {/* Botão de remover turno (somente se mais de 3 turnos) */}
                                 {frota.turnos.length > 3 && (
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => confirmarRemoverTurno(frotaIndex, turno.id)}
-                                    className="h-6 w-6 p-0 text-red-600"
+                                    className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
@@ -698,17 +962,38 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                           )
                         })}
                         
-                        {/* Total da frota */}
-                        <div className="border-t pt-1 mt-1">
-                          <div className="grid grid-cols-[auto_1.5fr_1fr_auto] gap-2">
-                            <div></div>
-                            <div className="font-semibold text-center text-sm">Total Frota:</div>
-                            <div className="font-bold text-center text-blue-600">
-                              {frota.turnos.reduce((sum, turno) => sum + turno.producao, 0).toFixed(2)} ha
-                            </div>
-                            <div></div>
-                          </div>
-                        </div>
+                                                          {/* Total da frota */}
+                                  <div className="border-t pt-1 mt-1">
+                                    <div className="text-center text-sm">
+                                      {(() => {
+                                        const totaisPorCodigo = frota.turnos.reduce((acc, turno) => {
+                                          if (turno.codigo_fazenda && turno.producao > 0) {
+                                            acc[turno.codigo_fazenda] = (acc[turno.codigo_fazenda] || 0) + turno.producao
+                                          }
+                                          return acc
+                                        }, {} as Record<string, number>)
+                                        
+                                        const codigosComProducao = Object.entries(totaisPorCodigo)
+                                        const totalFrota = frota.turnos.reduce((sum, turno) => sum + turno.producao, 0)
+                                        
+                                        return (
+                                          <div>
+                                            {codigosComProducao.map(([codigo, total], index) => (
+                                              <span key={codigo} className="text-xs text-gray-600">
+                                                Código {codigo}: {total.toFixed(2)} ha
+                                                {index < codigosComProducao.length - 1 ? ' | ' : ''}
+                                              </span>
+                                            ))}
+                                            {codigosComProducao.length > 0 && ' | '}
+                                            <span className="font-semibold">Total Frota: </span>
+                                            <span className="font-bold text-blue-600">{totalFrota.toFixed(2)} ha</span>
+                                          </div>
+                                        )
+                                      })()}
+                                    </div>
+                                  </div>
+
+
                       </CardContent>
                     </Card>
                   ))}
@@ -716,117 +1001,304 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
               </div>
             )}
 
-            {/* Botões */}
-            <div className="flex justify-end gap-3 pt-2 border-t flex-shrink-0">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="bg-black hover:bg-black/90 text-white"
-              >
-                {isSubmitting ? "Processando..." : "Criar Boletim CAV"}
-              </Button>
-            </div>
           </div>
 
           {/* Resumo parcial - direita */}
           {formData.frente && (
-            <div className="w-80 flex-shrink-0 flex flex-col max-h-full">
-              <Card className="bg-blue-50 flex-1 flex flex-col min-h-0">
-                <CardHeader className="pb-3 flex-shrink-0">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Calculator className="h-5 w-5" />
-                    Resumo Parcial
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col space-y-3 min-h-0">
-                  {/* Resumo em formato texto */}
-                  <div className="bg-white p-3 rounded-lg border font-mono text-xs leading-relaxed select-all flex-1 overflow-y-auto">
-                    <div className="font-bold text-center mb-2 text-sm">📋 BOLETIM CAV</div>
-                    
-                    {/* Cabeçalho */}
-                    <div className="mb-2">
-                      <strong>📅 Data:</strong> {new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR')}<br/>
-                      <strong>🏭 Frente:</strong> {formData.frente}<br/>
-                      <strong>💧 Lâmina Alvo:</strong> {formData.lamina_alvo} mm
-                    </div>
+            <div className="w-96 flex-shrink-0 flex flex-col max-h-full">
+              <Card className="bg-gray-50 flex-1 flex flex-col min-h-0">
+                <CardContent className="flex-1 flex flex-col min-h-0 p-2">
+                  {/* Resumo em formato texto simples */}
+<div id="resumo-cav" className="bg-white p-1 rounded-lg border font-sans text-sm leading-relaxed select-all flex-1 overflow-y-auto">
+                    <div className="space-y-1">
+                      <div><span className="text-blue-600">📅</span> <strong>Data:</strong> {new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR')}</div>
+                      <div><span className="text-blue-600">🏭</span> <strong>Frente:</strong> {formData.frente}</div>
+                      
+                      {/* Mostra códigos únicos utilizados */}
+                      {(() => {
+                        const codigosUnicos = new Set(
+                          formData.frotas.flatMap(frota => 
+                            frota.turnos
+                              .filter(turno => turno.operador && turno.operador.trim() !== "" && turno.operador !== "Não Op.")
+                              .map(turno => turno.codigo_fazenda || 'Padrão')
+                          )
+                        )
+                        if (codigosUnicos.size > 0) {
+                          return (
+                            <div><span className="text-blue-600">🏷️</span> <strong>Códigos:</strong> {Array.from(codigosUnicos).join(', ')}</div>
+                          )
+                        }
+                        return null
+                      })()}
 
-                    {/* Frotas */}
-                    {formData.frotas.map((frota, index) => {
-                      const totalFrota = frota.turnos.reduce((sum, turno) => sum + turno.producao, 0)
-                      return (
-                        <div key={index} className="mb-2 border-l-2 border-blue-300 pl-2">
-                          <strong>🚜 Frota {frota.frota}:</strong><br/>
-                          {frota.turnos.map((turno, tIndex) => (
-                            turno.producao > 0 && (
-                              <div key={tIndex} className="ml-2">
-                                • Turno {turno.turno}: {turno.operador} - {turno.producao.toFixed(2)} ha<br/>
-                              </div>
-                            )
-                          ))}
-                          <div className="ml-2 font-semibold text-blue-600">
-                            📊 Total Frota: {totalFrota.toFixed(2)} ha
+                      {/* Mostra lâminas únicas utilizadas */}
+                      {(() => {
+                        const laminasUnicas = new Set(
+                          formData.frotas.flatMap(frota => 
+                            frota.turnos
+                              .filter(turno => turno.operador && turno.operador.trim() !== "" && turno.operador !== "Não Op.")
+                              .map(turno => turno.lamina_alvo?.toString() || '10')
+                          )
+                        )
+                        if (laminasUnicas.size > 0) {
+                          return (
+                            <div><span className="text-blue-600">💧</span> <strong>Lâminas Alvo:</strong> {Array.from(laminasUnicas).map(l => `${l} m³`).join(', ')}</div>
+                          )
+                        }
+                        return null
+                      })()}
+                      
+                      {formData.frotas.some(frota => frota.turnos.some(turno => turno.producao > 0)) && (
+                        <div className="mt-3 pt-2 border-t">
+                          <div className="text-green-600 text-center">🚜 <strong>APLICAÇÃO</strong></div>
+                        </div>
+                      )}
+
+                      {formData.frotas.map((frota, index) => {
+                        const totalFrota = frota.turnos.reduce((sum, turno) => sum + turno.producao, 0)
+                        const turnosComProducao = frota.turnos.filter(turno => turno.producao > 0)
+                        
+                        if (turnosComProducao.length === 0) return null
+                        
+                        return (
+                          <div key={index} className="mt-2">
+                            <div><span className="text-green-600">🚜</span> <strong>Frota {frota.frota}:</strong></div>
+                            {turnosComProducao.map((turno, tIndex) => {
+                              // Verifica se há múltiplos códigos para decidir se mostra
+                              const todosCodigosUsados = formData.frotas.flatMap(f => 
+                                f.turnos
+                                  .filter(t => t.operador && t.operador.trim() !== "" && t.operador !== "Não Op.")
+                                  .map(t => t.codigo_fazenda || '')
+                              )
+                              const codigosUnicos = new Set(todosCodigosUsados.filter(c => c.trim() !== ''))
+                              const mostrarCodigo = codigosUnicos.size > 1 && turno.codigo_fazenda && turno.codigo_fazenda.trim() !== ''
+                              
+                              return (
+                                <div key={tIndex} className="ml-4">
+                                  <div>• Turno {turno.turno}: {turno.operador} - {turno.producao.toFixed(2)} ha</div>
+                                  {mostrarCodigo && (
+                                    <div className="ml-6 text-xs text-blue-600">
+                                      Código: {turno.codigo_fazenda}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                            <div className="ml-4 text-blue-600 mt-2">
+                              📊 <strong>Total Frota: {totalFrota.toFixed(2)} ha</strong>
+                            </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
 
-                    {/* Total Geral */}
-                    <div className="border-t pt-2 mt-2">
-                      <strong className="text-green-600">🎯 TOTAL GERAL: {totalProducao.toFixed(2)} ha</strong>
+                      {totalProducao > 0 && (
+                        <div className="mt-3 pt-2 border-t">
+                          {/* Totais por código no resumo geral */}
+                          {(() => {
+                            const totaisGeraisPorCodigo = formData.frotas.reduce((acc, frota) => {
+                              frota.turnos.forEach(turno => {
+                                if (turno.codigo_fazenda && turno.producao > 0) {
+                                  acc[turno.codigo_fazenda] = (acc[turno.codigo_fazenda] || 0) + turno.producao
+                                }
+                              })
+                              return acc
+                            }, {} as Record<string, number>)
+                            
+                            const codigosComProducao = Object.entries(totaisGeraisPorCodigo)
+                            
+                            if (codigosComProducao.length > 0) {
+                              return (
+                                <div className="space-y-1 mb-2">
+                                  {codigosComProducao.map(([codigo, total]) => (
+                                    <div key={codigo} className="text-blue-600">
+                                      📋 <strong>Código {codigo}: {total.toFixed(2)} ha</strong>
+                                    </div>
+                                  ))}
+                                </div>
+                              )
+                            }
+                            return null
+                          })()}
+                          
+                          <div className="text-green-600 text-center">🎯 <strong>TOTAL GERAL: {totalProducao.toFixed(2)} ha</strong></div>
+                        </div>
+                      )}
+
+                      {(() => {
+                        // Calcular lâmina média ponderada pela produção
+                        let laminaMediaPonderada = 0
+                        let totalViagensOrcadas = 0
+                        
+                        if (totalProducao > 0) {
+                          let somaLaminaProducao = 0
+                          
+                          formData.frotas.forEach(frota => {
+                            frota.turnos.forEach(turno => {
+                              if (turno.producao > 0 && turno.lamina_alvo > 0) {
+                                somaLaminaProducao += turno.lamina_alvo * turno.producao
+                                totalViagensOrcadas += (turno.producao * turno.lamina_alvo) / 60
+                              }
+                            })
+                          })
+                          
+                          laminaMediaPonderada = somaLaminaProducao / totalProducao
+                        }
+                        
+                        if (totalProducao > 0 && formData.total_viagens_feitas > 0 && laminaMediaPonderada > 0) {
+                          const laminaAplicada = (formData.total_viagens_feitas * 60) / totalProducao
+                          const diferencaLamina = laminaAplicada - laminaMediaPonderada
+                          const percentualLamina = ((laminaAplicada - laminaMediaPonderada) / laminaMediaPonderada) * 100
+                          
+                          const diferencaViagens = formData.total_viagens_feitas - totalViagensOrcadas
+                          const percentualViagens = totalViagensOrcadas > 0 ? (diferencaViagens / totalViagensOrcadas) * 100 : 0
+                          
+                          return (
+                            <>
+                              {/* Análise - Lâmina */}
+                              <div className="mt-3 pt-2 border-t">
+                                <div className="text-blue-600 text-center">💧 <strong>LÂMINA</strong></div>
+                                <div className="mt-1 space-y-1">
+                                  <div><strong>Lâmina Alvo:</strong> {laminaMediaPonderada.toFixed(2)} m³</div>
+                                  <div><strong>Lâmina Aplicada:</strong> {laminaAplicada.toFixed(2)} m³</div>
+                                  <div><strong>Diferença:</strong> {diferencaLamina.toFixed(2)} m³ ({percentualLamina >= 0 ? '+' : ''}{percentualLamina.toFixed(1)}%)</div>
+                                </div>
+                              </div>
+
+                              {/* Análise - Viagens */}
+                              <div className="mt-3 pt-2 border-t">
+                                <div className="text-orange-600 text-center">🚛 <strong>VIAGENS</strong></div>
+                                <div className="mt-1 space-y-1">
+                                  <div><strong>Viagens Orçadas:</strong> {totalViagensOrcadas.toFixed(2)}</div>
+                                  <div><strong>Viagens Feitas:</strong> {formData.total_viagens_feitas}</div>
+                                  <div><strong>Diferença:</strong> {diferencaViagens.toFixed(2)} ({percentualViagens >= 0 ? '+' : ''}{percentualViagens.toFixed(1)}%)</div>
+                                </div>
+                              </div>
+                            </>
+                          )
+                        }
+                        return null
+                      })()}
                     </div>
-
-                    {/* Cálculos */}
-                    {totalProducao > 0 && formData.total_viagens_feitas > 0 && formData.lamina_alvo > 0 && (
-                      <div className="border-t pt-2 mt-2">
-                        <div className="font-bold mb-1">📈 ANÁLISE:</div>
-                        
-                        {/* Lâminas */}
-                        <div className="mb-1">
-                          <strong>Lâmina Orçada:</strong> {formData.lamina_alvo} mm<br/>
-                          <strong>Lâmina Aplicada:</strong> {((formData.total_viagens_feitas * 60) / totalProducao).toFixed(2)} mm<br/>
-                          <strong>Diferença:</strong> {(((formData.total_viagens_feitas * 60) / totalProducao) - formData.lamina_alvo).toFixed(2)} mm ({((1 - formData.lamina_alvo / ((formData.total_viagens_feitas * 60) / totalProducao)) * 100).toFixed(1)}%)
-                        </div>
-                        
-                        {/* Viagens */}
-                        <div>
-                          <strong>Viagens Orçadas:</strong> {((totalProducao * formData.lamina_alvo) / 60).toFixed(2)}<br/>
-                          <strong>Viagens Feitas:</strong> {formData.total_viagens_feitas}<br/>
-                          <strong>Diferença:</strong> {(formData.total_viagens_feitas - ((totalProducao * formData.lamina_alvo) / 60)).toFixed(2)} ({((1 - ((totalProducao * formData.lamina_alvo) / 60) / formData.total_viagens_feitas) * 100).toFixed(1)}%)
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Botão para copiar */}
                   <Button 
                     type="button" 
                     variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      const resumoElement = document.querySelector('.select-all')
-                      if (resumoElement) {
-                        navigator.clipboard.writeText(resumoElement.textContent || '')
+                    size="sm" 
+                    onClick={async () => {
+                      try {
+                        const resumoElement = document.getElementById('resumo-cav')
+                        if (resumoElement) {
+                          // Salvar estado original
+                          const originalScrollTop = resumoElement.scrollTop
+                          const originalOverflow = resumoElement.style.overflow
+                          const originalHeight = resumoElement.style.height
+                          const originalMaxHeight = resumoElement.style.maxHeight
+                          
+                          // Remover scroll temporariamente para capturar todo o conteúdo
+                          resumoElement.style.overflow = 'visible'
+                          resumoElement.style.height = 'auto'
+                          resumoElement.style.maxHeight = 'none'
+                          resumoElement.scrollTop = 0
+                          
+                          // Importar html2canvas dinamicamente
+                          const html2canvas = (await import('html2canvas')).default
+                          
+                          const canvas = await html2canvas(resumoElement, {
+                            backgroundColor: '#ffffff',
+                            scale: 2,
+                            useCORS: true,
+                            allowTaint: true,
+                            height: resumoElement.scrollHeight,
+                            width: resumoElement.scrollWidth,
+                            scrollX: 0,
+                            scrollY: 0
+                          })
+                          
+                          // Restaurar estado original
+                          resumoElement.style.overflow = originalOverflow
+                          resumoElement.style.height = originalHeight
+                          resumoElement.style.maxHeight = originalMaxHeight
+                          resumoElement.scrollTop = originalScrollTop
+                          
+                          // Converter para blob
+                          canvas.toBlob(async (blob) => {
+                            if (blob) {
+                              try {
+                                await navigator.clipboard.write([
+                                  new ClipboardItem({ 'image/png': blob })
+                                ])
+                                toast({
+                                  title: "Copiado!",
+                                  description: "Resumo completo copiado como PNG",
+                                })
+                              } catch (err) {
+                                // Fallback: download da imagem
+                                const url = URL.createObjectURL(blob)
+                                const link = document.createElement('a')
+                                link.href = url
+                                link.download = `resumo-cav-${formData.data}-${formData.frente.toLowerCase().replace(/\s+/g, '-')}.png`
+                                link.click()
+                                URL.revokeObjectURL(url)
+                                
+                                toast({
+                                  title: "Download iniciado!",
+                                  description: "Resumo completo salvo como PNG",
+                                })
+                              }
+                            }
+                          }, 'image/png')
+                        }
+                      } catch (error) {
+                        console.error('Erro ao copiar como PNG:', error)
                         toast({
-                          title: "Copiado!",
-                          description: "Resumo copiado para a área de transferência",
+                          title: "Erro",
+                          description: "Não foi possível copiar como imagem",
+                          variant: "destructive"
                         })
                       }
                     }}
                     className="w-full"
                   >
-                    📋 Copiar Resumo
+                    🖼️ Copiar como PNG
                   </Button>
                 </CardContent>
               </Card>
+              
+              {/* Botões de ação */}
+              <div className="flex gap-3 pt-3 flex-shrink-0">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => onOpenChange(false)} 
+                  disabled={isSubmitting}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={() => {
+                    console.log('🖱️ Botão "Criar Boletim" clicado!')
+                    handleSubmit()
+                  }} 
+                  disabled={isSubmitting} 
+                  className="bg-black hover:bg-black/90 text-white flex-1"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Criando Boletim...
+                    </>
+                  ) : (
+                    "Criar Boletim CAV"
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </div>

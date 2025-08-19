@@ -3,12 +3,14 @@
 export interface BoletimCav {
   id?: number
   data: string // YYYY-MM-DD
-  codigo: string // Ex: "12345-6789"
-  frente: string // Ex: "Frente 1", "Ouroeste"
+  codigo: string // Ex: "12345-6789" ou código da fazenda
+  frente: string // Ex: "Frente 1", "Frente 2", "Frente 3", "Iturama", "Ouroeste"
+  setor?: string // GUA, MOE, ALE
   frota: number // Ex: 6125
   turno: 'A' | 'B' | 'C'
   operador: string
   producao: number // Hectares
+  lamina_alvo: number // Lâmina específica deste operador
   observacoes?: string
   created_at?: string
   updated_at?: string
@@ -19,6 +21,7 @@ export interface BoletimCavAgregado {
   data: string // YYYY-MM-DD
   codigo: string
   frente: string
+  setor?: string // GUA, MOE, ALE
   total_producao: number // Soma de todas as produções
   total_viagens_feitas: number // Informado pelo usuário ou calculado
   total_viagens_orcadas: number // Calculado: (total_producao * lamina_alvo) / 60
@@ -47,8 +50,10 @@ export interface CavFrotaData {
 export interface CavTurnoData {
   id: string // UUID para identificar turnos únicos
   turno: string // Pode ser A, B, C ou customizado
+  codigo_fazenda?: string // Código da fazenda
   operador: string
   producao: number
+  lamina_alvo: number // Lâmina específica para este operador
 }
 
 // Configurações de frentes com frotas padrão

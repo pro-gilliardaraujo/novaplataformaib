@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download, Trash2 } from "lucide-react"
+import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
-import {
+import { 
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -19,9 +19,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
+import { X } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { NovoCavModal } from "./novo-cav-modal"
+import { supabase } from "@/lib/supabase"
 
 // Função auxiliar para cores de status
 const getStatusColor = (status: string) => {
@@ -39,17 +43,38 @@ const getStatusColor = (status: string) => {
   }
 }
 
-// Interface temporária - será substituída pela interface real
-interface Cav {
-  id: string
-  numero: string
-  data_criacao: string
-  funcionario: string
-  setor: string
-  tipo: string
-  status: "Ativo" | "Inativo" | "Pendente" | "Concluído"
+// Interface real baseada na tabela boletins_cav_agregado
+interface CavAgregado {
+  id: number
+  data: string // YYYY-MM-DD
+  codigo: string
+  frente: string
+  setor?: string // GUA, MOE, ALE
+  total_producao: number
+  total_viagens_feitas: number
+  total_viagens_orcadas: number
+  dif_viagens_perc: number
+  lamina_alvo: number
+  lamina_aplicada: number
+  dif_lamina_perc: number
+  created_at: string
+  updated_at: string
+}
+
+// Interface para boletins individuais
+interface BoletimCav {
+  id: number
+  data: string
+  codigo: string
+  frente: string
+  setor?: string // GUA, MOE, ALE
+  frota: number
+  turno: string
+  operador: string
+  producao: number
   observacoes?: string
-  criado_por: string
+  created_at: string
+  updated_at: string
 }
 
 interface FilterState {
@@ -57,93 +82,85 @@ interface FilterState {
 }
 
 interface CavListaDetalhadaProps {
-  cavs?: Cav[]
-  onCavEdited?: () => void
+  onCavAdded?: () => void
 }
 
-export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavListaDetalhadaProps) {
+export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState<FilterState>({})
   const [sorting, setSorting] = useState<{ column: string; direction: 'asc' | 'desc' | null } | null>(null)
-  const [selectedCav, setSelectedCav] = useState<Cav | null>(null)
+  const [selectedCav, setSelectedCav] = useState<CavAgregado | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [cavToDelete, setCavToDelete] = useState<Cav | null>(null)
-  const [cavsData, setCavsData] = useState<Cav[]>([])
+
+  const [cavsData, setCavsData] = useState<CavAgregado[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const rowsPerPage = 15
   const { toast } = useToast()
 
-  // Mock data - será substituído por dados reais
-  useEffect(() => {
-    const fetchCavs = async () => {
+  // Buscar dados reais do Supabase
+  const fetchCavs = async () => {
       try {
         setIsLoading(true)
-        // TODO: Implementar busca real de dados
-        const mockCavs: Cav[] = [
-          {
-            id: "1",
-            numero: "CAV-001",
-            data_criacao: "2024-01-15",
-            funcionario: "João Silva",
-            setor: "Colheita",
-            tipo: "Operacional",
-            status: "Ativo",
-            observacoes: "CAV de teste",
-            criado_por: "Admin"
-          },
-          {
-            id: "2",
-            numero: "CAV-002",
-            data_criacao: "2024-01-14",
-            funcionario: "Maria Santos",
-            setor: "Transbordo",
-            tipo: "Segurança",
-            status: "Concluído",
-            observacoes: "",
-            criado_por: "Supervisor"
-          },
-          {
-            id: "3",
-            numero: "CAV-003",
-            data_criacao: "2024-01-16",
-            funcionario: "Pedro Costa",
-            setor: "Plantio",
-            tipo: "Qualidade",
-            status: "Pendente",
-            observacoes: "Aguardando aprovação",
-            criado_por: "Analista"
-          }
-        ]
-        setCavsData(mockCavs)
+      
+      const { data, error } = await supabase
+        .from('boletins_cav_agregado')
+        .select('*')
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Erro ao buscar dados CAV:', error)
+        toast({
+          title: "Erro ao carregar dados",
+          description: "Não foi possível carregar os dados CAV. Tente novamente.",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      setCavsData(data || [])
       } catch (error) {
-        console.error("Erro ao buscar CAVs:", error)
+      console.error('Erro na busca de dados CAV:', error)
+      toast({
+        title: "Erro de conexão",
+        description: "Erro ao conectar com o banco de dados.",
+        variant: "destructive",
+      })
       } finally {
         setIsLoading(false)
       }
     }
 
+  useEffect(() => {
     fetchCavs()
   }, [])
 
+  // Callback para atualizar lista quando novo CAV é adicionado
+  const handleCavAdded = () => {
+    fetchCavs()
+    if (onCavAdded) {
+      onCavAdded()
+    }
+  }
+
   const columns = [
-    { key: "numero", title: "Número" },
-    { key: "data_criacao", title: "Data" },
-    { key: "funcionario", title: "Funcionário" },
-    { key: "setor", title: "Setor" },
-    { key: "tipo", title: "Tipo" },
-    { key: "status", title: "Status" },
-    { key: "criado_por", title: "Criado por" }
+    { key: "data", title: "Data" },
+    { key: "codigo", title: "Código" },
+    { key: "frente", title: "Frente" },
+    { key: "total_producao", title: "Produção (ha)" },
+    { key: "total_viagens_feitas", title: "Viagens" },
+    { key: "lamina_alvo", title: "Lâmina Alvo (m³)" },
+    { key: "dif_lamina_perc", title: "Dif. Lâmina (%)" }
   ] as const
 
   const filterOptions = useMemo(() => {
     return columns.reduce(
       (acc, column) => {
-        if (column.key === "data_criacao") {
+        if (column.key === "data") {
           acc[column.key] = Array.from(
             new Set(
               cavsData.map((item) => {
-                const [year, month, day] = item.data_criacao.split("-")
+                const [year, month, day] = item.data.split("-")
                 return `${day}/${month}/${year}`
               }),
             ),
@@ -152,7 +169,7 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
           acc[column.key] = Array.from(
             new Set(
               cavsData
-                .map((item) => item[column.key as keyof Cav])
+                .map((item) => item[column.key as keyof CavAgregado])
                 .filter((value): value is string => typeof value === "string"),
             ),
           )
@@ -167,21 +184,18 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
     return cavsData.filter((row) =>
       Object.entries(filters).every(([key, selectedOptions]) => {
         if (selectedOptions.size === 0) return true
-        if (key === "data_criacao") {
-          const [year, month, day] = row.data_criacao.split("-")
+        if (key === "data") {
+          const [year, month, day] = row.data.split("-")
           const formattedDate = `${day}/${month}/${year}`
           return selectedOptions.has(formattedDate)
         }
-        const value = row[key as keyof Cav]
+        const value = row[key as keyof CavAgregado]
         return typeof value === "string" && selectedOptions.has(value)
       }),
     )
   }, [cavsData, filters])
 
-  const formatDate = (dateString: string) => {
-    const [year, month, day] = dateString.split("-")
-    return `${day}/${month}/${year}`
-  }
+
 
   const handleFilterToggle = (columnKey: string, option: string) => {
     setFilters((prevFilters) => {
@@ -215,28 +229,32 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
     }
 
     const headers = {
-      numero: 'Número',
-      funcionario: 'Funcionário',
-      setor: 'Setor',
-      data_criacao: 'Data',
-      tipo: 'Tipo',
-      status: 'Status',
-      observacoes: 'Observações',
-      criado_por: 'Criado por'
+      data: 'Data',
+      codigo: 'Código',
+      frente: 'Frente',
+      total_producao: 'Produção (ha)',
+      total_viagens_feitas: 'Viagens Feitas',
+      total_viagens_orcadas: 'Viagens Orçadas',
+      dif_viagens_perc: 'Dif. Viagens (%)',
+      lamina_alvo: 'Lâmina Alvo (m³)',
+      lamina_aplicada: 'Lâmina Aplicada (m³)',
+      dif_lamina_perc: 'Dif. Lâmina (%)'
     }
 
     const csvRows = [
       Object.values(headers).join(';'),
       
       ...filteredData.map(cav => [
-        escapeCsvCell(cav.numero),
-        escapeCsvCell(cav.funcionario),
-        escapeCsvCell(cav.setor),
-        escapeCsvCell(format(new Date(cav.data_criacao), "dd/MM/yyyy", { locale: ptBR })),
-        escapeCsvCell(cav.tipo),
-        escapeCsvCell(cav.status),
-        escapeCsvCell(cav.observacoes || ''),
-        escapeCsvCell(cav.criado_por)
+        escapeCsvCell(format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })),
+        escapeCsvCell(cav.codigo),
+        escapeCsvCell(cav.frente),
+        escapeCsvCell(cav.total_producao.toFixed(2)),
+        escapeCsvCell(cav.total_viagens_feitas.toFixed(0)),
+        escapeCsvCell(cav.total_viagens_orcadas.toFixed(1)),
+        escapeCsvCell(cav.dif_viagens_perc.toFixed(1) + '%'),
+        escapeCsvCell(cav.lamina_alvo.toFixed(1)),
+        escapeCsvCell(cav.lamina_aplicada.toFixed(2)),
+        escapeCsvCell(cav.dif_lamina_perc.toFixed(1) + '%')
       ].join(';'))
     ].join('\r\n')
 
@@ -265,21 +283,21 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
         if (searchTerm) {
           const searchLower = searchTerm.toLowerCase()
           return (
-            item.numero.toLowerCase().includes(searchLower) ||
-            item.funcionario.toLowerCase().includes(searchLower) ||
-            item.setor.toLowerCase().includes(searchLower) ||
-            item.tipo.toLowerCase().includes(searchLower)
+            item.codigo.toLowerCase().includes(searchLower) ||
+            item.frente.toLowerCase().includes(searchLower) ||
+            item.data.includes(searchLower) ||
+            item.total_producao.toString().includes(searchLower)
           )
         }
         return true
       })
       .sort((a, b) => {
         if (!sorting || !sorting.direction) return 0
-        const column = sorting.column as keyof Cav
+        const column = sorting.column as keyof CavAgregado
         let valueA: string | number = a[column] as string
         let valueB: string | number = b[column] as string
 
-        if (column === 'data_criacao') {
+        if (column === 'data' || column === 'created_at') {
           valueA = new Date(valueA).getTime()
           valueB = new Date(valueB).getTime()
         }
@@ -297,27 +315,7 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
   const startIndex = (currentPage - 1) * rowsPerPage
   const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
 
-  const handleDelete = async () => {
-    if (!cavToDelete) return
 
-    try {
-      // TODO: Implementar exclusão real
-      toast({
-        title: "Sucesso",
-        description: "CAV excluído com sucesso!"
-      })
-      onCavEdited()
-    } catch (error) {
-      console.error("Erro ao excluir CAV:", error)
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o CAV.",
-        variant: "destructive"
-      })
-    } finally {
-      setCavToDelete(null)
-    }
-  }
 
 
 
@@ -334,26 +332,26 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div className="w-[400px]">
-          <Input
+            <Input
             placeholder="Buscar por número, funcionário ou setor..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             className="h-9"
-          />
-        </div>
+            />
+          </div>
         <div className="flex gap-2">
           <Button
             className="bg-black hover:bg-black/90 text-white h-9"
             onClick={() => setIsModalOpen(true)}
           >
-            <Plus className="mr-2 h-4 w-4" /> Novo CAV
+            <Plus className="mr-2 h-4 w-4" /> Novo Boletim
           </Button>
           <Button variant="outline" className="h-9" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Exportar
-          </Button>
+              </Button>
         </div>
-      </div>
+        </div>
 
       {/* Table */}
       <div className="flex-1 border rounded-lg flex flex-col min-h-0 overflow-hidden">
@@ -377,8 +375,8 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
                           }`}
                         >
                           <ArrowUpDown className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+        </Button>
+      </div>
                       <FilterDropdown
                         title={column.title}
                         options={filterOptions[column.key] ?? []}
@@ -386,28 +384,28 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
                         onOptionToggle={(option) => handleFilterToggle(column.key, option)}
                         onClear={() => handleClearFilter(column.key)}
                       />
-                    </div>
+            </div>
                   </TableHead>
                 ))}
                 <TableHead className="text-white font-medium w-[100px] px-3">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
               {paginatedData.map((cav) => (
                 <TableRow key={cav.id} className="h-[47px] hover:bg-gray-50 border-b border-gray-200">
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.numero}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{formatDate(cav.data_criacao)}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.funcionario}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.setor}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.tipo}</TableCell>
+                                                      <TableCell className="px-3 py-0 border-x border-gray-100">{format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.codigo}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.frente}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.total_producao.toFixed(2)}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.total_viagens_feitas.toFixed(0)}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.lamina_alvo.toFixed(1)}</TableCell>
+                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">
+                    <span className={cav.dif_lamina_perc > 0 ? "text-red-600" : "text-green-600"}>
+                      {cav.dif_lamina_perc.toFixed(1)}%
+                    </span>
+                    </TableCell>
                   <TableCell className="px-3 py-0 border-x border-gray-100">
-                    <Badge className={getStatusColor(cav.status)}>
-                      {cav.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.criado_por}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center justify-center">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -416,18 +414,10 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                        onClick={() => setCavToDelete(cav)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               {/* Fill empty rows */}
               {paginatedData.length < rowsPerPage && (
                 Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
@@ -438,8 +428,8 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
                   </TableRow>
                 ))
               )}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
         </div>
 
         {/* Pagination */}
@@ -473,26 +463,7 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
         </div>
       </div>
 
-      {/* Modal de confirmação de exclusão */}
-      <AlertDialog open={!!cavToDelete} onOpenChange={(open) => !open && setCavToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir CAV</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este CAV? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
 
       {/* Modal de detalhes do CAV */}
       {selectedCav && (
@@ -500,7 +471,6 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
           open={!!selectedCav}
           onOpenChange={(open) => !open && setSelectedCav(null)}
           cav={selectedCav}
-          onCavEdited={onCavEdited}
         />
       )}
 
@@ -508,9 +478,9 @@ export function CavListaDetalhada({ cavs = [], onCavEdited = () => {} }: CavList
       <NovoCavModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        onCavAdded={onCavEdited}
-      />
-    </div>
+        onCavAdded={handleCavAdded}
+            />
+          </div>
   )
 }
 
@@ -535,11 +505,11 @@ function FilterDropdown({
 
   return (
     <DropdownMenu modal={true}>
-      <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
           <Filter className="h-3.5 w-3.5" />
-        </Button>
-      </DropdownMenuTrigger>
+              </Button>
+            </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
         <div className="space-y-4">
           <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
@@ -569,64 +539,261 @@ function FilterDropdown({
             <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
           </div>
         </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
   )
 }
 
 // Modal de detalhes - placeholder
+// Componente de título de seção (mesmo padrão das tratativas)
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <div className="flex items-center justify-center mb-4">
+      <h3 className="font-semibold text-lg text-gray-900">{title}</h3>
+    </div>
+  )
+}
+
+// Componente de item de detalhe (mesmo padrão das tratativas)
+function DetailItem({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <span className="text-sm font-medium text-gray-500">{label}</span>
+      <div className="text-sm text-gray-900">{value}</div>
+        </div>
+  )
+}
+
 function CavDetailsModal({
   open,
   onOpenChange,
-  cav,
-  onCavEdited
+  cav
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  cav: Cav
-  onCavEdited: () => void
+  cav: CavAgregado
 }) {
+  const [boletinsIndividuais, setBoletinsIndividuais] = useState<BoletimCav[]>([])
+  const [isLoadingDetalhes, setIsLoadingDetalhes] = useState(false)
+
+  // Buscar boletins individuais quando o modal abrir
+  useEffect(() => {
+    if (open) {
+      fetchBoletinsIndividuais()
+    }
+  }, [open, cav.data, cav.frente, cav.codigo])
+
+  const fetchBoletinsIndividuais = async () => {
+    try {
+      setIsLoadingDetalhes(true)
+      
+      const { data, error } = await supabase
+        .from('boletins_cav')
+        .select('*')
+        .eq('data', cav.data)
+        .eq('frente', cav.frente)
+        .eq('codigo', cav.codigo)
+        .order('frota', { ascending: true })
+        .order('turno', { ascending: true })
+      
+      if (error) {
+        console.error('Erro ao buscar boletins individuais:', error)
+        return
+      }
+      
+      setBoletinsIndividuais(data || [])
+    } catch (error) {
+      console.error('Erro na busca de boletins individuais:', error)
+    } finally {
+      setIsLoadingDetalhes(false)
+    }
+  }
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-2xl">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Detalhes do CAV - {cav.numero}</AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <strong>Funcionário:</strong> {cav.funcionario}
-                </div>
-                <div>
-                  <strong>Setor:</strong> {cav.setor}
-                </div>
-                <div>
-                  <strong>Tipo:</strong> {cav.tipo}
-                </div>
-                <div>
-                  <strong>Status:</strong> <Badge className={getStatusColor(cav.status)}>{cav.status}</Badge>
-                </div>
-                <div>
-                  <strong>Data:</strong> {formatDate(cav.data_criacao)}
-                </div>
-                <div>
-                  <strong>Criado por:</strong> {cav.criado_por}
-                </div>
-              </div>
-              {cav.observacoes && (
-                <div>
-                  <strong>Observações:</strong>
-                  <p className="mt-1">{cav.observacoes}</p>
-                </div>
-              )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
+        <div className="flex items-center px-4 h-12 border-b relative">
+          <div className="flex-1 text-center">
+            <span className="text-base font-medium">
+              Detalhes {cav.frente} {format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })} - {cav.codigo}
+            </span>
+          </div>
+          <Button 
+            variant="outline"
+            className="h-8 w-8 p-0 absolute right-2 top-2"
+            onClick={() => onOpenChange(false)}
+          >
+            <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+        <div className="px-8 space-y-2 flex-grow overflow-auto">
+          <div>
+            <SectionTitle title="Identificação" />
+            <div className="grid grid-cols-4 gap-3">
+              <DetailItem label="Código" value={cav.codigo} />
+              <DetailItem label="Data" value={format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })} />
+              <DetailItem label="Frente" value={cav.frente} />
+              <DetailItem 
+                label="Setor" 
+                value={
+                  cav.setor ? (
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${
+                      cav.setor === 'GUA' ? 'bg-blue-100 text-blue-800' :
+                      cav.setor === 'MOE' ? 'bg-green-100 text-green-800' :
+                      cav.setor === 'ALE' ? 'bg-purple-100 text-purple-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {cav.setor}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">N/A</span>
+                  )
+                } 
+              />
             </div>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Fechar</AlertDialogCancel>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </div>
+
+          <Separator className="my-2" />
+
+          <div>
+            <SectionTitle title="Produção e Aplicação" />
+            <div className="grid grid-cols-4 gap-3">
+              <DetailItem label="Produção Total" value={`${cav.total_producao.toFixed(2)} ha`} />
+              <DetailItem label="Lâmina Alvo" value={`${cav.lamina_alvo.toFixed(1)} m³`} />
+              <DetailItem label="Lâmina Aplicada" value={`${cav.lamina_aplicada.toFixed(2)} m³`} />
+              <DetailItem 
+                label="Diferença de Lâmina" 
+                value={
+                  <span className={cav.dif_lamina_perc > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
+                    {cav.dif_lamina_perc.toFixed(1)}%
+                  </span>
+                } 
+              />
+            </div>
+          </div>
+
+          <Separator className="my-2" />
+
+          <div>
+            <SectionTitle title="Viagens" />
+            <div className="grid grid-cols-3 gap-3">
+              <DetailItem label="Viagens Feitas" value={cav.total_viagens_feitas.toFixed(2)} />
+              <DetailItem label="Viagens Orçadas" value={cav.total_viagens_orcadas.toFixed(2)} />
+              <DetailItem 
+                label="Diferença de Viagens" 
+                value={
+                  <span className={cav.dif_viagens_perc > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
+                    {cav.dif_viagens_perc.toFixed(1)}%
+                  </span>
+                } 
+              />
+            </div>
+          </div>
+
+          <Separator className="my-2" />
+
+          <div>
+            <SectionTitle title="Registros Detalhados" />
+            {isLoadingDetalhes ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-gray-500">Carregando detalhes...</div>
+            </div>
+            ) : boletinsIndividuais.length > 0 ? (
+              <div className="border rounded-lg overflow-hidden">
+            <Table>
+                  <TableHeader className="bg-gray-50">
+                                        <TableRow className="h-[40px]">
+                      <TableHead className="text-gray-700 font-medium px-3">Frota</TableHead>
+                      <TableHead className="text-gray-700 font-medium px-3">Turno</TableHead>
+                      <TableHead className="text-gray-700 font-medium px-3">Operador</TableHead>
+                      <TableHead className="text-gray-700 font-medium px-3 text-right">Produção (ha)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                    {(() => {
+                      // Agrupar por frota
+                      const frotasAgrupadas = boletinsIndividuais.reduce((acc, boletim) => {
+                        if (!acc[boletim.frota]) {
+                          acc[boletim.frota] = []
+                        }
+                        acc[boletim.frota].push(boletim)
+                        return acc
+                      }, {} as Record<number, BoletimCav[]>)
+
+                      // Calcular total geral
+                      const totalGeral = boletinsIndividuais.reduce((sum, b) => sum + b.producao, 0)
+
+                      const rows: React.ReactNode[] = []
+
+                      // Renderizar cada frota com subtotal
+                      Object.entries(frotasAgrupadas)
+                        .sort(([a], [b]) => Number(a) - Number(b))
+                        .forEach(([frota, boletins]) => {
+                          const totalFrota = boletins.reduce((sum, b) => sum + b.producao, 0)
+                          
+                          // Adicionar registros da frota
+                          boletins.forEach((boletim, index) => {
+                            rows.push(
+                                                            <TableRow key={boletim.id} className="h-[40px] hover:bg-gray-50">
+                                <TableCell className="px-3 py-2 border-x border-gray-100">{boletim.frota}</TableCell>
+                                <TableCell className="px-3 py-2 border-x border-gray-100">{boletim.turno}</TableCell>
+                                <TableCell className="px-3 py-2 border-x border-gray-100">{boletim.operador}</TableCell>
+                                <TableCell className="px-3 py-2 border-x border-gray-100 text-right">
+                                  {boletim.producao.toFixed(2)}
+                    </TableCell>
+                              </TableRow>
+                            )
+                          })
+
+                          // Adicionar subtotal da frota
+                          rows.push(
+                                                        <TableRow key={`subtotal-${frota}`} className="bg-blue-50 font-medium">
+                              <TableCell className="px-3 py-2 border-x border-gray-200" colSpan={3}>
+                                <span className="text-blue-700">Subtotal Frota {frota}</span>
+                    </TableCell>
+                              <TableCell className="px-3 py-2 border-x border-gray-200 text-right text-blue-700 font-semibold">
+                                {totalFrota.toFixed(2)}
+                    </TableCell>
+                            </TableRow>
+                          )
+                        })
+
+                      // Adicionar total geral
+                      rows.push(
+                                                <TableRow key="total-geral" className="bg-green-50 font-bold border-t-2 border-green-200">
+                          <TableCell className="px-3 py-2 border-x border-gray-200" colSpan={3}>
+                            <span className="text-green-700">🎯 TOTAL GERAL</span>
+                    </TableCell>
+                          <TableCell className="px-3 py-2 border-x border-gray-200 text-right text-green-700 font-bold text-lg">
+                            {totalGeral.toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                      )
+
+                      return rows
+                    })()}
+              </TableBody>
+            </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                Nenhum registro detalhado encontrado
+              </div>
+            )}
+          </div>
+
+
+        </div>
+
+        <div className="border-t bg-white p-4">
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
+          </div>
+    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
