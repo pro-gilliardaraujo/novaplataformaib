@@ -402,7 +402,13 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                   <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.total_viagens_feitas.toFixed(0)}</TableCell>
                   <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.lamina_alvo.toFixed(1)}</TableCell>
                   <TableCell className="px-3 py-0 border-x border-gray-100 text-right">
-                    <span className={cav.dif_lamina_perc > 0 ? "text-red-600" : "text-green-600"}>
+                    <span className={
+                      cav.dif_lamina_perc < 0
+                        ? "text-red-600"
+                        : cav.dif_lamina_perc <= 10
+                          ? "text-green-600"
+                          : "text-yellow-500"
+                    }>
                       {cav.dif_lamina_perc.toFixed(1)}%
                     </span>
                     </TableCell>
@@ -707,7 +713,13 @@ function CavDetailsModal({
               <DetailItem 
                 label="Diferença de Lâmina" 
                 value={
-                  <span className={cav.dif_lamina_perc > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
+                  <span className={
+                    cav.dif_lamina_perc < 0
+                      ? "text-red-600 font-semibold"
+                      : cav.dif_lamina_perc <= 10
+                        ? "text-green-600 font-semibold"
+                        : "text-yellow-500 font-semibold"
+                  }>
                     {cav.dif_lamina_perc.toFixed(1)}%
                   </span>
                 } 
