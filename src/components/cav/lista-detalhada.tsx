@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download } from "lucide-react"
+import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download, Pencil, FileDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import { 
@@ -92,6 +92,8 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
   const [selectedCav, setSelectedCav] = useState<CavAgregado | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editBoletinsIndividuais, setEditBoletinsIndividuais] = useState<BoletimCav[]>([])
 
   const [cavsData, setCavsData] = useState<CavAgregado[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -383,8 +385,8 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                         selectedOptions={filters[column.key] ?? new Set()}
                         onOptionToggle={(option) => handleFilterToggle(column.key, option)}
                         onClear={() => handleClearFilter(column.key)}
-                      />
-            </div>
+            />
+          </div>
                   </TableHead>
                 ))}
                 <TableHead className="text-white font-medium w-[100px] px-3">Ações</TableHead>
@@ -471,6 +473,13 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
           open={!!selectedCav}
           onOpenChange={(open) => !open && setSelectedCav(null)}
           cav={selectedCav}
+          onEdit={(cav, boletinsIndividuais) => {
+            // Armazenar os boletins individuais para edição
+            setEditBoletinsIndividuais(boletinsIndividuais);
+            
+            // Abrir o modal de edição
+            setIsEditModalOpen(true);
+          }}
         />
       )}
 
@@ -479,7 +488,19 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         onCavAdded={handleCavAdded}
-            />
+      />
+      
+      {/* Modal de edição de CAV */}
+      {selectedCav && (
+        <NovoCavModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          onCavAdded={handleCavAdded}
+          isEditMode={true}
+          cavToEdit={selectedCav}
+          boletinsIndividuais={editBoletinsIndividuais}
+        />
+      )}
           </div>
   )
 }
@@ -567,12 +588,15 @@ function DetailItem({ label, value }: { label: string; value: React.ReactNode })
 function CavDetailsModal({
   open,
   onOpenChange,
-  cav
+  cav,
+  onEdit
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   cav: CavAgregado
+  onEdit?: (cav: CavAgregado, boletinsIndividuais: BoletimCav[]) => void
 }) {
+  const { toast } = useToast()
   const [boletinsIndividuais, setBoletinsIndividuais] = useState<BoletimCav[]>([])
   const [isLoadingDetalhes, setIsLoadingDetalhes] = useState(false)
 
@@ -616,14 +640,33 @@ function CavDetailsModal({
             <span className="text-base font-medium">
               Detalhes {cav.frente} {format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })} - {cav.codigo}
             </span>
-          </div>
-          <Button 
-            variant="outline"
-            className="h-8 w-8 p-0 absolute right-2 top-2"
-            onClick={() => onOpenChange(false)}
-          >
-            <X className="h-4 w-4" />
+        </div>
+          <div className="absolute right-2 top-2 flex space-x-2">
+            <Button 
+              variant="outline"
+              className="h-8 w-8 p-0"
+              onClick={() => {
+                // Fechar este modal e abrir o modal de edição
+                onOpenChange(false);
+                
+                // Chamar a função de edição passando o CAV e os boletins individuais
+                if (onEdit) {
+                  onEdit(cav, boletinsIndividuais);
+                }
+              }}
+              title="Editar boletim"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="outline"
+              className="h-8 w-8 p-0"
+              onClick={() => onOpenChange(false)}
+              title="Fechar"
+            >
+              <X className="h-4 w-4" />
         </Button>
+      </div>
       </div>
 
         <div className="px-8 space-y-2 flex-grow overflow-auto">
@@ -785,15 +828,307 @@ function CavDetailsModal({
 
         </div>
 
-        <div className="border-t bg-white p-4">
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Fechar
+        <div className="border-t bg-white px-8 py-5">
+          <SectionTitle title="Resumo do Boletim" />
+          <div className="flex justify-center mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Usar Dialog do Shadcn para criar o modal
+                const dialogRoot = document.createElement('div');
+                dialogRoot.id = 'resumo-dialog-root';
+                document.body.appendChild(dialogRoot);
+                
+                // Criar o conteúdo HTML para o modal
+                const modalHTML = `
+                  <div data-state="open" class="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" style="pointer-events: auto;">
+                    <div class="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg md:w-full" style="pointer-events: auto;">
+                      <div class="flex flex-col space-y-1.5 text-center sm:text-center">
+                        <h2 class="text-lg font-semibold leading-none tracking-tight">${cav.frente} ${format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })} - ${cav.codigo}</h2>
+                      </div>
+                      <div id="resumo-content" class="p-4 pt-0">
+                        <div class="mb-4">
+                          <p><strong>📅 Data:</strong> ${format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</p>
+                          <p><strong>🏭 Frente:</strong> ${cav.frente}</p>
+                          <p><strong>🔢 Código:</strong> ${cav.codigo}</p>
+                          <p><strong>💧 Lâmina Alvo:</strong> ${cav.lamina_alvo} m³</p>
+                        </div>
+                        
+                        <h4 class="text-center font-semibold mb-2">📊 APLICAÇÃO</h4>
+                        <div class="mb-4" id="aplicacao-section">
+                          <!-- Será preenchido via JavaScript -->
+                        </div>
+                        
+                        <h4 class="text-center font-semibold mb-2">💧 LÂMINA</h4>
+                        <div class="mb-4">
+                          <p><strong>Lâmina Alvo:</strong> ${cav.lamina_alvo.toFixed(2)} m³</p>
+                          <p><strong>Lâmina Aplicada:</strong> ${cav.lamina_aplicada.toFixed(2)} m³</p>
+                          <p><strong>Diferença:</strong> ${(cav.lamina_aplicada - cav.lamina_alvo).toFixed(2)} m³ (${cav.dif_lamina_perc > 0 ? '+' : ''}${cav.dif_lamina_perc.toFixed(2)}%)</p>
+                        </div>
+                        
+                        <h4 class="text-center font-semibold mb-2">🚜 VIAGENS</h4>
+                        <div class="mb-4">
+                          <p><strong>Viagens Orçadas:</strong> ${cav.total_viagens_orcadas.toFixed(2)}</p>
+                          <p><strong>Viagens Feitas:</strong> ${cav.total_viagens_feitas.toFixed(2)}</p>
+                          <p><strong>Diferença:</strong> ${(cav.total_viagens_feitas - cav.total_viagens_orcadas).toFixed(2)} (${cav.dif_viagens_perc > 0 ? '+' : ''}${cav.dif_viagens_perc.toFixed(2)}%)</p>
+                        </div>
+                        
+                        <div class="flex justify-center mt-6">
+                          <button id="btn-copiar-png" class="bg-black text-white px-4 py-2 rounded-md font-semibold">
+                            Copiar como PNG
+                          </button>
+                        </div>
+                      </div>
+                      <button id="btn-fechar-resumo" class="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-sm border border-slate-200">
+                          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4">
+                            <path d="M11.7816 4.03157C12.0062 3.80702 12.0062 3.44295 11.7816 3.2184C11.5571 2.99385 11.193 2.99385 10.9685 3.2184L7.50005 6.68682L4.03164 3.2184C3.80708 2.99385 3.44301 2.99385 3.21846 3.2184C2.99391 3.44295 2.99391 3.80702 3.21846 4.03157L6.68688 7.49999L3.21846 10.9684C2.99391 11.193 2.99391 11.557 3.21846 11.7816C3.44301 12.0061 3.80708 12.0061 4.03164 11.7816L7.50005 8.31316L10.9685 11.7816C11.193 12.0061 11.5571 12.0061 11.7816 11.7816C12.0062 11.557 12.0062 11.193 11.7816 10.9684L8.31322 7.49999L11.7816 4.03157Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"></path>
+                          </svg>
+                        </div>
+                        <span class="sr-only">Fechar</span>
+                      </button>
+                    </div>
+                  </div>
+                `;
+                
+                dialogRoot.innerHTML = modalHTML;
+                
+                // Preencher a seção de aplicação
+                const aplicacaoSection = document.getElementById('aplicacao-section');
+                if (aplicacaoSection) {
+                  // Agrupar por frota
+                  const frotasAgrupadas: Record<string, BoletimCav[]> = {};
+                  boletinsIndividuais.forEach(boletim => {
+                    const frotaKey = String(boletim.frota);
+                    if (!frotasAgrupadas[frotaKey]) {
+                      frotasAgrupadas[frotaKey] = [];
+                    }
+                    frotasAgrupadas[frotaKey].push(boletim);
+                  });
+                  
+                  // Renderizar frotas e turnos
+                  let aplicacaoHTML = '';
+                  Object.entries(frotasAgrupadas).forEach(([frota, boletins]) => {
+                    aplicacaoHTML += `<p class="font-semibold mt-2">🚜 Frota ${frota}:</p>`;
+                    
+                    let totalFrota = 0;
+                    boletins.forEach((boletim: BoletimCav) => {
+                      aplicacaoHTML += `<p class="ml-5">• Turno ${boletim.turno}: ${boletim.operador} - ${boletim.producao} ha</p>`;
+                      totalFrota += boletim.producao;
+                    });
+                    
+                    aplicacaoHTML += `<p class="ml-5 font-semibold">📋 Total Frota: ${totalFrota.toFixed(2)} ha</p>`;
+                  });
+                  
+                  aplicacaoHTML += `
+                    <p class="font-semibold mt-2">📋 Código ${cav.codigo}: ${cav.total_producao} ha</p>
+                    <p class="text-center font-semibold text-base mt-2">🎯 TOTAL GERAL: ${cav.total_producao} ha</p>
+                  `;
+                  
+                  aplicacaoSection.innerHTML = aplicacaoHTML;
+                }
+                
+                // Adicionar evento de clique ao botão de fechar
+                const closeButton = document.getElementById('btn-fechar-resumo');
+                if (closeButton) {
+                  closeButton.addEventListener('click', function() {
+                    document.body.removeChild(dialogRoot);
+                  });
+                }
+                
+                // Adicionar evento de clique ao botão de copiar
+                setTimeout(() => {
+                  const copyButton = document.getElementById('btn-copiar-png');
+                  if (copyButton) {
+                    copyButton.onclick = async function() {
+                      try {
+                        // Mostrar toast de processamento
+                        toast({
+                          title: "Processando...",
+                          description: "Capturando o resumo como PNG",
+                        });
+                        
+                        // Importar html2canvas dinamicamente
+                        const html2canvasModule = await import('html2canvas');
+                        const html2canvas = html2canvasModule.default;
+                        
+                        // Esconder o botão temporariamente para a captura
+                        copyButton.style.display = 'none';
+                        
+                        // Obter o conteúdo do resumo
+                        const resumoContent = document.getElementById('resumo-content');
+                        if (!resumoContent) {
+                          throw new Error("Conteúdo do resumo não encontrado");
+                        }
+                        
+                        // Capturar o elemento
+                        const canvas = await html2canvas(resumoContent, {
+                          backgroundColor: '#ffffff',
+                          scale: 2,
+                          useCORS: true,
+                          allowTaint: true,
+                          logging: false
+                        });
+                        
+                        // Restaurar o botão
+                        copyButton.style.display = 'block';
+                        
+                        // Gerar nome de arquivo
+                        const dataFormatada = format(new Date(cav.data + 'T00:00:00'), "dd-MM-yyyy", { locale: ptBR });
+                        const frenteFormatada = cav.frente.replace(/\s+/g, '_');
+                        const nomeArquivo = `Boletim_${frenteFormatada}_${dataFormatada}_${cav.codigo}.png`;
+                        
+                        // Converter para blob
+                        canvas.toBlob(function(blob) {
+                          if (!blob) {
+                            console.error("Falha ao gerar blob");
+                            return;
+                          }
+                          
+                          // Forçar download automático sem prompt
+                          const dataUrl = canvas.toDataURL('image/png');
+                          const binaryData = atob(dataUrl.split(',')[1]);
+                          const array = [];
+                          for (let i = 0; i < binaryData.length; i++) {
+                            array.push(binaryData.charCodeAt(i));
+                          }
+                          
+                          // Criar um Blob com os dados binários
+                          const downloadBlob = new Blob([new Uint8Array(array)], {type: 'image/png'});
+                          const url = URL.createObjectURL(downloadBlob);
+                          
+                          // Criar link para download
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = nomeArquivo;
+                          link.style.display = 'none';
+                          link.setAttribute('download', nomeArquivo); // Reforçar o atributo download
+                          document.body.appendChild(link);
+                          
+                          // Forçar o clique e download
+                          link.click();
+                          
+                          // Limpar URL após o download
+                          setTimeout(() => {
+                            URL.revokeObjectURL(url);
+                            document.body.removeChild(link);
+                            
+                            // Mostrar mensagem de sucesso
+                            toast({
+                              title: "Download concluído!",
+                              description: `Arquivo salvo como ${nomeArquivo}`,
+                            });
+                          }, 100);
+                          
+                          // Copiar imagem para área de transferência usando Clipboard API
+                          try {
+                            // Definir função de fallback fora do bloco try
+                            const copyImageFallback = () => {
+                              // Criar elemento de imagem
+                              const img = new Image();
+                              img.src = canvas.toDataURL('image/png');
+                              img.onload = function() {
+                                // Criar canvas temporário
+                                const tempCanvas = document.createElement('canvas');
+                                tempCanvas.width = img.width;
+                                tempCanvas.height = img.height;
+                                
+                                // Desenhar a imagem no canvas
+                                const ctx = tempCanvas.getContext('2d');
+                                ctx?.drawImage(img, 0, 0);
+                                
+                                // Converter canvas para blob
+                                tempCanvas.toBlob(function(imgBlob) {
+                                  if (!imgBlob) return;
+                                  
+                                  // Criar elemento de imagem para copiar
+                                  const imgElement = document.createElement('img');
+                                  imgElement.src = URL.createObjectURL(imgBlob);
+                                  imgElement.style.position = 'fixed';
+                                  imgElement.style.left = '0';
+                                  imgElement.style.top = '0';
+                                  imgElement.style.opacity = '0';
+                                  imgElement.style.zIndex = '-9999';
+                                  imgElement.style.maxWidth = 'none';
+                                  imgElement.style.maxHeight = 'none';
+                                  
+                                  // Adicionar ao DOM
+                                  document.body.appendChild(imgElement);
+                                  
+                                  // Selecionar a imagem
+                                  const range = document.createRange();
+                                  range.selectNode(imgElement);
+                                  const selection = window.getSelection();
+                                  selection?.removeAllRanges();
+                                  selection?.addRange(range);
+                                  
+                                  // Tentar copiar
+                                  try {
+                                    const success = document.execCommand('copy');
+                                    if (success) {
+                                      toast({
+                                        title: "Copiado!",
+                                        description: "Imagem copiada para a área de transferência",
+                                      });
+                                    }
+                                  } catch (e) {
+                                    console.error("Erro ao copiar imagem:", e);
+                                  } finally {
+                                    // Limpar
+                                    selection?.removeAllRanges();
+                                    document.body.removeChild(imgElement);
+                                  }
+                                }, 'image/png', 1.0);
+                              };
+                            };
+                            
+                            // Método moderno usando Clipboard API
+                            if (navigator.clipboard && navigator.clipboard.write) {
+                              navigator.clipboard.write([
+                                new ClipboardItem({
+                                  'image/png': blob
+                                })
+                              ]).then(() => {
+                                toast({
+                                  title: "Copiado!",
+                                  description: "Imagem copiada para a área de transferência",
+                                });
+                              }).catch(err => {
+                                console.error("Erro ao copiar com Clipboard API:", err);
+                                // Tentar método alternativo
+                                copyImageFallback();
+                              });
+                            } else {
+                              // Usar método alternativo
+                              copyImageFallback();
+                            }
+                          } catch (clipboardError) {
+                            console.error("Erro ao copiar para clipboard:", clipboardError);
+                          }
+                        }, 'image/png', 1.0);
+                      } catch (error) {
+                        console.error('Erro ao copiar como PNG:', error);
+                        toast({
+                          title: "Erro",
+                          description: "Não foi possível gerar a imagem",
+                          variant: "destructive"
+                        });
+                      }
+                    };
+                  }
+                }, 500); // Pequeno delay para garantir que o DOM está pronto
+              }}
+              className="w-auto min-w-[200px]"
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              Visualizar resumo
             </Button>
           </div>
-    </div>
+        </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
+
+
 

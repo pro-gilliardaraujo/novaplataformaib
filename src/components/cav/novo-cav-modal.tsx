@@ -20,9 +20,19 @@ interface NovoCavModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCavAdded: () => void
+  isEditMode?: boolean
+  cavToEdit?: any // CavAgregado
+  boletinsIndividuais?: any[] // BoletimCav[]
 }
 
-export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalProps) {
+export function NovoCavModal({ 
+  open, 
+  onOpenChange, 
+  onCavAdded, 
+  isEditMode = false,
+  cavToEdit,
+  boletinsIndividuais = []
+}: NovoCavModalProps) {
   const { toast } = useToast()
 
   // Função para selecionar todo o texto ao focar (equivalente a Ctrl+A)
@@ -136,12 +146,48 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
   }
 
   // Estados do formulário
-  const [formData, setFormData] = useState<CavFormData>({
-    data: getYesterday(),
-    frente: "",
-    lamina_alvo: 0,
-    total_viagens_feitas: 0,
-    frotas: []
+  const [formData, setFormData] = useState<CavFormData>(() => {
+    // Se estiver em modo de edição, inicializar com os dados do boletim
+    if (isEditMode && cavToEdit) {
+      // Converter os dados do boletim para o formato do formulário
+      const frotasMap: Record<number, { frota: number, turnos: any[] }> = {};
+      
+      // Agrupar os boletins individuais por frota
+      boletinsIndividuais.forEach(boletim => {
+        if (!frotasMap[boletim.frota]) {
+          frotasMap[boletim.frota] = {
+            frota: boletim.frota,
+            turnos: []
+          };
+        }
+        
+        frotasMap[boletim.frota].turnos.push({
+          id: uuidv4(),
+          turno: boletim.turno,
+          codigo_fazenda: boletim.codigo,
+          operador: boletim.operador,
+          producao: boletim.producao,
+          lamina_alvo: Number(boletim.lamina_alvo || 10)
+        });
+      });
+      
+      return {
+        data: cavToEdit.data,
+        frente: cavToEdit.frente + (cavToEdit.setor ? ` ${cavToEdit.setor}` : ''),
+        lamina_alvo: cavToEdit.lamina_alvo,
+        total_viagens_feitas: cavToEdit.total_viagens_feitas,
+        frotas: Object.values(frotasMap)
+      };
+    }
+    
+    // Caso contrário, inicializar com valores padrão
+    return {
+      data: getYesterday(),
+      frente: "",
+      lamina_alvo: 0,
+      total_viagens_feitas: 0,
+      frotas: []
+    };
   })
 
   // Estados para validação
@@ -169,9 +215,9 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
     type: 'frota'
   })
 
-  // Resetar formulário quando modal abre/fecha
+  // Resetar formulário quando modal abre/fecha (apenas no modo de criação)
   useEffect(() => {
-    if (open) {
+    if (open && !isEditMode) {
       const newFormData = {
         data: getYesterday(),
         frente: "",
@@ -180,13 +226,32 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
         frotas: []
       }
       console.log("Resetando formulário com lamina_alvo:", newFormData.lamina_alvo)
-              setFormData(newFormData)
-        setFieldErrors({})
-        setValidationErrors(new Set())
-        setShowErrorAnimation(false)
-        setFuncionarioStates({})
+      setFormData(newFormData)
+      setFieldErrors({})
+      setValidationErrors(new Set())
+      setShowErrorAnimation(false)
+      setFuncionarioStates({})
+      
+      // Adicionar uma frota vazia depois que o state for atualizado
+      setTimeout(() => {
+        const novaFrota = {
+          frota: 0,
+          turnos: [{
+            id: uuidv4(),
+            turno: "A",
+            codigo_fazenda: "",
+            operador: "",
+            producao: 0,
+            lamina_alvo: 10
+          }]
+        }
+        setFormData(prev => ({
+          ...prev,
+          frotas: [...prev.frotas, novaFrota]
+        }))
+      }, 0)
     }
-  }, [open])
+  }, [open, isEditMode])
 
   // Atualizar frotas quando frente muda
   const handleFrenteChange = (frente: string) => {
@@ -502,12 +567,21 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
       console.log('✅ Validações passaram, enviando dados...')
       setIsSubmitting(true)
 
-      const response = await fetch('/api/cav/create', {
-        method: 'POST',
+      // Endpoint diferente para edição e criação
+      const endpoint = isEditMode ? '/api/cav/update' : '/api/cav/create';
+      const method = isEditMode ? 'PUT' : 'POST';
+      
+      // Adicionar ID do boletim se estiver em modo de edição
+      const requestData = isEditMode && cavToEdit 
+        ? { ...formData, id: cavToEdit.id } 
+        : formData;
+      
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(requestData)
       })
 
       console.log('📡 Resposta recebida:', response.status)
@@ -515,13 +589,15 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
       console.log('📄 Dados da resposta:', result)
 
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao criar boletim CAV')
+        throw new Error(result.error || `Erro ao ${isEditMode ? 'editar' : 'criar'} boletim CAV`)
       }
 
-      console.log('✅ Boletim criado com sucesso!')
+      console.log(`✅ Boletim ${isEditMode ? 'editado' : 'criado'} com sucesso!`)
       toast({
         title: "Sucesso!",
-        description: `Boletim CAV criado com ${result.dados.registros_granulares} registros granulares`,
+        description: isEditMode
+          ? `Boletim CAV atualizado com sucesso`
+          : `Boletim CAV criado com ${result.dados?.registros_granulares || 0} registros granulares`,
       })
 
       onCavAdded()
@@ -609,7 +685,7 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
       >
         <div className="flex items-center px-4 h-12 border-b relative">
           <div className="flex-1 text-center">
-            <span className="text-base font-medium">Novo Boletim CAV</span>
+            <span className="text-base font-medium">{isEditMode ? 'Editar Boletim CAV' : 'Novo Boletim CAV'}</span>
           </div>
           <DialogClose asChild>
             <Button 
@@ -1470,10 +1546,10 @@ export function NovoCavModal({ open, onOpenChange, onCavAdded }: NovoCavModalPro
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Criando Boletim...
+                      {isEditMode ? 'Salvando' : 'Criando'} Boletim...
                     </>
                   ) : (
-                    "Criar Boletim CAV"
+                    isEditMode ? "Salvar Alterações" : "Criar Boletim CAV"
                   )}
                 </Button>
               </div>
