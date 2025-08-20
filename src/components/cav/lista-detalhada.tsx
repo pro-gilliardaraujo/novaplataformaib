@@ -888,7 +888,7 @@ function CavDetailsModal({
                         <span class="sr-only">Fechar</span>
                       </button>
                     </div>
-                  </div>
+    </div>
                 `;
                 
                 dialogRoot.innerHTML = modalHTML;

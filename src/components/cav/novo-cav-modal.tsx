@@ -1449,12 +1449,26 @@ export function NovoCavModal({
                               })
                             }
                             
-                            // Sempre fazer o download também
-                            const url = URL.createObjectURL(blob)
+                            // Forçar download automático sem prompt
+                            const dataUrl = canvas.toDataURL('image/png')
+                            const binaryData = atob(dataUrl.split(',')[1])
+                            const array = new Uint8Array(binaryData.length)
+                            for (let i = 0; i < binaryData.length; i++) {
+                              array[i] = binaryData.charCodeAt(i)
+                            }
+                            
+                            // Criar Blob com tipo MIME correto
+                            const downloadBlob = new Blob([array], {type: 'image/png'})
+                            const url = URL.createObjectURL(downloadBlob)
+                            
+                            // Criar link para download com atributos forçando download automático
                             const link = document.createElement('a')
                             link.href = url
                             link.download = nomeArquivo
+                            link.setAttribute('download', nomeArquivo) // Reforçar o atributo download
                             link.style.display = 'none'
+                            
+                            // Adicionar ao DOM e simular clique
                             document.body.appendChild(link)
                             link.click()
                             
