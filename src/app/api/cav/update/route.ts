@@ -19,11 +19,11 @@ export async function PUT(request: NextRequest) {
     const { data, frente, frotas, id } = formData
     
     // Extrair setor da frente (ex: "Frente 1 MOE" -> setor = "MOE")
-    const setorMatch = frente.match(/\b(GUA|MOE|ALE)\b/)
+    const setorMatch = frente.match(/\b(GUA|MOE|ALE|ITU)\b/)
     const setor = setorMatch ? setorMatch[1] : undefined
     
     // Limpar nome da frente (ex: "Frente 1 MOE" -> "Frente 1")
-    const frenteLimpa = frente.replace(/\s+(GUA|MOE|ALE)\b/, '')
+    const frenteLimpa = frente.replace(/\s+(GUA|MOE|ALE|ITU)\b/, '')
     
     // Dados para inserção granular
     const dadosGranulares = []

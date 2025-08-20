@@ -271,7 +271,7 @@ export function NovoCavModal({
         codigo_fazenda: '',
         operador: '', 
         producao: 0,
-        lamina_alvo: "" // Valor padrão de lâmina
+        lamina_alvo: 10 // Valor padrão de lâmina
       }))
     }))
 
@@ -297,7 +297,7 @@ export function NovoCavModal({
         codigo_fazenda: '',
         operador: '', 
         producao: 0,
-        lamina_alvo: "" // Valor padrão de lâmina
+        lamina_alvo: 10 // Valor padrão de lâmina
       }))
     }
 
@@ -337,7 +337,7 @@ export function NovoCavModal({
       codigo_fazenda: '',
       operador: '',
       producao: 0,
-      lamina_alvo: "" // Valor padrão de lâmina
+      lamina_alvo: 10 // Valor padrão de lâmina
     }
 
     setFormData(prev => ({
@@ -677,7 +677,7 @@ export function NovoCavModal({
   const { totalProducao, totalFrotas } = calcularTotais()
 
   return (
-    <Dialog open={open} onOpenChange={(open) => open && onOpenChange(open)} modal>
+    <Dialog open={open} onOpenChange={onOpenChange} modal>
       <DialogContent 
         className="max-w-[75vw] h-[90vh] flex flex-col p-0" 
         onPointerDownOutside={(e) => e.preventDefault()}
@@ -687,14 +687,13 @@ export function NovoCavModal({
           <div className="flex-1 text-center">
             <span className="text-base font-medium">{isEditMode ? 'Editar Boletim CAV' : 'Novo Boletim CAV'}</span>
           </div>
-          <DialogClose asChild>
-            <Button 
-              variant="outline"
-              className="h-8 w-8 p-0 absolute right-2 top-2"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogClose>
+          <Button 
+            variant="outline"
+            className="h-8 w-8 p-0 absolute right-2 top-2"
+            onClick={() => onOpenChange(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="flex gap-3 flex-1 min-h-0 p-3">

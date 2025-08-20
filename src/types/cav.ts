@@ -66,7 +66,7 @@ export const FRENTES_CONFIG: FrenteConfig[] = [
   { nome: "Frente 1 MOE", frotas_padrao: [6127, 6130] },
   { nome: "Frente 2 MOE", frotas_padrao: [6131, 6132] },
   { nome: "Frente 3 GUA", frotas_padrao: [6125, 6134] },
-  { nome: "Frente 4 GUA", frotas_padrao: [6114] },
-  { nome: "Iturama ALE", frotas_padrao: [6144] },
-  { nome: "Ouroeste ALE", frotas_padrao: [6137, 6138] }
+  { nome: "Frente 4 ITU", frotas_padrao: [6114] },
+  { nome: "Iturama ITU", frotas_padrao: [6144] },
+  { nome: "Ouroeste ITU", frotas_padrao: [6137, 6138] }
 ]

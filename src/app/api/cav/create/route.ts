@@ -18,9 +18,9 @@ export async function POST(request: NextRequest) {
     const codigo = primeiroCodigoFazenda || `${dataFormatada}-${frenteSlug}`
     
     // Extrair setor da frente e limpar a frente (ex: "Frente 1 GUA" -> setor:"GUA", frente:"Frente 1")
-    const setorMatch = formData.frente.match(/(GUA|MOE|ALE)/)
+    const setorMatch = formData.frente.match(/(GUA|MOE|ALE|ITU)/)
     const setor = setorMatch ? setorMatch[1] : null
-    const frenteLimpa = formData.frente.replace(/\s+(GUA|MOE|ALE)$/, '').trim()
+    const frenteLimpa = formData.frente.replace(/\s+(GUA|MOE|ALE|ITU)$/, '').trim()
     
     console.log("Setor extraído:", setor)
     console.log("Frente limpa:", frenteLimpa)
