@@ -183,11 +183,26 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
     { key: "data", title: "Data" },
     { key: "codigo", title: "Código" },
     { key: "frente", title: "Frente" },
+    { key: "setor", title: "Setor" },
     { key: "total_producao", title: "Produção (ha)" },
     { key: "total_viagens_feitas", title: "Viagens" },
+    { key: "total_viagens_orcadas", title: "Viagens Orçadas" },
+    { key: "dif_viagens_perc", title: "Dif. Viagens (%)" },
     { key: "lamina_alvo", title: "Lâmina Alvo (m³)" },
-    { key: "dif_lamina_perc", title: "Dif. Lâmina (%)" }
-  ] as const
+    { key: "lamina_aplicada", title: "Lâmina Aplicada (m³)" },
+    { key: "dif_lamina_perc", title: "Dif. Lâmina (%)" },
+  ]
+
+  // 📋 Colunas visíveis (podem ser alternadas pelo usuário)
+  const [visibleColumns, setVisibleColumns] = React.useState<string[]>(columns.map(c=>c.key))
+
+  const toggleColumn = (key: string) => {
+    setVisibleColumns(prev =>
+      prev.includes(key) ? prev.filter(k=>k!==key) : [...prev, key]
+    )
+  }
+
+  const isColVisible = (key:string) => visibleColumns.includes(key)
 
   const filterOptions = useMemo(() => {
     return columns.reduce(
@@ -375,7 +390,7 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
             className="h-9"
             />
           </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <Button
             className="bg-black hover:bg-black/90 text-white h-9"
             onClick={() => setIsModalOpen(true)}
@@ -386,8 +401,27 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
             <Download className="h-4 w-4 mr-2" />
             Exportar
               </Button>
-        </div>
-        </div>
+
+        {/* Seletor de colunas */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9">
+              Colunas
+              </Button>
+            </DropdownMenuTrigger>
+          <DropdownMenuContent className="p-3 w-56">
+            <div className="space-y-2">
+              {columns.map(col=> (
+                <div key={col.key} className="flex items-center space-x-2">
+                  <Checkbox id={`col_${col.key}`} checked={isColVisible(col.key)} onCheckedChange={()=>toggleColumn(col.key)} />
+                  <label htmlFor={`col_${col.key}`} className="text-sm">{col.title}</label>
+                </div>
+              ))}
+            </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div> {/* fim botoes */}
+      </div> {/* fim header */}
 
       {/* Table */}
       <div className="flex-1 border rounded-lg flex flex-col min-h-0 overflow-hidden">
@@ -395,8 +429,8 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
           <Table>
             <TableHeader className="bg-black sticky top-0">
               <TableRow className="h-[47px]">
-                {columns.map((column) => (
-                  <TableHead key={column.key} className="text-white font-medium px-3">
+                {columns.filter(c=>isColVisible(c.key)).map((column) => (
+                  <TableHead key={column.key} className="text-white font-medium px-3 text-center">
                     <div className="flex items-center gap-1">
                       <div 
                         className="flex items-center gap-1 cursor-pointer"
@@ -419,7 +453,7 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                         onToggle={(opt)=>handleFilterToggle(column.key,opt)}
                         onClear={()=>handleClearFilter(column.key)}
                       />
-          </div>
+            </div>
                   </TableHead>
                 ))}
                 <TableHead className="text-white font-medium w-[100px] px-3">Ações</TableHead>
@@ -428,13 +462,48 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
               <TableBody>
               {paginatedData.map((cav) => (
                 <TableRow key={cav.id} className="h-[47px] hover:bg-gray-50 border-b border-gray-200">
-                                                      <TableCell className="px-3 py-0 border-x border-gray-100">{format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.codigo}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.frente}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.total_producao.toFixed(2)}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.total_viagens_feitas.toFixed(0)}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.lamina_alvo.toFixed(1)}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">
+                  {isColVisible('data') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                  )}
+                  {isColVisible('codigo') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.codigo}</TableCell>
+                  )}
+                  {isColVisible('frente') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.frente}</TableCell>
+                  )}
+                  {isColVisible('setor') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.setor ?? '-'}</TableCell>
+                  )}
+                  {isColVisible('total_producao') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_producao.toFixed(2)}</TableCell>
+                  )}
+                  {isColVisible('total_viagens_feitas') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_viagens_feitas.toFixed(0)}</TableCell>
+                  )}
+                  {isColVisible('total_viagens_orcadas') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_viagens_orcadas.toFixed(2)}</TableCell>
+                  )}
+                  {isColVisible('dif_viagens_perc') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
+                      <span className={
+                        cav.dif_viagens_perc < 0
+                          ? "text-red-600"
+                          : cav.dif_viagens_perc <= 10
+                            ? "text-green-600"
+                            : "text-yellow-500"
+                      }>
+                        {cav.dif_viagens_perc.toFixed(2)}%
+                      </span>
+                    </TableCell>
+                  )}
+                  {isColVisible('lamina_alvo') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.lamina_alvo.toFixed(1)}</TableCell>
+                  )}
+                  {isColVisible('lamina_aplicada') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.lamina_aplicada.toFixed(1)}</TableCell>
+                  )}
+                  {isColVisible('dif_lamina_perc') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
                     <span className={
                       cav.dif_lamina_perc < 0
                         ? "text-red-600"
@@ -442,9 +511,10 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                           ? "text-green-600"
                           : "text-yellow-500"
                     }>
-                      {cav.dif_lamina_perc.toFixed(1)}%
+                      {cav.dif_lamina_perc.toFixed(2)}%
                     </span>
                     </TableCell>
+                  )}
                   <TableCell className="px-3 py-0 border-x border-gray-100">
                     <div className="flex items-center justify-center">
                       <Button
@@ -461,13 +531,16 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                 ))}
               {/* Fill empty rows */}
               {paginatedData.length < rowsPerPage && (
-                Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-                  <TableRow key={`empty-${index}`} className="h-[47px] border-b border-gray-200">
-                    {Array(columns.length + 1).fill(0).map((_, colIndex) => (
-                      <TableCell key={`empty-cell-${colIndex}`} className="px-3 py-0 border-x border-gray-100">&nbsp;</TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => {
+                  const visibleCount = visibleColumns.length + 1 // +1 para coluna Ações
+                  return (
+                    <TableRow key={`empty-${index}`} className="h-[47px] border-b border-gray-200">
+                      {Array(visibleCount).fill(0).map((_, colIndex) => (
+                        <TableCell key={`empty-cell-${colIndex}`} className="px-3 py-0 border-x border-gray-100">&nbsp;</TableCell>
+                      ))}
+                    </TableRow>
+                  )
+                })
               )}
               </TableBody>
             </Table>
@@ -561,7 +634,7 @@ function DetailItem({ label, value }: { label: string; value: React.ReactNode })
     <div className="space-y-1">
       <span className="text-sm font-medium text-gray-500">{label}</span>
       <div className="text-sm text-gray-900">{value}</div>
-        </div>
+    </div>
   )
 }
 
@@ -694,7 +767,7 @@ function CavDetailsModal({
                         ? "text-green-600 font-semibold"
                         : "text-yellow-500 font-semibold"
                   }>
-                    {cav.dif_lamina_perc.toFixed(1)}%
+                    {cav.dif_lamina_perc.toFixed(2)}%
                   </span>
                 } 
               />
@@ -712,7 +785,7 @@ function CavDetailsModal({
                 label="Diferença de Viagens" 
                 value={
                   <span className={cav.dif_viagens_perc > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
-                    {cav.dif_viagens_perc.toFixed(1)}%
+                    {cav.dif_viagens_perc.toFixed(2)}%
                   </span>
                 } 
               />
