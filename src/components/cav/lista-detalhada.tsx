@@ -583,7 +583,14 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
       {selectedCav && (
         <CavDetailsModal
           open={!!selectedCav}
-          onOpenChange={(open) => !open && setSelectedCav(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              // Se o modal de edição não está aberto, podemos limpar
+              if (!isEditModalOpen) {
+                setSelectedCav(null)
+              }
+            }
+          }}
           cav={selectedCav}
           onEdit={(cav, boletinsIndividuais) => {
             // Armazenar os boletins individuais para edição
@@ -699,15 +706,12 @@ function CavDetailsModal({
               variant="outline"
               className="h-8 w-8 p-0"
               onClick={() => {
-                // Fechar este modal e abrir o modal de edição
-                onOpenChange(false);
-                
-                // Chamar a função de edição passando o CAV e os boletins individuais
                 if (onEdit) {
                   onEdit(cav, boletinsIndividuais);
                 }
               }}
               title="Editar boletim"
+              disabled={isLoadingDetalhes}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -784,7 +788,13 @@ function CavDetailsModal({
               <DetailItem 
                 label="Diferença de Viagens" 
                 value={
-                  <span className={cav.dif_viagens_perc > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
+                  <span className={
+                    cav.dif_viagens_perc < 0
+                      ? "text-red-600 font-semibold"
+                      : cav.dif_viagens_perc <= 10
+                        ? "text-green-600 font-semibold"
+                        : "text-yellow-500 font-semibold"
+                  }>
                     {cav.dif_viagens_perc.toFixed(2)}%
                   </span>
                 } 
@@ -929,7 +939,7 @@ function CavDetailsModal({
                         <div class="mb-4">
                           <p><strong>Viagens Orçadas:</strong> ${cav.total_viagens_orcadas.toFixed(2)}</p>
                           <p><strong>Viagens Feitas:</strong> ${cav.total_viagens_feitas.toFixed(2)}</p>
-                          <p><strong>Diferença:</strong> ${(cav.total_viagens_feitas - cav.total_viagens_orcadas).toFixed(2)} (${cav.dif_viagens_perc > 0 ? '+' : ''}${cav.dif_viagens_perc.toFixed(2)}%)</p>
+                          <p><strong>Diferença:</strong> ${(cav.total_viagens_feitas - cav.total_viagens_orcadas).toFixed(2)} (<span class="${cav.dif_viagens_perc < 0 ? 'text-red-600' : cav.dif_viagens_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}">${cav.dif_viagens_perc > 0 ? '+' : ''}${cav.dif_viagens_perc.toFixed(2)}%</span>)</p>
                         </div>
                         
                         <div class="flex justify-center mt-6">
@@ -972,7 +982,7 @@ function CavDetailsModal({
                     
                     let totalFrota = 0;
                     boletins.forEach((boletim: BoletimCav) => {
-                      aplicacaoHTML += `<p class="ml-5">• Turno ${boletim.turno}: ${boletim.operador} - ${boletim.producao} ha</p>`;
+                      aplicacaoHTML += `<p class="ml-5">• Turno ${boletim.turno}: ${boletim.operador} - ${boletim.producao} ha (λ ${boletim.lamina_alvo} m³)</p>`;
                       totalFrota += boletim.producao;
                     });
                     

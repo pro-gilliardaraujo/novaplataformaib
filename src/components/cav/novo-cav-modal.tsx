@@ -699,51 +699,68 @@ export function NovoCavModal({
         <div className="flex gap-3 flex-1 min-h-0 p-3">
           {/* Seção principal - esquerda */}
           <div className="flex-1 flex flex-col space-y-2 min-h-0 pr-3">
-            {/* Campos do cabeçalho */}
-            <div className="grid grid-cols-4 gap-2 flex-shrink-0">
-              <div>
-                <Label htmlFor="data">Data</Label>
-                <Input
-                  id="data"
-                  type="date"
-                  value={formData.data}
-                  onChange={(e) => setFormData(prev => ({ ...prev, data: e.target.value }))}
-                  className={getErrorClass("data")}
-                  required
-                />
-              </div>
+            {/* Campos do cabeçalho (somente para novo boletim) */}
+            {(!isEditMode) ? (
+              <div className="grid grid-cols-4 gap-2 flex-shrink-0">
+                <div>
+                  <Label htmlFor="data">Data</Label>
+                  <Input
+                    id="data"
+                    type="date"
+                    value={formData.data}
+                    onChange={(e) => setFormData(prev => ({ ...prev, data: e.target.value }))}
+                    className={getErrorClass("data")}
+                    required
+                  />
+                </div>
 
-              <div>
-                <Label htmlFor="frente">Frente</Label>
-                <Select value={formData.frente} onValueChange={handleFrenteChange} required>
-                  <SelectTrigger className={getErrorClass("frente")}>
-                    <SelectValue placeholder="Selecione a frente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FRENTES_CONFIG.map((config) => (
-                      <SelectItem key={config.nome} value={config.nome}>
-                        {config.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div>
+                  <Label htmlFor="frente">Frente</Label>
+                  <Select value={formData.frente} onValueChange={handleFrenteChange} required>
+                    <SelectTrigger className={getErrorClass("frente")}>
+                      <SelectValue placeholder="Selecione a frente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FRENTES_CONFIG.map((config) => (
+                        <SelectItem key={config.nome} value={config.nome}>
+                          {config.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div>
-                <Label htmlFor="total_viagens_feitas">Viagens Feitas</Label>
-                <Input
-                  id="total_viagens_feitas"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={formData.total_viagens_feitas}
-                  onChange={(e) => setFormData(prev => ({ ...prev, total_viagens_feitas: Number(e.target.value) }))}
-                  onFocus={handleFocusSelect}
-                  className={getErrorClass("total_viagens_feitas")}
-                  required
-                />
+                <div>
+                  <Label htmlFor="total_viagens_feitas">Viagens Feitas</Label>
+                  <Input
+                    id="total_viagens_feitas"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={formData.total_viagens_feitas}
+                    onChange={(e) => setFormData(prev => ({ ...prev, total_viagens_feitas: Number(e.target.value) }))}
+                    onFocus={handleFocusSelect}
+                    className={getErrorClass("total_viagens_feitas")}
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 flex-shrink-0">
+                <div>
+                  <Label htmlFor="total_viagens_feitas_edit">Viagens Feitas</Label>
+                  <Input
+                    id="total_viagens_feitas_edit"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={formData.total_viagens_feitas}
+                    onChange={(e)=> setFormData(prev=>({...prev,total_viagens_feitas:Number(e.target.value)}))}
+                    onFocus={handleFocusSelect}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Seção de Frotas */}
             {formData.frente && (
