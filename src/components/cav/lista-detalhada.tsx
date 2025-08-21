@@ -292,20 +292,22 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
       dif_lamina_perc: 'Dif. Lâmina (%)'
     }
 
+    const fmt = (n:number, dec:number)=> n.toFixed(dec).replace('.',',')
+
     const csvRows = [
       Object.values(headers).join(';'),
-      
+
       ...filteredData.map(cav => [
-        escapeCsvCell(format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })),
-        escapeCsvCell(cav.codigo),
-        escapeCsvCell(cav.frente),
-        escapeCsvCell(cav.total_producao.toFixed(2)),
-        escapeCsvCell(cav.total_viagens_feitas.toFixed(0)),
-        escapeCsvCell(cav.total_viagens_orcadas.toFixed(1)),
-        escapeCsvCell(cav.dif_viagens_perc.toFixed(1) + '%'),
-        escapeCsvCell(cav.lamina_alvo.toFixed(1)),
-        escapeCsvCell(cav.lamina_aplicada.toFixed(2)),
-        escapeCsvCell(cav.dif_lamina_perc.toFixed(1) + '%')
+        cav.data.split('-').reverse().join('/'),
+        cav.codigo,
+        cav.frente,
+        fmt(cav.total_producao,2),
+        fmt(cav.total_viagens_feitas,0),
+        fmt(cav.total_viagens_orcadas,2),
+        fmt(cav.dif_viagens_perc,2) + '%',
+        fmt(cav.lamina_alvo,1),
+        fmt(cav.lamina_aplicada,2),
+        fmt(cav.dif_lamina_perc,2) + '%'
       ].join(';'))
     ].join('\r\n')
 
