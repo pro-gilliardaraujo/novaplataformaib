@@ -1381,8 +1381,12 @@ export function NovoCavModal({
                             // Copiar para área de transferência com método alternativo
                             try {
                               // Método 1: API Clipboard moderna
-                              if (navigator.clipboard && navigator.clipboard.write) {
-                                const clipboardItem = new ClipboardItem({ 'image/png': blob })
+                              if (
+                                navigator.clipboard &&
+                                typeof (window as any).ClipboardItem !== "undefined" &&
+                                typeof navigator.clipboard.write === "function"
+                              ) {
+                                const clipboardItem = new (window as any).ClipboardItem({ 'image/png': blob })
                                 await navigator.clipboard.write([clipboardItem])
                                 console.log("Imagem copiada para clipboard via API moderna")
                               }

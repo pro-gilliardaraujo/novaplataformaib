@@ -26,6 +26,40 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { NovoCavModal } from "./novo-cav-modal"
 import { supabase } from "@/lib/supabase"
+import React from "react"
+
+// Componente de filtro simples (layout antigo)
+function ClassicFilter({ options, selected, onToggle, onClear }: { options: string[]; selected: Set<string>; onToggle: (o: string)=>void; onClear: ()=>void }) {
+  const [open, setOpen] = React.useState(false)
+  const [search, setSearch] = React.useState("")
+
+  const filtered = React.useMemo(()=>
+    options.filter(o=>o.toLowerCase().includes(search.toLowerCase())).sort(),
+  [options, search])
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:bg-transparent">
+          <Filter className="h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56 p-3" sideOffset={5}>
+        <Input placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} className="mb-2 h-8" />
+        <div className="max-h-40 overflow-auto space-y-1">
+          {filtered.map(opt=> (
+            <div key={opt} className="flex items-center space-x-2">
+              <Checkbox id={opt} checked={selected.has(opt)} onCheckedChange={()=>onToggle(opt)} />
+              <label htmlFor={opt} className="text-sm">{opt}</label>
+            </div>
+          ))}
+          {filtered.length===0 && <p className="text-sm text-muted-foreground">Nenhuma opção</p>}
+        </div>
+        <Button variant="outline" size="sm" className="mt-2 w-full" onClick={onClear}>Limpar</Button>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 // Função auxiliar para cores de status
 const getStatusColor = (status: string) => {
@@ -379,13 +413,12 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                           <ArrowUpDown className="h-3.5 w-3.5" />
         </Button>
       </div>
-                      <FilterDropdown
-                        title={column.title}
+                      <ClassicFilter
                         options={filterOptions[column.key] ?? []}
-                        selectedOptions={filters[column.key] ?? new Set()}
-                        onOptionToggle={(option) => handleFilterToggle(column.key, option)}
-                        onClear={() => handleClearFilter(column.key)}
-            />
+                        selected={filters[column.key] ?? new Set()}
+                        onToggle={(opt)=>handleFilterToggle(column.key,opt)}
+                        onClear={()=>handleClearFilter(column.key)}
+                      />
           </div>
                   </TableHead>
                 ))}
@@ -511,67 +544,8 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
   )
 }
 
-// Componente de filtro dropdown
-function FilterDropdown({
-  title,
-  options,
-  selectedOptions,
-  onOptionToggle,
-  onClear,
-}: {
-  title: string
-  options: string[]
-  selectedOptions: Set<string>
-  onOptionToggle: (option: string) => void
-  onClear: () => void
-}) {
-  const [searchTerm, setSearchTerm] = useState("")
-  const filteredOptions = options.filter(option => 
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+// FilterDropdown agora é importado de componente comum
 
-  return (
-    <DropdownMenu modal={true}>
-            <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-          <Filter className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
-        <div className="space-y-4">
-          <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
-          <Input 
-            placeholder={`Buscar ${title.toLowerCase()}...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <div className="space-y-2 max-h-48 overflow-auto">
-            {filteredOptions.map((option) => (
-              <div key={option} className="flex items-center space-x-2">
-                <Checkbox
-                  id={option}
-                  checked={selectedOptions.has(option)}
-                  onCheckedChange={() => onOptionToggle(option)}
-                />
-                <label htmlFor={option} className="text-sm">
-                  {option}
-                </label>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between">
-            <Button variant="outline" size="sm" onClick={onClear}>
-              Limpar
-            </Button>
-            <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
-          </div>
-        </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-  )
-}
-
-// Modal de detalhes - placeholder
 // Componente de título de seção (mesmo padrão das tratativas)
 function SectionTitle({ title }: { title: string }) {
   return (

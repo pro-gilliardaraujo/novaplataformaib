@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
             turno: turnoData.turno,
             operador: turnoData.operador,
             producao: turnoData.producao,
-            // lamina_alvo: turnoData.lamina_alvo || 2.5, // ⚠️ TEMPORARIAMENTE REMOVIDO - coluna não existe ainda
+            lamina_alvo: Number(turnoData.lamina_alvo) || Number(formData.lamina_alvo) || 10,
             observacoes: turnoData.producao === 0 ? "Não operou" : undefined
           })
         }
