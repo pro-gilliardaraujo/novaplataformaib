@@ -52,7 +52,7 @@ export function CavVisaoGeral() {
       if (!error && data) {
         let arr = data as BoletimCav[];
         if(frentesSel.size) arr = arr.filter(d=>frentesSel.has(d.frente));
-        if(setoresSel.size) arr = arr.filter(d=>setoresSel.has(d.setor));
+        if(setoresSel.size) arr = arr.filter(d=> d.setor && setoresSel.has(d.setor));
         if(codigosSel.size) arr = arr.filter(d=>codigosSel.has(d.codigo));
         if(operadoresSel.size) arr = arr.filter(d=>operadoresSel.has(d.operador));
         setDados(arr);
@@ -71,17 +71,20 @@ export function CavVisaoGeral() {
     const f=new Set<string>(), s=new Set<string>(), fa=new Set<string>(), o=new Set<string>();
     dados.forEach(d=>{f.add(d.frente); if(d.setor) s.add(d.setor); fa.add(d.codigo); o.add(d.operador)});
     return {
-      frentes: allFrentes.length? allFrentes : [...f],
-      setores:[...s],
-      codigos:[...fa],
-      operadores:[...o]
+      frentes: allFrentes.length? allFrentes : Array.from(f),
+      setores:Array.from(s),
+      codigos:Array.from(fa),
+      operadores:Array.from(o)
     }
   },[dados, allFrentes]);
 
   return (
     <div className="space-y-4 p-4">
       <div className="grid md:grid-cols-5 gap-3 p-2 items-start">
-        <DateRangePicker value={periodo} onChange={setPeriodo} />
+        <DateRangePicker 
+          value={periodo} 
+          onChange={(val) => setPeriodo(val as any)} 
+        />
 
         <FilterDropdown
           title="Frente"

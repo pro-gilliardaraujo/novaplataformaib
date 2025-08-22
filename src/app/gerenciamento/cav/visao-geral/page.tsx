@@ -6,17 +6,18 @@ import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { BoletimCav } from "@/types/cav";
+import { DateRange } from "react-day-picker";
 
 const VisaoGeralCavPage: React.FC = () => {
   /** Filtros */
-  const [periodo, setPeriodo] = useState<{ from: Date; to: Date } | undefined>(undefined);
+  const [periodo, setPeriodo] = useState<DateRange | undefined>(undefined);
   const [frente, setFrente] = useState<string>("");
   const [setor, setSetor] = useState<string>("");
   const [fazenda, setFazenda] = useState<string>("");
   const [operador, setOperador] = useState<string>("");
 
   /** Dados */
-  const [dados, setDados] = useState<BoletimCav[]>([]);
+  const [dados, setDados] = useState<Partial<BoletimCav>[]>([]);
   const [loading, setLoading] = useState(false);
 
   /** Buscar dados */
@@ -24,11 +25,19 @@ const VisaoGeralCavPage: React.FC = () => {
     const fetchData = async () => {
       if (!periodo) return;
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from("boletins_cav")
-        .select("operador, codigo:codigo_fazenda, producao, lamina_alvo, lamina_aplicada, frente, setor")
-        .gte("data", periodo.from.toISOString().slice(0, 10))
-        .lte("data", periodo.to.toISOString().slice(0, 10));
+        .select("data, turno, frota, operador, codigo:codigo_fazenda, producao, lamina_alvo, lamina_aplicada, frente, setor");
+      
+      // Garantir que from/to existem
+      if (periodo?.from) {
+        query = query.gte("data", periodo.from.toISOString().slice(0, 10));
+      }
+      if (periodo?.to) {
+        query = query.lte("data", periodo.to.toISOString().slice(0, 10));
+      }
+      
+      const { data, error } = await query;
 
       if (error) {
         console.error("Erro ao buscar dados CAV:", error);
@@ -36,7 +45,7 @@ const VisaoGeralCavPage: React.FC = () => {
         return;
       }
 
-      let filtrados = (data || []) as BoletimCav[];
+      let filtrados = (data || []) as Partial<BoletimCav & { lamina_aplicada?: number }> [];
       if (frente) filtrados = filtrados.filter((d) => d.frente === frente);
       if (setor) filtrados = filtrados.filter((d) => d.setor === setor);
       if (fazenda) filtrados = filtrados.filter((d) => d.codigo === fazenda);
@@ -51,7 +60,10 @@ const VisaoGeralCavPage: React.FC = () => {
   /** Agregações */
   const resumoPorOperador = useMemo(() => {
     const map = new Map<string, number>();
+    if (dados.length === 0) return [];
+    
     dados.forEach((d) => {
+      if (!d.operador || d.producao === undefined) return;
       const atual = map.get(d.operador) || 0;
       map.set(d.operador, atual + d.producao);
     });
@@ -60,11 +72,14 @@ const VisaoGeralCavPage: React.FC = () => {
 
   const resumoPorFazenda = useMemo(() => {
     const map = new Map<string, { ha: number; alvo: number; aplicada: number; count: number }>();
+    if (dados.length === 0) return [];
+    
     dados.forEach((d) => {
+      if (!d.codigo || d.producao === undefined) return;
       const obj = map.get(d.codigo) || { ha: 0, alvo: 0, aplicada: 0, count: 0 };
       obj.ha += d.producao;
-      obj.alvo += d.lamina_alvo;
-      obj.aplicada += d.lamina_aplicada;
+      obj.alvo += d.lamina_alvo || 0;
+      obj.aplicada += d.lamina_aplicada || 0;
       obj.count += 1;
       map.set(d.codigo, obj);
     });
@@ -86,10 +101,10 @@ const VisaoGeralCavPage: React.FC = () => {
     const operadores = new Set<string>();
 
     periodData.forEach((d) => {
-      frentes.add(d.frente);
-      setores.add(d.setor || "");
-      fazendas.add(d.codigo);
-      operadores.add(d.operador);
+      if (d.frente) frentes.add(d.frente);
+      if (d.setor) setores.add(d.setor);
+      if (d.codigo) fazendas.add(d.codigo);
+      if (d.operador) operadores.add(d.operador);
     });
     return {
       frentes: Array.from(frentes).filter(Boolean),

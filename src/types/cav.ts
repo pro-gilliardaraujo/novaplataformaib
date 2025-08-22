@@ -11,6 +11,7 @@ export interface BoletimCav {
   operador: string
   producao: number // Hectares
   lamina_alvo: number // Lâmina específica deste operador
+  lamina_aplicada?: number // Opcional para consultas agregadas
   observacoes?: string
   created_at?: string
   updated_at?: string

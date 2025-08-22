@@ -189,3 +189,6 @@ export function DateRangePicker({
     </div>
   )
 }
+
+// Alias para compatibilidade
+export const DatePickerWithRange = DateRangePicker;

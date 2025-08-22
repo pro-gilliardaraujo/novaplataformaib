@@ -1364,13 +1364,14 @@ export function NovoCavModal({
                         try {
                           // Capturar o elemento original com todas as otimizações
                           const canvas = await html2canvas(resumoElement, {
-                            backgroundColor: '#ffffff',
+                            background: '#ffffff',
+                            // @ts-ignore
                             scale: 2,
                             useCORS: true,
                             allowTaint: true,
                             logging: false,
                             windowWidth: document.documentElement.clientWidth,
-                            onclone: (doc, elm) => {
+                            onclone: (doc: Document, elm: HTMLElement) => {
                               // Ajustes finais no clone gerado pelo html2canvas
                               if (elm instanceof HTMLElement) {
                                 elm.style.width = resumoElement.offsetWidth + 'px'

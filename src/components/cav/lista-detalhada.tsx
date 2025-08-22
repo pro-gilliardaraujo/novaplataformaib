@@ -984,7 +984,7 @@ function CavDetailsModal({
                     
                     let totalFrota = 0;
                     boletins.forEach((boletim: BoletimCav) => {
-                      aplicacaoHTML += `<p class="ml-5">• Turno ${boletim.turno}: ${boletim.operador} - ${boletim.producao} ha (λ ${boletim.lamina_alvo} m³)</p>`;
+                      aplicacaoHTML += `<p class="ml-5">• Turno ${boletim.turno}: ${boletim.operador} - ${boletim.producao} ha</p>`;
                       totalFrota += boletim.producao;
                     });
                     
@@ -1034,7 +1034,8 @@ function CavDetailsModal({
                         
                         // Capturar o elemento
                         const canvas = await html2canvas(resumoContent, {
-                          backgroundColor: '#ffffff',
+                          background: '#ffffff',
+                          // @ts-ignore
                           scale: 2,
                           useCORS: true,
                           allowTaint: true,

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     
     // Extrair setor da frente e limpar a frente (ex: "Frente 1 GUA" -> setor:"GUA", frente:"Frente 1")
     const setorMatch = formData.frente.match(/(GUA|MOE|ALE|ITU)/)
-    const setor = setorMatch ? setorMatch[1] : null
+    const setor: string | undefined = setorMatch ? setorMatch[1] : undefined
     const frenteLimpa = formData.frente.replace(/\s+(GUA|MOE|ALE|ITU)$/, '').trim()
     
     console.log("Setor extraído:", setor)
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // 1️⃣ Preparar dados granulares para inserção
     const dadosGranulares: Omit<BoletimCav, 'id' | 'created_at' | 'updated_at'>[] = []
 
-    formData.frotas.forEach(frotaData => {
+    formData.frotas.forEach((frotaData) => {
       frotaData.turnos.forEach(turnoData => {
         // Inserir se tiver operador preenchido (incluindo produção 0)
         if (turnoData.operador && turnoData.operador.trim() !== "" && turnoData.operador !== "Não Op.") {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
             frente: frenteLimpa, // ✅ Frente sem setor
             setor: setor, // ✅ Setor extraído da frente
             frota: frotaData.frota,
-            turno: turnoData.turno,
+            turno: turnoData.turno as 'A' | 'B' | 'C',
             operador: turnoData.operador,
             producao: turnoData.producao,
             lamina_alvo: Number(turnoData.lamina_alvo) || Number(formData.lamina_alvo) || 10,
@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
 
     console.log("Lâmina alvo calculada:", lamina_alvo)
 
-    // 2️⃣ Inserir dados granulares em transação (sem created_at/updated_at)
-    const dadosParaInserir = dadosGranulares.map(({ created_at, updated_at, ...resto }) => resto)
+    // 2️⃣ Inserir dados granulares em transação
+    const dadosParaInserir = dadosGranulares
     
     const { data: dadosInseridos, error: erroInsercao } = await supabase
       .from("boletins_cav")

@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { BoletimCav, BoletimCavAgregado } from '@/types/cav'
 
 export async function PUT(request: NextRequest) {
   try {
@@ -26,13 +27,13 @@ export async function PUT(request: NextRequest) {
     const frenteLimpa = frente.replace(/\s+(GUA|MOE|ALE|ITU)\b/, '')
     
     // Dados para inserção granular
-    const dadosGranulares = []
+    const dadosGranulares: BoletimCav[] = []
     
     // Para cada frota e turno, criar um registro granular
-    frotas.forEach(frotaData => {
+    frotas.forEach((frotaData: any) => {
       const { frota, turnos } = frotaData
       
-      turnos.forEach(turnoData => {
+      turnos.forEach((turnoData: any) => {
         // Validar dados obrigatórios
         if (!turnoData.operador || !turnoData.producao) {
           console.warn('⚠️ Dados incompletos para turno:', turnoData)
@@ -54,7 +55,7 @@ export async function PUT(request: NextRequest) {
     })
     
     // Agrupar por código para cálculos agregados
-    const dadosPorCodigo = {}
+    const dadosPorCodigo: Record<string, { codigo:string; total_producao:number; turnos:BoletimCav[]; laminas_alvo:number[]; producoes:number[] }> = {}
     
     dadosGranulares.forEach(item => {
       if (!dadosPorCodigo[item.codigo]) {
@@ -74,10 +75,10 @@ export async function PUT(request: NextRequest) {
     })
     
     // Dados agregados para atualização
-    const dadosAgregados = []
+    const dadosAgregados: BoletimCavAgregado[] = []
     
     // Para cada código, calcular os valores agregados
-    Object.values(dadosPorCodigo).forEach(grupo => {
+    Object.values(dadosPorCodigo).forEach((grupo) => {
       // Calcular lâmina alvo ponderada pela produção
       let laminaAlvoPonderada = 0
       let somaPesos = 0
