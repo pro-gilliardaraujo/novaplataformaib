@@ -1,168 +1,154 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { supabase } from "@/lib/supabase";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { BoletimCav } from "@/types/cav";
+import { FileText, Calendar, Users, Tractor } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart3, FileText, Calendar, TrendingUp } from "lucide-react"
-
-interface CavStats {
-  totalCavs: number
-  cavsRecentes: number
-  cavsPendentes: number
-  cavsFinalizados: number
-}
+import { FilterDropdown } from "@/components/ui/filter-dropdown"
 
 export function CavVisaoGeral() {
-  const [stats, setStats] = useState<CavStats>({
-    totalCavs: 0,
-    cavsRecentes: 0,
-    cavsPendentes: 0,
-    cavsFinalizados: 0
-  })
-  const [isLoading, setIsLoading] = useState(true)
+  const [periodo, setPeriodo] = useState<{ from: Date; to: Date } | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [dados, setDados] = useState<BoletimCav[]>([]);
+
+  const [frentesSel, setFrentesSel] = useState<Set<string>>(new Set());
+  const [setoresSel, setSetoresSel] = useState<Set<string>>(new Set());
+  const [codigosSel, setCodigosSel] = useState<Set<string>>(new Set());
+  const [operadoresSel, setOperadoresSel] = useState<Set<string>>(new Set());
+  const [allFrentes, setAllFrentes] = useState<string[]>([]);
+
+  // carregar lista completa de frentes (uma vez)
+  useEffect(() => {
+    const loadFrentes = async () => {
+      const { data, error } = await supabase
+        .from("boletins_cav")
+        .select("frente")
+        .not("frente", "is", null);
+      if (!error && data) {
+        const uniques = Array.from(new Set(data.map((d: any) => d.frente))).filter(Boolean);
+        setAllFrentes(uniques);
+      }
+    };
+    loadFrentes();
+  }, []);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setIsLoading(true)
-        // TODO: Implementar busca real de dados
-        // Por enquanto, dados mockados
-        setStats({
-          totalCavs: 156,
-          cavsRecentes: 12,
-          cavsPendentes: 8,
-          cavsFinalizados: 136
-        })
-      } catch (error) {
-        console.error("Erro ao buscar estatísticas:", error)
-      } finally {
-        setIsLoading(false)
+    const fetch = async () => {
+      setLoading(true);
+      let query = supabase
+        .from("boletins_cav")
+        .select("operador, codigo:codigo_fazenda, producao, frente, setor, data, lamina_alvo, lamina_aplicada")
+        .order("data", { ascending: false });
+
+      if (periodo) {
+        query = query
+          .gte("data", periodo.from.toISOString().slice(0, 10))
+          .lte("data", periodo.to.toISOString().slice(0, 10));
       }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        let arr = data as BoletimCav[];
+        if(frentesSel.size) arr = arr.filter(d=>frentesSel.has(d.frente));
+        if(setoresSel.size) arr = arr.filter(d=>setoresSel.has(d.setor));
+        if(codigosSel.size) arr = arr.filter(d=>codigosSel.has(d.codigo));
+        if(operadoresSel.size) arr = arr.filter(d=>operadoresSel.has(d.operador));
+        setDados(arr);
+      }
+      setLoading(false);
+    };
+
+    fetch();
+  }, [periodo, frentesSel, setoresSel, codigosSel, operadoresSel]);
+
+  const totalHa = dados.reduce((s, d) => s + d.producao, 0);
+  const operadoresUnicos = new Set(dados.map((d) => d.operador)).size;
+  const fazendasUnicas = new Set(dados.map((d) => d.codigo)).size;
+
+  const options = useMemo(()=>{
+    const f=new Set<string>(), s=new Set<string>(), fa=new Set<string>(), o=new Set<string>();
+    dados.forEach(d=>{f.add(d.frente); if(d.setor) s.add(d.setor); fa.add(d.codigo); o.add(d.operador)});
+    return {
+      frentes: allFrentes.length? allFrentes : [...f],
+      setores:[...s],
+      codigos:[...fa],
+      operadores:[...o]
     }
-
-    fetchStats()
-  }, [])
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">Carregando dados...</div>
-      </div>
-    )
-  }
+  },[dados, allFrentes]);
 
   return (
-    <div className="space-y-6 p-4">
-      {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-4 p-4">
+      <div className="grid md:grid-cols-5 gap-3 p-2 items-start">
+        <DateRangePicker value={periodo} onChange={setPeriodo} />
+
+        <FilterDropdown
+          title="Frente"
+          options={options.frentes}
+          selectedOptions={frentesSel}
+          onOptionToggle={(opt)=>{
+            const ns=new Set(frentesSel); ns.has(opt)?ns.delete(opt):ns.add(opt); setFrentesSel(ns);
+          }}
+          onClear={()=>setFrentesSel(new Set())}
+        />
+
+        <FilterDropdown
+          title="Setor"
+          options={options.setores}
+          selectedOptions={setoresSel}
+          onOptionToggle={(opt)=>{const ns=new Set(setoresSel); ns.has(opt)?ns.delete(opt):ns.add(opt); setSetoresSel(ns)}}
+          onClear={()=>setSetoresSel(new Set())}
+        />
+
+        <FilterDropdown
+          title="Código"
+          options={options.codigos}
+          selectedOptions={codigosSel}
+          onOptionToggle={(opt)=>{const ns=new Set(codigosSel); ns.has(opt)?ns.delete(opt):ns.add(opt); setCodigosSel(ns)}}
+          onClear={()=>setCodigosSel(new Set())}
+        />
+
+        <FilterDropdown
+          title="Operador"
+          options={options.operadores}
+          selectedOptions={operadoresSel}
+          onOptionToggle={(opt)=>{const ns=new Set(operadoresSel); ns.has(opt)?ns.delete(opt):ns.add(opt); setOperadoresSel(ns)}}
+          onClear={()=>setOperadoresSel(new Set())}
+        />
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de CAVs</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total ha</CardTitle>
+            <Tractor className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalHa.toFixed(1)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Operadores</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{operadoresUnicos}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Fazendas</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalCavs}</div>
-            <p className="text-xs text-muted-foreground">
-              Todos os CAVs gerados
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recentes (7 dias)</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.cavsRecentes}</div>
-            <p className="text-xs text-muted-foreground">
-              Gerados na última semana
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.cavsPendentes}</div>
-            <p className="text-xs text-muted-foreground">
-              Aguardando processamento
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Finalizados</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.cavsFinalizados}</div>
-            <p className="text-xs text-muted-foreground">
-              CAVs concluídos
-            </p>
+            <div className="text-2xl font-bold">{fazendasUnicas}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Seção de Ações Rápidas */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ações Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-              <div className="flex items-center space-x-3">
-                <FileText className="h-6 w-6 text-blue-600" />
-                <div>
-                  <h3 className="font-medium">Novo CAV</h3>
-                  <p className="text-sm text-gray-500">Criar novo CAV personalizado</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-              <div className="flex items-center space-x-3">
-                <BarChart3 className="h-6 w-6 text-green-600" />
-                <div>
-                  <h3 className="font-medium">Dashboard</h3>
-                  <p className="text-sm text-gray-500">Visualizar métricas e gráficos</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-              <div className="flex items-center space-x-3">
-                <Calendar className="h-6 w-6 text-purple-600" />
-                <div>
-                  <h3 className="font-medium">Agendamentos</h3>
-                  <p className="text-sm text-gray-500">Programar CAVs automáticos</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Seção de CAVs Recentes */}
-      <Card>
-        <CardHeader>
-          <CardTitle>CAVs Recentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {/* Placeholder para CAVs recentes */}
-            <div className="text-center text-gray-500 py-8">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>Nenhum CAV encontrado</p>
-              <p className="text-sm">Os CAVs gerados aparecerão aqui</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {loading && <p>Carregando...</p>}
     </div>
-  )
+  );
 }

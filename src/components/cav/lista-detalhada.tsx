@@ -26,6 +26,40 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { NovoCavModal } from "./novo-cav-modal"
 import { supabase } from "@/lib/supabase"
+import React from "react"
+
+// Componente de filtro simples (layout antigo)
+function ClassicFilter({ options, selected, onToggle, onClear }: { options: string[]; selected: Set<string>; onToggle: (o: string)=>void; onClear: ()=>void }) {
+  const [open, setOpen] = React.useState(false)
+  const [search, setSearch] = React.useState("")
+
+  const filtered = React.useMemo(()=>
+    options.filter(o=>o.toLowerCase().includes(search.toLowerCase())).sort(),
+  [options, search])
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:bg-transparent">
+          <Filter className="h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56 p-3" sideOffset={5}>
+        <Input placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} className="mb-2 h-8" />
+        <div className="max-h-40 overflow-auto space-y-1">
+          {filtered.map(opt=> (
+            <div key={opt} className="flex items-center space-x-2">
+              <Checkbox id={opt} checked={selected.has(opt)} onCheckedChange={()=>onToggle(opt)} />
+              <label htmlFor={opt} className="text-sm">{opt}</label>
+            </div>
+          ))}
+          {filtered.length===0 && <p className="text-sm text-muted-foreground">Nenhuma opção</p>}
+        </div>
+        <Button variant="outline" size="sm" className="mt-2 w-full" onClick={onClear}>Limpar</Button>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 // Função auxiliar para cores de status
 const getStatusColor = (status: string) => {
@@ -149,11 +183,26 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
     { key: "data", title: "Data" },
     { key: "codigo", title: "Código" },
     { key: "frente", title: "Frente" },
+    { key: "setor", title: "Setor" },
     { key: "total_producao", title: "Produção (ha)" },
     { key: "total_viagens_feitas", title: "Viagens" },
+    { key: "total_viagens_orcadas", title: "Viagens Orçadas" },
+    { key: "dif_viagens_perc", title: "Dif. Viagens (%)" },
     { key: "lamina_alvo", title: "Lâmina Alvo (m³)" },
-    { key: "dif_lamina_perc", title: "Dif. Lâmina (%)" }
-  ] as const
+    { key: "lamina_aplicada", title: "Lâmina Aplicada (m³)" },
+    { key: "dif_lamina_perc", title: "Dif. Lâmina (%)" },
+  ]
+
+  // 📋 Colunas visíveis (podem ser alternadas pelo usuário)
+  const [visibleColumns, setVisibleColumns] = React.useState<string[]>(columns.map(c=>c.key))
+
+  const toggleColumn = (key: string) => {
+    setVisibleColumns(prev =>
+      prev.includes(key) ? prev.filter(k=>k!==key) : [...prev, key]
+    )
+  }
+
+  const isColVisible = (key:string) => visibleColumns.includes(key)
 
   const filterOptions = useMemo(() => {
     return columns.reduce(
@@ -243,20 +292,22 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
       dif_lamina_perc: 'Dif. Lâmina (%)'
     }
 
+    const fmt = (n:number, dec:number)=> n.toFixed(dec).replace('.',',')
+
     const csvRows = [
       Object.values(headers).join(';'),
-      
+
       ...filteredData.map(cav => [
-        escapeCsvCell(format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })),
-        escapeCsvCell(cav.codigo),
-        escapeCsvCell(cav.frente),
-        escapeCsvCell(cav.total_producao.toFixed(2)),
-        escapeCsvCell(cav.total_viagens_feitas.toFixed(0)),
-        escapeCsvCell(cav.total_viagens_orcadas.toFixed(1)),
-        escapeCsvCell(cav.dif_viagens_perc.toFixed(1) + '%'),
-        escapeCsvCell(cav.lamina_alvo.toFixed(1)),
-        escapeCsvCell(cav.lamina_aplicada.toFixed(2)),
-        escapeCsvCell(cav.dif_lamina_perc.toFixed(1) + '%')
+        cav.data.split('-').reverse().join('/'),
+        cav.codigo,
+        cav.frente,
+        fmt(cav.total_producao,2),
+        fmt(cav.total_viagens_feitas,0),
+        fmt(cav.total_viagens_orcadas,0),
+        fmt(cav.dif_viagens_perc,2) + '%',
+        fmt(cav.lamina_alvo,1),
+        fmt(cav.lamina_aplicada,2),
+        fmt(cav.dif_lamina_perc,2) + '%'
       ].join(';'))
     ].join('\r\n')
 
@@ -341,7 +392,7 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
             className="h-9"
             />
           </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <Button
             className="bg-black hover:bg-black/90 text-white h-9"
             onClick={() => setIsModalOpen(true)}
@@ -352,8 +403,27 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
             <Download className="h-4 w-4 mr-2" />
             Exportar
               </Button>
-        </div>
-        </div>
+
+        {/* Seletor de colunas */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9">
+              Colunas
+              </Button>
+            </DropdownMenuTrigger>
+          <DropdownMenuContent className="p-3 w-56">
+            <div className="space-y-2">
+              {columns.map(col=> (
+                <div key={col.key} className="flex items-center space-x-2">
+                  <Checkbox id={`col_${col.key}`} checked={isColVisible(col.key)} onCheckedChange={()=>toggleColumn(col.key)} />
+                  <label htmlFor={`col_${col.key}`} className="text-sm">{col.title}</label>
+                </div>
+              ))}
+            </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div> {/* fim botoes */}
+      </div> {/* fim header */}
 
       {/* Table */}
       <div className="flex-1 border rounded-lg flex flex-col min-h-0 overflow-hidden">
@@ -361,8 +431,8 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
           <Table>
             <TableHeader className="bg-black sticky top-0">
               <TableRow className="h-[47px]">
-                {columns.map((column) => (
-                  <TableHead key={column.key} className="text-white font-medium px-3">
+                {columns.filter(c=>isColVisible(c.key)).map((column) => (
+                  <TableHead key={column.key} className="text-white font-medium px-3 text-center">
                     <div className="flex items-center gap-1">
                       <div 
                         className="flex items-center gap-1 cursor-pointer"
@@ -379,14 +449,13 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                           <ArrowUpDown className="h-3.5 w-3.5" />
         </Button>
       </div>
-                      <FilterDropdown
-                        title={column.title}
+                      <ClassicFilter
                         options={filterOptions[column.key] ?? []}
-                        selectedOptions={filters[column.key] ?? new Set()}
-                        onOptionToggle={(option) => handleFilterToggle(column.key, option)}
-                        onClear={() => handleClearFilter(column.key)}
-            />
-          </div>
+                        selected={filters[column.key] ?? new Set()}
+                        onToggle={(opt)=>handleFilterToggle(column.key,opt)}
+                        onClear={()=>handleClearFilter(column.key)}
+                      />
+            </div>
                   </TableHead>
                 ))}
                 <TableHead className="text-white font-medium w-[100px] px-3">Ações</TableHead>
@@ -395,17 +464,59 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
               <TableBody>
               {paginatedData.map((cav) => (
                 <TableRow key={cav.id} className="h-[47px] hover:bg-gray-50 border-b border-gray-200">
-                                                      <TableCell className="px-3 py-0 border-x border-gray-100">{format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.codigo}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100">{cav.frente}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.total_producao.toFixed(2)}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.total_viagens_feitas.toFixed(0)}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">{cav.lamina_alvo.toFixed(1)}</TableCell>
-                  <TableCell className="px-3 py-0 border-x border-gray-100 text-right">
-                    <span className={cav.dif_lamina_perc > 0 ? "text-red-600" : "text-green-600"}>
-                      {cav.dif_lamina_perc.toFixed(1)}%
+                  {isColVisible('data') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                  )}
+                  {isColVisible('codigo') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.codigo}</TableCell>
+                  )}
+                  {isColVisible('frente') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.frente}</TableCell>
+                  )}
+                  {isColVisible('setor') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.setor ?? '-'}</TableCell>
+                  )}
+                  {isColVisible('total_producao') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_producao.toFixed(2)}</TableCell>
+                  )}
+                  {isColVisible('total_viagens_feitas') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_viagens_feitas.toFixed(0)}</TableCell>
+                  )}
+                  {isColVisible('total_viagens_orcadas') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_viagens_orcadas.toFixed(0)}</TableCell>
+                  )}
+                  {isColVisible('dif_viagens_perc') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
+                      <span className={
+                        cav.dif_viagens_perc < 0
+                          ? "text-red-600"
+                          : cav.dif_viagens_perc <= 10
+                            ? "text-green-600"
+                            : "text-yellow-500"
+                      }>
+                        {cav.dif_viagens_perc.toFixed(2)}%
+                      </span>
+                    </TableCell>
+                  )}
+                  {isColVisible('lamina_alvo') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.lamina_alvo.toFixed(1)}</TableCell>
+                  )}
+                  {isColVisible('lamina_aplicada') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.lamina_aplicada.toFixed(1)}</TableCell>
+                  )}
+                  {isColVisible('dif_lamina_perc') && (
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
+                    <span className={
+                      cav.dif_lamina_perc < 0
+                        ? "text-red-600"
+                        : cav.dif_lamina_perc <= 10
+                          ? "text-green-600"
+                          : "text-yellow-500"
+                    }>
+                      {cav.dif_lamina_perc.toFixed(2)}%
                     </span>
                     </TableCell>
+                  )}
                   <TableCell className="px-3 py-0 border-x border-gray-100">
                     <div className="flex items-center justify-center">
                       <Button
@@ -422,13 +533,16 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                 ))}
               {/* Fill empty rows */}
               {paginatedData.length < rowsPerPage && (
-                Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => (
-                  <TableRow key={`empty-${index}`} className="h-[47px] border-b border-gray-200">
-                    {Array(columns.length + 1).fill(0).map((_, colIndex) => (
-                      <TableCell key={`empty-cell-${colIndex}`} className="px-3 py-0 border-x border-gray-100">&nbsp;</TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                Array(rowsPerPage - paginatedData.length).fill(0).map((_, index) => {
+                  const visibleCount = visibleColumns.length + 1 // +1 para coluna Ações
+                  return (
+                    <TableRow key={`empty-${index}`} className="h-[47px] border-b border-gray-200">
+                      {Array(visibleCount).fill(0).map((_, colIndex) => (
+                        <TableCell key={`empty-cell-${colIndex}`} className="px-3 py-0 border-x border-gray-100">&nbsp;</TableCell>
+                      ))}
+                    </TableRow>
+                  )
+                })
               )}
               </TableBody>
             </Table>
@@ -471,7 +585,14 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
       {selectedCav && (
         <CavDetailsModal
           open={!!selectedCav}
-          onOpenChange={(open) => !open && setSelectedCav(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              // Se o modal de edição não está aberto, podemos limpar
+              if (!isEditModalOpen) {
+                setSelectedCav(null)
+              }
+            }
+          }}
           cav={selectedCav}
           onEdit={(cav, boletinsIndividuais) => {
             // Armazenar os boletins individuais para edição
@@ -505,67 +626,8 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
   )
 }
 
-// Componente de filtro dropdown
-function FilterDropdown({
-  title,
-  options,
-  selectedOptions,
-  onOptionToggle,
-  onClear,
-}: {
-  title: string
-  options: string[]
-  selectedOptions: Set<string>
-  onOptionToggle: (option: string) => void
-  onClear: () => void
-}) {
-  const [searchTerm, setSearchTerm] = useState("")
-  const filteredOptions = options.filter(option => 
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+// FilterDropdown agora é importado de componente comum
 
-  return (
-    <DropdownMenu modal={true}>
-            <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-          <Filter className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-80 p-4" side="bottom" sideOffset={5}>
-        <div className="space-y-4">
-          <h4 className="font-medium">Filtrar {title.toLowerCase()}</h4>
-          <Input 
-            placeholder={`Buscar ${title.toLowerCase()}...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <div className="space-y-2 max-h-48 overflow-auto">
-            {filteredOptions.map((option) => (
-              <div key={option} className="flex items-center space-x-2">
-                <Checkbox
-                  id={option}
-                  checked={selectedOptions.has(option)}
-                  onCheckedChange={() => onOptionToggle(option)}
-                />
-                <label htmlFor={option} className="text-sm">
-                  {option}
-                </label>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between">
-            <Button variant="outline" size="sm" onClick={onClear}>
-              Limpar
-            </Button>
-            <span className="text-sm text-muted-foreground">{selectedOptions.size} selecionados</span>
-          </div>
-        </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-  )
-}
-
-// Modal de detalhes - placeholder
 // Componente de título de seção (mesmo padrão das tratativas)
 function SectionTitle({ title }: { title: string }) {
   return (
@@ -581,7 +643,7 @@ function DetailItem({ label, value }: { label: string; value: React.ReactNode })
     <div className="space-y-1">
       <span className="text-sm font-medium text-gray-500">{label}</span>
       <div className="text-sm text-gray-900">{value}</div>
-        </div>
+    </div>
   )
 }
 
@@ -646,15 +708,12 @@ function CavDetailsModal({
               variant="outline"
               className="h-8 w-8 p-0"
               onClick={() => {
-                // Fechar este modal e abrir o modal de edição
-                onOpenChange(false);
-                
-                // Chamar a função de edição passando o CAV e os boletins individuais
                 if (onEdit) {
                   onEdit(cav, boletinsIndividuais);
                 }
               }}
               title="Editar boletim"
+              disabled={isLoadingDetalhes}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -707,8 +766,14 @@ function CavDetailsModal({
               <DetailItem 
                 label="Diferença de Lâmina" 
                 value={
-                  <span className={cav.dif_lamina_perc > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
-                    {cav.dif_lamina_perc.toFixed(1)}%
+                  <span className={
+                    cav.dif_lamina_perc < 0
+                      ? "text-red-600 font-semibold"
+                      : cav.dif_lamina_perc <= 10
+                        ? "text-green-600 font-semibold"
+                        : "text-yellow-500 font-semibold"
+                  }>
+                    {cav.dif_lamina_perc.toFixed(2)}%
                   </span>
                 } 
               />
@@ -721,12 +786,18 @@ function CavDetailsModal({
             <SectionTitle title="Viagens" />
             <div className="grid grid-cols-3 gap-3">
               <DetailItem label="Viagens Feitas" value={cav.total_viagens_feitas.toFixed(2)} />
-              <DetailItem label="Viagens Orçadas" value={cav.total_viagens_orcadas.toFixed(2)} />
+              <DetailItem label="Viagens Orçadas" value={cav.total_viagens_orcadas.toFixed(0)} />
               <DetailItem 
                 label="Diferença de Viagens" 
                 value={
-                  <span className={cav.dif_viagens_perc > 0 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
-                    {cav.dif_viagens_perc.toFixed(1)}%
+                  <span className={
+                    cav.dif_viagens_perc < 0
+                      ? "text-red-600 font-semibold"
+                      : cav.dif_viagens_perc <= 10
+                        ? "text-green-600 font-semibold"
+                        : "text-yellow-500 font-semibold"
+                  }>
+                    {cav.dif_viagens_perc.toFixed(2)}%
                   </span>
                 } 
               />
@@ -868,9 +939,9 @@ function CavDetailsModal({
                         
                         <h4 class="text-center font-semibold mb-2">🚜 VIAGENS</h4>
                         <div class="mb-4">
-                          <p><strong>Viagens Orçadas:</strong> ${cav.total_viagens_orcadas.toFixed(2)}</p>
+                          <p><strong>Viagens Orçadas:</strong> ${cav.total_viagens_orcadas.toFixed(0)}</p>
                           <p><strong>Viagens Feitas:</strong> ${cav.total_viagens_feitas.toFixed(2)}</p>
-                          <p><strong>Diferença:</strong> ${(cav.total_viagens_feitas - cav.total_viagens_orcadas).toFixed(2)} (${cav.dif_viagens_perc > 0 ? '+' : ''}${cav.dif_viagens_perc.toFixed(2)}%)</p>
+                          <p><strong>Diferença:</strong> ${(cav.total_viagens_feitas - cav.total_viagens_orcadas).toFixed(2)} (<span class="${cav.dif_viagens_perc < 0 ? 'text-red-600' : cav.dif_viagens_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}">${cav.dif_viagens_perc > 0 ? '+' : ''}${cav.dif_viagens_perc.toFixed(2)}%</span>)</p>
                         </div>
                         
                         <div class="flex justify-center mt-6">
@@ -888,7 +959,7 @@ function CavDetailsModal({
                         <span class="sr-only">Fechar</span>
                       </button>
                     </div>
-                  </div>
+    </div>
                 `;
                 
                 dialogRoot.innerHTML = modalHTML;
@@ -913,7 +984,7 @@ function CavDetailsModal({
                     
                     let totalFrota = 0;
                     boletins.forEach((boletim: BoletimCav) => {
-                      aplicacaoHTML += `<p class="ml-5">• Turno ${boletim.turno}: ${boletim.operador} - ${boletim.producao} ha</p>`;
+                      aplicacaoHTML += `<p class="ml-5">• Turno ${boletim.turno}: ${boletim.operador} - ${boletim.producao} ha (λ ${boletim.lamina_alvo} m³)</p>`;
                       totalFrota += boletim.producao;
                     });
                     
