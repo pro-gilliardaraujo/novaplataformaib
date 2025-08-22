@@ -709,7 +709,6 @@ function CavDetailsModal({
               className="h-8 w-8 p-0"
               onClick={() => {
                 if (onEdit && boletinsIndividuais.length > 0) {
-                  setIsEditModalOpen(true);
                   onEdit(cav, boletinsIndividuais);
                 }
               }}
