@@ -746,7 +746,29 @@ export function NovoCavModal({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 flex-shrink-0">
+              <div className="grid grid-cols-4 gap-2 flex-shrink-0">
+                <div>
+                  <Label htmlFor="data_edit">Data</Label>
+                  <Input
+                    id="data_edit"
+                    type="date"
+                    value={formData.data}
+                    disabled={true}
+                    className="bg-gray-100"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="frente_edit">Frente</Label>
+                  <Input
+                    id="frente_edit"
+                    type="text"
+                    value={formData.frente}
+                    disabled={true}
+                    className="bg-gray-100"
+                  />
+                </div>
+                
                 <div>
                   <Label htmlFor="total_viagens_feitas_edit">Viagens Feitas</Label>
                   <Input

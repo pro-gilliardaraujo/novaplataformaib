@@ -708,12 +708,13 @@ function CavDetailsModal({
               variant="outline"
               className="h-8 w-8 p-0"
               onClick={() => {
-                if (onEdit) {
+                if (onEdit && boletinsIndividuais.length > 0) {
+                  setIsEditModalOpen(true);
                   onEdit(cav, boletinsIndividuais);
                 }
               }}
               title="Editar boletim"
-              disabled={isLoadingDetalhes}
+              disabled={isLoadingDetalhes || boletinsIndividuais.length === 0}
             >
               <Pencil className="h-4 w-4" />
             </Button>
