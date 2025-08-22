@@ -93,7 +93,7 @@ export async function PUT(request: NextRequest) {
       const total_viagens_feitas = formData.total_viagens_feitas || 0
       
       // Calcular total_viagens_orcadas
-      const total_viagens_orcadas = (grupo.total_producao * lamina_alvo) / 60
+      const total_viagens_orcadas = Math.round((grupo.total_producao * lamina_alvo) / 60)
       
       // Calcular lamina_aplicada
       const lamina_aplicada = total_viagens_feitas > 0 ? (total_viagens_feitas * 60) / grupo.total_producao : 0
@@ -114,7 +114,7 @@ export async function PUT(request: NextRequest) {
         codigo: grupo.codigo,
         total_producao: grupo.total_producao,
         total_viagens_feitas,
-        total_viagens_orcadas: Number(total_viagens_orcadas.toFixed(2)),
+        total_viagens_orcadas,
         dif_viagens_perc: Number(dif_viagens_perc.toFixed(2)),
         lamina_alvo: Number(lamina_alvo.toFixed(2)),
         lamina_aplicada: Number(lamina_aplicada.toFixed(2)),

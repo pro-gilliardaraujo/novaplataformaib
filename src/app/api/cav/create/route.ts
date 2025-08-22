@@ -91,7 +91,9 @@ export async function POST(request: NextRequest) {
     // 3️⃣ Calcular agregados
     const total_producao = dadosGranulares.reduce((sum, item) => sum + item.producao, 0)
     const total_viagens_feitas = formData.total_viagens_feitas
-    const total_viagens_orcadas = (total_producao * lamina_alvo) / 60
+    // 🚚 Viagens orçadas precisam ser número inteiro (>=0.5 arredonda para cima)
+    const total_viagens_orcadas_calc = (total_producao * lamina_alvo) / 60
+    const total_viagens_orcadas = Math.round(total_viagens_orcadas_calc)
     const lamina_aplicada = total_viagens_feitas > 0 ? (total_viagens_feitas * 60) / total_producao : 0
     const dif_viagens_perc = total_viagens_orcadas > 0 ? ((total_viagens_feitas - total_viagens_orcadas) / total_viagens_orcadas) * 100 : 0
     const dif_lamina_perc = lamina_alvo > 0 ? ((lamina_aplicada - lamina_alvo) / lamina_alvo) * 100 : 0
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
       setor: setor, // ✅ Setor extraído da frente
       total_producao: Number(total_producao.toFixed(2)),
       total_viagens_feitas: Number(total_viagens_feitas.toFixed(2)),
-      total_viagens_orcadas: Number(total_viagens_orcadas.toFixed(2)),
+      total_viagens_orcadas: total_viagens_orcadas,
       dif_viagens_perc: Number(dif_viagens_perc.toFixed(2)),
       lamina_alvo: Number(lamina_alvo.toFixed(2)),
       lamina_aplicada: Number(lamina_aplicada.toFixed(2)),

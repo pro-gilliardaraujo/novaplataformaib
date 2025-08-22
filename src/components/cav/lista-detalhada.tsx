@@ -303,7 +303,7 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
         cav.frente,
         fmt(cav.total_producao,2),
         fmt(cav.total_viagens_feitas,0),
-        fmt(cav.total_viagens_orcadas,2),
+        fmt(cav.total_viagens_orcadas,0),
         fmt(cav.dif_viagens_perc,2) + '%',
         fmt(cav.lamina_alvo,1),
         fmt(cav.lamina_aplicada,2),
@@ -483,7 +483,7 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                     <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_viagens_feitas.toFixed(0)}</TableCell>
                   )}
                   {isColVisible('total_viagens_orcadas') && (
-                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_viagens_orcadas.toFixed(2)}</TableCell>
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">{cav.total_viagens_orcadas.toFixed(0)}</TableCell>
                   )}
                   {isColVisible('dif_viagens_perc') && (
                     <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
@@ -786,7 +786,7 @@ function CavDetailsModal({
             <SectionTitle title="Viagens" />
             <div className="grid grid-cols-3 gap-3">
               <DetailItem label="Viagens Feitas" value={cav.total_viagens_feitas.toFixed(2)} />
-              <DetailItem label="Viagens Orçadas" value={cav.total_viagens_orcadas.toFixed(2)} />
+              <DetailItem label="Viagens Orçadas" value={cav.total_viagens_orcadas.toFixed(0)} />
               <DetailItem 
                 label="Diferença de Viagens" 
                 value={
@@ -939,7 +939,7 @@ function CavDetailsModal({
                         
                         <h4 class="text-center font-semibold mb-2">🚜 VIAGENS</h4>
                         <div class="mb-4">
-                          <p><strong>Viagens Orçadas:</strong> ${cav.total_viagens_orcadas.toFixed(2)}</p>
+                          <p><strong>Viagens Orçadas:</strong> ${cav.total_viagens_orcadas.toFixed(0)}</p>
                           <p><strong>Viagens Feitas:</strong> ${cav.total_viagens_feitas.toFixed(2)}</p>
                           <p><strong>Diferença:</strong> ${(cav.total_viagens_feitas - cav.total_viagens_orcadas).toFixed(2)} (<span class="${cav.dif_viagens_perc < 0 ? 'text-red-600' : cav.dif_viagens_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}">${cav.dif_viagens_perc > 0 ? '+' : ''}${cav.dif_viagens_perc.toFixed(2)}%</span>)</p>
                         </div>
