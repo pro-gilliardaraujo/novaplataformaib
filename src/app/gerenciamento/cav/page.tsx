@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CavVisaoGeral } from "@/components/cav/visao-geral"
 import { CavListaDetalhada } from "@/components/cav/lista-detalhada"
+import { DiarioCav } from "@/components/cav/diario-cav"
 
 export default function CavPage() {
   const [activeTab, setActiveTab] = useState("visao-geral")
@@ -28,6 +29,12 @@ export default function CavPage() {
           >
             Lista Detalhada
           </TabsTrigger>
+          <TabsTrigger 
+            value="diario-cav" 
+            className="rounded-none border-b-2 border-b-transparent px-4 pb-3 pt-2 font-semibold text-muted-foreground hover:text-foreground data-[state=active]:border-b-black data-[state=active]:text-foreground"
+          >
+            Diário CAV
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 p-2">
@@ -37,6 +44,10 @@ export default function CavPage() {
           
           <TabsContent value="lista-detalhada" className="h-full m-0">
             <CavListaDetalhada />
+          </TabsContent>
+          
+          <TabsContent value="diario-cav" className="h-full m-0">
+            <DiarioCav />
           </TabsContent>
         </div>
       </Tabs>
