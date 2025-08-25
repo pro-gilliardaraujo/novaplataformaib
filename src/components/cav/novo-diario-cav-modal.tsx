@@ -33,6 +33,7 @@ interface FrenteItem {
   imgArea: File | null;
   prevDesloc: string | null;
   prevArea: string | null;
+  dadosFiltrados?: Record<string, DiarioCavFrotaData>;
 }
 
 // Interface para os dados do arquivo OPC
@@ -59,7 +60,8 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     imgDesloc: null,
     imgArea: null,
     prevDesloc: null,
-    prevArea: null
+    prevArea: null,
+    dadosFiltrados: {}
   }]);
   
   // Estado para arquivo OPC
@@ -83,7 +85,8 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       imgDesloc: null,
       imgArea: null,
       prevDesloc: null,
-      prevArea: null
+      prevArea: null,
+      dadosFiltrados: {}
     }]);
   };
   
@@ -98,12 +101,65 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     setFrentes(prev => prev.map(f => 
       f.id === id ? { ...f, frente: value } : f
     ));
+    
+    // Filtrar dados relevantes para esta frente
+    filtrarDadosPorFrenteEData(id, value);
   };
   
   // Atualizar data selecionada
   const handleDataChange = (id: string, newDate: Date | undefined) => {
+    const novaData = newDate || ontem;
+    
     setFrentes(prev => prev.map(f => 
-      f.id === id ? { ...f, data: newDate || ontem } : f
+      f.id === id ? { ...f, data: novaData } : f
+    ));
+    
+    // Filtrar dados relevantes para esta data
+    const frente = frentes.find(f => f.id === id);
+    if (frente) {
+      filtrarDadosPorFrenteEData(id, frente.frente, novaData);
+    }
+  };
+  
+  // Filtrar dados por frente e data
+  const filtrarDadosPorFrenteEData = (frenteId: string, frenteCodigo: string, dataFiltro?: Date) => {
+    // Se não temos dados OPC ou frente não selecionada, não fazemos nada
+    if (dadosOPC.length === 0 || !frenteCodigo) {
+      return;
+    }
+    
+    const frente = frentes.find(f => f.id === frenteId);
+    if (!frente) return;
+    
+    const dataAtual = dataFiltro || frente.data;
+    const dataFormatada = format(dataAtual, "dd/MM/yyyy");
+    
+    console.log(`Filtrando dados para frente ${frenteCodigo} na data ${dataFormatada}`);
+    
+    // Aqui devemos consultar a tabela granular para obter as frotas associadas a esta frente
+    // Por enquanto, vamos simular isso filtrando apenas pela data
+    const dadosFiltrados = dadosOPC.filter(dado => {
+      // Verificar se a data corresponde (formato dd/MM/yyyy)
+      return dado.data === dataFormatada;
+    });
+    
+    console.log(`Dados filtrados por data ${dataFormatada}:`, dadosFiltrados);
+    
+    // Criar objeto de frotas filtrado
+    const frotasFiltradas: Record<string, DiarioCavFrotaData> = {};
+    dadosFiltrados.forEach(dado => {
+      frotasFiltradas[dado.maquina] = {
+        h_motor: dado.horasMotor,
+        h_ociosa: dado.horasMotor * (dado.fatorCargaMotorOcioso / 100),
+        h_trabalho: dado.horasMotor * (1 - dado.fatorCargaMotorOcioso / 100)
+      };
+    });
+    
+    console.log(`Frotas filtradas para frente ${frenteCodigo} na data ${dataFormatada}:`, frotasFiltradas);
+    
+    // Atualizar o estado com as frotas filtradas para este ID de frente
+    setFrentes(prev => prev.map(f => 
+      f.id === frenteId ? { ...f, dadosFiltrados: frotasFiltradas } : f
     ));
   };
   
@@ -473,7 +529,8 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         imgDesloc: null,
         imgArea: null,
         prevDesloc: null,
-        prevArea: null
+        prevArea: null,
+        dadosFiltrados: {}
       }]);
       setArquivoOPC(null);
       setArquivoNome("");
@@ -514,6 +571,35 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       
       // Salvar cada frente como um registro separado
       for (const frente of frentes) {
+        // Verificar se temos dados filtrados para esta frente
+        const dadosFiltradosFrota = frente.dadosFiltrados || {};
+        
+        // Se não temos dados filtrados, filtramos agora
+        if (Object.keys(dadosFiltradosFrota).length === 0) {
+          // Filtrar dados pela data da frente
+          const dataFormatada = format(frente.data, "dd/MM/yyyy");
+          const dadosFiltrados = dadosOPC.filter(dado => dado.data === dataFormatada);
+          
+          // Criar objeto de frotas filtrado
+          dadosFiltrados.forEach(dado => {
+            dadosFiltradosFrota[dado.maquina] = {
+              h_motor: dado.horasMotor,
+              h_ociosa: dado.horasMotor * (dado.fatorCargaMotorOcioso / 100),
+              h_trabalho: dado.horasMotor * (1 - dado.fatorCargaMotorOcioso / 100)
+            };
+          });
+          
+          console.log(`Dados filtrados para frente ${frente.frente} na data ${dataFormatada}:`, dadosFiltradosFrota);
+        }
+        
+        // Se ainda não temos dados filtrados, usar todos os dados
+        if (Object.keys(dadosFiltradosFrota).length === 0) {
+          console.log("Não foi possível filtrar dados específicos para esta frente. Usando todos os dados disponíveis.");
+        }
+        
+        // Dados a serem salvos (filtrados ou todos)
+        const dadosParaSalvar = Object.keys(dadosFiltradosFrota).length > 0 ? dadosFiltradosFrota : dadosFrotas;
+        
         // Upload da imagem de deslocamento (obrigatória)
         let imgDeslocamentoUrl = null;
         if (frente.imgDesloc) {
@@ -552,13 +638,15 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
           imgAreaUrl = imgAreaData?.publicUrl;
         }
         
+        console.log(`Salvando diário para frente ${frente.frente} com ${Object.keys(dadosParaSalvar).length} máquinas`);
+        
         // Inserir dados no banco
         const { error: insertError } = await supabase
           .from("diario_cav")
           .insert({
             data: format(frente.data, "yyyy-MM-dd"),
             frente: frente.frente,
-            dados: dadosFrotas,
+            dados: dadosParaSalvar,
             imagem_deslocamento: imgDeslocamentoUrl,
             imagem_area: imgAreaUrl
           });
@@ -758,141 +846,181 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                   )}
                 </div>
                 
-                <div className="flex flex-nowrap gap-6">
-                  {/* Data */}
-                  <div className="w-[180px]">
-                    <Label htmlFor={`data-${frente.id}`} className="mb-2 block text-base font-medium truncate">Data</Label>
-                    <Input
-                      id={`data-${frente.id}`}
-                      type="date"
-                      className="w-full"
-                      value={frente.data ? format(frente.data, "yyyy-MM-dd") : ""}
-                      onChange={(e) => {
-                        const newDate = e.target.value ? new Date(e.target.value) : ontem;
-                        handleDataChange(frente.id, newDate);
-                      }}
-                    />
-                  </div>
-
-                  {/* Frente */}
-                  <div className="w-[260px]">
-                    <Label htmlFor={`frente-${frente.id}`} className="mb-2 block text-base font-medium truncate">Frente</Label>
-                    <Select 
-                      value={frente.frente} 
-                      onValueChange={(value) => handleFrenteChange(frente.id, value)}
-                    >
-                      <SelectTrigger id={`frente-${frente.id}`}>
-                        <SelectValue placeholder="Selecione uma frente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(FRENTES_CONFIG).map(([key, config]) => (
-                          <SelectItem key={key} value={key}>
-                            {config.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Imagem Deslocamento */}
-                  <div className="w-[250px] pt-6">
-                    <div 
-                      className={cn(
-                        "border-2 border-dashed rounded-md p-2 transition-colors",
-                        frente.prevDesloc ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
-                      )}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, frente.id, true)}
-                    >
-                      {frente.prevDesloc ? (
-                        <div className="relative">
-                          <img 
-                            src={frente.prevDesloc} 
-                            alt="Preview" 
-                            className="w-full h-32 object-cover rounded-md"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6 rounded-full bg-white/80 hover:bg-white"
-                            onClick={() => handleRemoveImage(frente.id, true)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button 
-                          variant="outline" 
-                          className="w-full h-10 flex flex-row items-center justify-center gap-2 border-0"
-                          onClick={() => document.getElementById(`imgDesloc-${frente.id}`)?.click()}
-                        >
-                          <Image className="h-5 w-5" />
-                          <span className="text-sm">Imagem Deslocamento</span>
-                        </Button>
-                      )}
+                <div className="flex flex-wrap gap-6">
+                  <div className="flex flex-nowrap gap-6">
+                    {/* Data */}
+                    <div className="w-[180px]">
+                      <Label htmlFor={`data-${frente.id}`} className="mb-2 block text-base font-medium truncate">Data</Label>
                       <Input
-                        id={`imgDesloc-${frente.id}`}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
+                        id={`data-${frente.id}`}
+                        type="date"
+                        className="w-full"
+                        value={frente.data ? format(frente.data, "yyyy-MM-dd") : ""}
                         onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) processImageFile(file, frente.id, true);
+                          const newDate = e.target.value ? new Date(e.target.value) : ontem;
+                          handleDataChange(frente.id, newDate);
                         }}
                       />
                     </div>
-                  </div>
 
-                  {/* Imagem Fechamento */}
-                  <div className="w-[250px] pt-6">
-                    <div 
-                      className={cn(
-                        "border-2 border-dashed rounded-md p-2 transition-colors",
-                        frente.prevArea ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
-                      )}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, frente.id, false)}
-                    >
-                      {frente.prevArea ? (
-                        <div className="relative">
-                          <img 
-                            src={frente.prevArea} 
-                            alt="Preview" 
-                            className="w-full h-32 object-cover rounded-md"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6 rounded-full bg-white/80 hover:bg-white"
-                            onClick={() => handleRemoveImage(frente.id, false)}
+                    {/* Frente */}
+                    <div className="w-[260px]">
+                      <Label htmlFor={`frente-${frente.id}`} className="mb-2 block text-base font-medium truncate">Frente</Label>
+                      <Select 
+                        value={frente.frente} 
+                        onValueChange={(value) => handleFrenteChange(frente.id, value)}
+                      >
+                        <SelectTrigger id={`frente-${frente.id}`}>
+                          <SelectValue placeholder="Selecione uma frente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(FRENTES_CONFIG).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>
+                              {config.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Imagem Deslocamento */}
+                    <div className="w-[250px] pt-6">
+                      <div 
+                        className={cn(
+                          "border-2 border-dashed rounded-md p-2 transition-colors",
+                          frente.prevDesloc ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
+                        )}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, frente.id, true)}
+                      >
+                        {frente.prevDesloc ? (
+                          <div className="relative">
+                            <img 
+                              src={frente.prevDesloc} 
+                              alt="Preview" 
+                              className="w-full h-32 object-cover rounded-md"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-white/80 hover:bg-white"
+                              onClick={() => handleRemoveImage(frente.id, true)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            className="w-full h-10 flex flex-row items-center justify-center gap-2 border-0"
+                            onClick={() => document.getElementById(`imgDesloc-${frente.id}`)?.click()}
                           >
-                            <X className="h-4 w-4" />
+                            <Image className="h-5 w-5" />
+                            <span className="text-sm">Imagem Deslocamento</span>
                           </Button>
-                        </div>
-                      ) : (
-                        <Button 
-                          variant="outline" 
-                          className="w-full h-10 flex flex-row items-center justify-center gap-2 border-0"
-                          onClick={() => document.getElementById(`imgArea-${frente.id}`)?.click()}
-                        >
-                          <Image className="h-5 w-5" />
-                          <span className="text-sm">Imagem Fechamento</span>
-                        </Button>
-                      )}
-                      <Input
-                        id={`imgArea-${frente.id}`}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) processImageFile(file, frente.id, false);
-                        }}
-                      />
+                        )}
+                        <Input
+                          id={`imgDesloc-${frente.id}`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) processImageFile(file, frente.id, true);
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Imagem Fechamento */}
+                    <div className="w-[250px] pt-6">
+                      <div 
+                        className={cn(
+                          "border-2 border-dashed rounded-md p-2 transition-colors",
+                          frente.prevArea ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
+                        )}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, frente.id, false)}
+                      >
+                        {frente.prevArea ? (
+                          <div className="relative">
+                            <img 
+                              src={frente.prevArea} 
+                              alt="Preview" 
+                              className="w-full h-32 object-cover rounded-md"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-white/80 hover:bg-white"
+                              onClick={() => handleRemoveImage(frente.id, false)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            className="w-full h-10 flex flex-row items-center justify-center gap-2 border-0"
+                            onClick={() => document.getElementById(`imgArea-${frente.id}`)?.click()}
+                          >
+                            <Image className="h-5 w-5" />
+                            <span className="text-sm">Imagem Fechamento</span>
+                          </Button>
+                        )}
+                        <Input
+                          id={`imgArea-${frente.id}`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) processImageFile(file, frente.id, false);
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Dados filtrados para esta frente */}
+                  {frente.frente && frente.data && Object.keys(frente.dadosFiltrados || {}).length > 0 && (
+                    <div className="w-full mt-4 border-t pt-4">
+                      <h4 className="text-sm font-medium mb-2">
+                        Dados filtrados para frente {frente.frente && FRENTES_CONFIG.find(f => f.nome.includes(frente.frente))?.nome || frente.frente} em {format(frente.data, "dd/MM/yyyy")}:
+                      </h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm border-collapse">
+                          <thead>
+                            <tr className="bg-gray-50">
+                              <th className="border px-2 py-1 text-left">Máquina</th>
+                              <th className="border px-2 py-1 text-right">Horas Período</th>
+                              <th className="border px-2 py-1 text-right">Horas Ociosas</th>
+                              <th className="border px-2 py-1 text-right">Horas Trabalho</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(frente.dadosFiltrados || {}).map(([maquina, dados]) => (
+                              <tr key={maquina} className="hover:bg-gray-50">
+                                <td className="border px-2 py-1">{maquina}</td>
+                                <td className="border px-2 py-1 text-right">{dados.h_motor.toFixed(2)}</td>
+                                <td className="border px-2 py-1 text-right">{dados.h_ociosa.toFixed(2)}</td>
+                                <td className="border px-2 py-1 text-right">{dados.h_trabalho.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                            {Object.keys(frente.dadosFiltrados || {}).length === 0 && (
+                              <tr>
+                                <td colSpan={4} className="border px-2 py-1 text-center text-gray-500">
+                                  Nenhum dado encontrado para esta frente/data.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

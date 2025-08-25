@@ -6,13 +6,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PlusCircle, FileText, Image, Loader2 } from "lucide-react"
 import { NovoDiarioCavModal } from "@/components/cav/novo-diario-cav-modal"
+import { RelatorioDiarioCav } from "@/components/cav/relatorio-diario-cav"
 import { DiarioCav as DiarioCavType } from "@/types/diario-cav"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+interface RelatorioData {
+  frente: string;
+  data: Date;
+  imagemDeslocamento?: string;
+  imagemArea?: string;
+}
+
 export function DiarioCav() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isRelatorioOpen, setIsRelatorioOpen] = useState(false)
+  const [relatorioData, setRelatorioData] = useState<RelatorioData | null>(null)
   const [diarios, setDiarios] = useState<DiarioCavType[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -50,13 +60,23 @@ export function DiarioCav() {
     <div className="h-full flex flex-col space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Diário CAV</h2>
-        <Button 
-          className="flex items-center gap-2"
-          onClick={() => setIsModalOpen(true)}
-        >
-          <PlusCircle className="h-4 w-4" />
-          Novo Diário
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={() => window.open("/preview/relatorio-cav", "_blank")}
+          >
+            <FileText className="h-4 w-4" />
+            Preview do Relatório
+          </Button>
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <PlusCircle className="h-4 w-4" />
+            Novo Diário
+          </Button>
+        </div>
       </div>
       
       <Card className="flex-1">
@@ -132,6 +152,15 @@ export function DiarioCav() {
                           size="sm"
                           className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
                           title="Ver relatório"
+                          onClick={() => {
+                            setRelatorioData({
+                              frente: diario.frente,
+                              data: new Date(diario.data),
+                              imagemDeslocamento: diario.imagem_deslocamento || undefined,
+                              imagemArea: diario.imagem_area || undefined
+                            });
+                            setIsRelatorioOpen(true);
+                          }}
                         >
                           <FileText className="h-4 w-4" />
                         </Button>
@@ -152,6 +181,17 @@ export function DiarioCav() {
           carregarDiarios()
         }}
       />
+      
+      {relatorioData && (
+        <RelatorioDiarioCav
+          open={isRelatorioOpen}
+          onOpenChange={setIsRelatorioOpen}
+          frente={relatorioData.frente}
+          data={relatorioData.data}
+          imagemDeslocamento={relatorioData.imagemDeslocamento}
+          imagemArea={relatorioData.imagemArea}
+        />
+      )}
     </div>
   )
 }

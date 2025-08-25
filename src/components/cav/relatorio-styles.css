@@ -1,0 +1,38 @@
+/* Estilos para o relatório CAV */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  
+  body {
+    margin: 0;
+  }
+  
+  .pagina-1, .pagina-2, .pagina-3 {
+    width: 210mm;
+    height: 297mm;
+    page-break-after: always;
+    box-sizing: border-box;
+    padding: 10mm;
+    margin: 0;
+  }
+  
+  .pagina-3 {
+    page-break-after: auto;
+  }
+}
+
+/* Estilos para visualização na tela */
+.pagina-1, .pagina-2, .pagina-3 {
+  box-sizing: border-box;
+  background-color: white;
+}
+
+/* Ajustes para imagens */
+.pagina-2 img, .pagina-3 img {
+  max-width: 100%;
+  max-height: calc(297mm - 40mm); /* Altura da página menos margens e cabeçalho */
+  object-fit: contain;
+}
