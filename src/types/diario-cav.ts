@@ -2,6 +2,8 @@ export interface DiarioCavFrotaData {
   h_motor: number;
   h_ociosa: number;
   h_trabalho: number;
+  combustivel_consumido?: number;
+  fator_carga_motor_ocioso?: number;
 }
 
 export interface DiarioCav {

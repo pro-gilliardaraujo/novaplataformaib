@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Download, Copy, Printer } from "lucide-react"
 import { format } from "date-fns"
@@ -65,7 +65,48 @@ const dadosMock = {
 
 export default function RelatorioPreviewPage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [dadosRelatorio, setDadosRelatorio] = useState<any>(dadosMock)
+  const [frente, setFrente] = useState<string>("")
+  const [data, setData] = useState<Date>(new Date())
+  const [imagemDeslocamento, setImagemDeslocamento] = useState<string | undefined>()
+  const [imagemArea, setImagemArea] = useState<string | undefined>()
   const relatorioRef = useRef<HTMLDivElement>(null)
+  
+  // Carregar parâmetros da URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    
+    const frenteParam = params.get('frente');
+    const dataParam = params.get('data');
+    const imagemDeslocamentoParam = params.get('imagemDeslocamento');
+    const imagemAreaParam = params.get('imagemArea');
+    
+    if (frenteParam) setFrente(frenteParam);
+    if (dataParam) setData(new Date(dataParam));
+    if (imagemDeslocamentoParam && imagemDeslocamentoParam !== 'undefined') setImagemDeslocamento(imagemDeslocamentoParam);
+    if (imagemAreaParam && imagemAreaParam !== 'undefined') setImagemArea(imagemAreaParam);
+    
+    // Carregar dados do relatório
+    if (frenteParam && dataParam) {
+      carregarDados(frenteParam, new Date(dataParam));
+    }
+  }, []);
+  
+  // Função para carregar dados
+  const carregarDados = async (frente: string, data: Date) => {
+    setIsLoading(true);
+    
+    try {
+      const { buscarDadosProducaoPorFrenteData } = await import('@/lib/cav/diario-cav-service');
+      const dados = await buscarDadosProducaoPorFrenteData(frente, data);
+      setDadosRelatorio(dados);
+    } catch (error) {
+      console.error("Erro ao carregar dados do relatório:", error);
+      // Manter os dados mockados em caso de erro
+    } finally {
+      setIsLoading(false);
+    }
+  }
   
   const handleDownloadPDF = async () => {
     if (!relatorioRef.current) return
@@ -184,8 +225,8 @@ export default function RelatorioPreviewPage() {
               <img src="https://kjlwqezxzqjfhacmjhbh.supabase.co/storage/v1/object/public/sourcefiles/logo.png" alt="Logo" className="h-10" />
             </div>
             <div className="text-center">
-              <h2 className="text-xl font-bold">Relatório Diário de Frotas - Moema Frente 2</h2>
-              <p className="text-sm">{format(new Date(), "dd/MM/yyyy", { locale: ptBR })}</p>
+              <h2 className="text-xl font-bold">Relatório Diário de Frotas - {frente || "Moema Frente 2"}</h2>
+              <p className="text-sm">{format(data, "dd/MM/yyyy", { locale: ptBR })}</p>
             </div>
             <div className="flex items-center gap-2">
               <img src="https://kjlwqezxzqjfhacmjhbh.supabase.co/storage/v1/object/public/sourcefiles/logo.png" alt="Logo" className="h-10" />
@@ -195,10 +236,10 @@ export default function RelatorioPreviewPage() {
           <div className="border border-gray-400 rounded-md p-4 mb-6 shadow-sm">
             <h3 className="text-center font-semibold mb-2">Ha aplicados</h3>
             <div className="flex justify-around">
-              {dadosMock.frotas.map((frota) => (
+              {dadosRelatorio.frotas.map((frota: any) => (
                 <div key={frota.frota} className="flex flex-col items-center">
                   <div className="flex gap-3 mb-4">
-                    {frota.turnos.map((turno) => (
+                    {frota.turnos.map((turno: any) => (
                       <div key={`${frota.frota}-${turno.turno}`} className="flex flex-col items-center">
                         <div className="h-32 flex flex-col justify-end">
                           <div className="text-xs mb-1">{turno.producao.toFixed(2)}</div>
@@ -220,18 +261,18 @@ export default function RelatorioPreviewPage() {
               ))}
             </div>
             <div className="text-center mt-4 border-t pt-2">
-              <div className="text-base font-semibold">Total Aplicado: {dadosMock.totais.total_producao.toFixed(2)}</div>
+              <div className="text-base font-semibold">Total Aplicado: {dadosRelatorio.totais.total_producao.toFixed(2)}</div>
             </div>
             <div className="text-center mt-2 border-t pt-2">
-              <div className="text-xs">Lâmina Alvo: {dadosMock.totais.lamina_alvo.toFixed(2)} | Lâmina Aplicada: {dadosMock.totais.lamina_aplicada.toFixed(2)}</div>
-              <div className="text-xs">Total Viagens: {dadosMock.totais.total_viagens} | Viagens Orçadas: {dadosMock.totais.viagens_orcadas.toFixed(2)} | % Diferença: {dadosMock.totais.dif_viagens_perc.toFixed(2)}%</div>
+              <div className="text-xs">Lâmina Alvo: {dadosRelatorio.totais.lamina_alvo.toFixed(2)} | Lâmina Aplicada: {dadosRelatorio.totais.lamina_aplicada.toFixed(2)}</div>
+              <div className="text-xs">Total Viagens: {dadosRelatorio.totais.total_viagens} | Viagens Orçadas: {dadosRelatorio.totais.viagens_orcadas.toFixed(2)} | % Diferença: {dadosRelatorio.totais.dif_viagens_perc.toFixed(2)}%</div>
             </div>
           </div>
           
           <div className="border border-gray-400 rounded-md p-4 mb-6 shadow-sm">
             <h3 className="text-center font-semibold mb-2">Hectare por Hora Motor</h3>
             <div className="flex flex-col gap-4">
-              {dadosMock.frotas.map((frota) => (
+              {dadosRelatorio.frotas.map((frota: any) => (
                 <div key={frota.frota} className="flex items-center">
                   <div className="w-12 text-left text-xs font-semibold">{frota.frota}</div>
                   <div className="w-20 text-center text-xs">
@@ -259,7 +300,7 @@ export default function RelatorioPreviewPage() {
           <div className="border border-gray-400 rounded-md p-4 shadow-sm">
             <h3 className="text-center font-semibold mb-2">% Motor Ocioso</h3>
             <div className="flex justify-center gap-20 py-8">
-              {dadosMock.frotas.map((frota) => (
+              {dadosRelatorio.frotas.map((frota: any) => (
                 <div key={frota.frota} className="flex flex-col items-center">
                   <div className="relative w-40 h-40">
                     <svg viewBox="-20 -20 140 140" className="w-full h-full">
@@ -349,7 +390,7 @@ export default function RelatorioPreviewPage() {
           <div className="border border-gray-400 rounded-md p-4 mb-4 shadow-sm">
             <h3 className="text-center font-semibold mb-2">Consumo de Combustível (l/h)</h3>
             <div className="flex justify-center items-end h-32 gap-8">
-              {dadosMock.frotas.map((frota) => (
+              {dadosRelatorio.frotas.map((frota: any) => (
                 <div key={frota.frota} className="flex flex-col items-center">
                   <div className="flex flex-col items-center">
                     <div className="text-xs mb-1">{frota.combustivel_consumido.toFixed(2)}</div>
@@ -367,9 +408,18 @@ export default function RelatorioPreviewPage() {
           <div className="border border-gray-400 rounded-md p-4 shadow-sm flex-1 flex flex-col">
             <h3 className="text-center font-semibold mb-2">Mapa de deslocamento</h3>
             <div className="flex justify-center flex-1">
-              <div className="w-full bg-gray-200 flex items-center justify-center" style={{ height: "calc(297mm - 450px)" }}>
-                <p className="text-gray-500">Imagem do mapa de deslocamento</p>
-              </div>
+              {imagemDeslocamento ? (
+                <img 
+                  src={imagemDeslocamento} 
+                  alt="Mapa de deslocamento" 
+                  className="max-w-full h-auto object-contain"
+                  style={{ maxHeight: "calc(297mm - 250px)" }}
+                />
+              ) : (
+                <div className="w-full bg-gray-200 flex items-center justify-center" style={{ height: "calc(297mm - 450px)" }}>
+                  <p className="text-gray-500">Imagem do mapa de deslocamento</p>
+                </div>
+              )}
             </div>
             <div className="text-center text-xs mt-2">
               <p>*** As cores dos rastros não refletem lâmina de aplicação, apenas diferem a frota ***</p>

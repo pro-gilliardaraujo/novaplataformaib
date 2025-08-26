@@ -137,22 +137,38 @@ export function RelatorioDiarioCav({
     window.print()
   }
   
+  const handleOpenInNewTab = () => {
+    // Construir URL para a página de preview com parâmetros
+    const params = new URLSearchParams({
+      frente: frente,
+      data: data.toISOString(),
+      imagemDeslocamento: imagemDeslocamento || '',
+      imagemArea: imagemArea || ''
+    });
+    
+    const url = `/preview/relatorio-cav?${params.toString()}`;
+    window.open(url, '_blank');
+  }
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[1000px] max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between py-4 border-b">
-          <span className="flex-1 text-center font-semibold text-lg">Relatório Diário CAV</span>
-          <DialogClose asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 rounded-lg border border-gray-300 shadow-sm"
-              aria-label="Fechar"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogClose>
-        </div>
+              <DialogContent className="sm:max-w-[1000px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-center">Relatório Diário CAV</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-between py-2 border-b">
+            <span className="flex-1 text-center text-sm text-gray-500">Frente: {frente} - Data: {format(data, "dd/MM/yyyy", { locale: ptBR })}</span>
+            <DialogClose asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg border border-gray-300 shadow-sm"
+                aria-label="Fechar"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
         
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
@@ -161,6 +177,15 @@ export function RelatorioDiarioCav({
         )}
         
         <div className="flex justify-end gap-2 mb-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex items-center gap-1"
+            onClick={handleOpenInNewTab}
+            disabled={isLoading}
+          >
+            <span>Abrir em Nova Aba</span>
+          </Button>
           <Button 
             variant="outline" 
             size="sm" 

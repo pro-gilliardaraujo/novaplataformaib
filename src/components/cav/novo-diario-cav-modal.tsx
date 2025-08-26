@@ -17,6 +17,7 @@ import Papa from "papaparse"
 import * as XLSX from "xlsx"
 import { DiarioCavFrotaData } from "@/types/diario-cav"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { RelatorioDiarioCav } from "./relatorio-diario-cav"
 
 interface NovoDiarioCavModalProps {
   open: boolean
@@ -75,6 +76,15 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
   const [error, setError] = useState("");
   const [frenteToDelete, setFrenteToDelete] = useState<string | null>(null);
   const [processandoArquivo, setProcessandoArquivo] = useState(false);
+  
+  // Estado para controlar o relatório
+  const [showRelatorio, setShowRelatorio] = useState(false);
+  const [relatorioData, setRelatorioData] = useState<{
+    frente: string;
+    data: Date;
+    imagemDeslocamento?: string;
+    imagemArea?: string;
+  } | null>(null);
   
   // Adicionar nova frente
   const handleAddFrente = () => {
@@ -334,7 +344,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
               frotas[maquina] = {
                 h_motor: horasMotor,
                 h_ociosa: horasOciosas,
-                h_trabalho: horasTrabalho
+                h_trabalho: horasTrabalho,
+                combustivel_consumido: combustivel,
+                fator_carga_motor_ocioso: fatorCarga
               };
             }
           });
@@ -466,7 +478,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
             frotas[maquina] = {
               h_motor: horasMotor,
               h_ociosa: horasOciosas,
-              h_trabalho: horasTrabalho
+              h_trabalho: horasTrabalho,
+              combustivel_consumido: combustivel,
+              fator_carga_motor_ocioso: fatorCarga
             };
           }
         });
@@ -656,9 +670,33 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         }
       }
       
-      // Fechar modal e notificar sucesso
+      // Para cada frente salva, mostrar relatório da primeira
+      if (frentes.length > 0) {
+        const primeiraFrente = frentes[0];
+        
+        // Obter URLs das imagens salvas
+        let imgDeslocUrl: string | undefined = undefined;
+        if (primeiraFrente.prevDesloc) {
+          imgDeslocUrl = primeiraFrente.prevDesloc;
+        }
+        
+        let imgAreaUrl: string | undefined = undefined;
+        if (primeiraFrente.prevArea) {
+          imgAreaUrl = primeiraFrente.prevArea;
+        }
+        
+        setRelatorioData({
+          frente: primeiraFrente.frente,
+          data: primeiraFrente.data,
+          imagemDeslocamento: imgDeslocUrl,
+          imagemArea: imgAreaUrl
+        });
+        setShowRelatorio(true);
+      }
+      
       setIsLoading(false);
-      handleCloseModal(false);
+      // Não fechamos o modal ainda, pois vamos mostrar o relatório
+      // handleCloseModal(false);
       if (onSuccess) onSuccess();
       
     } catch (error: any) {
@@ -1049,6 +1087,24 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         description="Tem certeza que deseja remover esta frente? Esta ação não pode ser desfeita."
         onConfirm={() => frenteToDelete && handleRemoveFrente(frenteToDelete)}
       />
+
+      {/* Relatório Diário CAV */}
+      {relatorioData && (
+        <RelatorioDiarioCav
+          open={showRelatorio}
+          onOpenChange={(open) => {
+            setShowRelatorio(open);
+            if (!open) {
+              // Quando fechar o relatório, fechar o modal principal também
+              handleCloseModal(false);
+            }
+          }}
+          frente={relatorioData.frente}
+          data={relatorioData.data}
+          imagemDeslocamento={relatorioData.imagemDeslocamento}
+          imagemArea={relatorioData.imagemArea}
+        />
+      )}
     </>
   )
 }
