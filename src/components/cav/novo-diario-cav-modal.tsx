@@ -15,7 +15,7 @@ import { v4 as uuidv4 } from "uuid"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import Papa from "papaparse"
 import * as XLSX from "xlsx"
-import { DiarioCavFrotaData } from "@/types/diario-cav"
+import { DiarioCavFrotaData, PreviaBoletinsCav, ProducaoFrotaTurno, BoletimCavAgregado } from "@/types/diario-cav"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { RelatorioDiarioCav } from "./relatorio-diario-cav"
 
@@ -35,6 +35,7 @@ interface FrenteItem {
   prevDesloc: string | null;
   prevArea: string | null;
   dadosFiltrados?: Record<string, DiarioCavFrotaData>;
+  dadosBoletinsCav?: PreviaBoletinsCav; // Dados de boletins CAV (granulares e agregados)
 }
 
 // Interface para os dados do arquivo OPC
@@ -112,7 +113,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       f.id === id ? { ...f, frente: value } : f
     ));
     
-    // Filtrar dados relevantes para esta frente
+    // Filtrar dados relevantes para esta frente (assíncrono)
     filtrarDadosPorFrenteEData(id, value);
   };
   
@@ -124,7 +125,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       f.id === id ? { ...f, data: novaData } : f
     ));
     
-    // Filtrar dados relevantes para esta data
+    // Filtrar dados relevantes para esta data (assíncrono)
     const frente = frentes.find(f => f.id === id);
     if (frente) {
       filtrarDadosPorFrenteEData(id, frente.frente, novaData);
@@ -132,9 +133,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
   };
   
   // Filtrar dados por frente e data
-  const filtrarDadosPorFrenteEData = (frenteId: string, frenteCodigo: string, dataFiltro?: Date) => {
-    // Se não temos dados OPC ou frente não selecionada, não fazemos nada
-    if (dadosOPC.length === 0 || !frenteCodigo) {
+  const filtrarDadosPorFrenteEData = async (frenteId: string, frenteCodigo: string, dataFiltro?: Date) => {
+    // Se não temos frente selecionada, não fazemos nada
+    if (!frenteCodigo) {
       return;
     }
     
@@ -142,35 +143,104 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     if (!frente) return;
     
     const dataAtual = dataFiltro || frente.data;
-    const dataFormatada = format(dataAtual, "dd/MM/yyyy");
+    const dataFormatadaDisplay = format(dataAtual, "dd/MM/yyyy");
+    const dataFormatadaAPI = format(dataAtual, "yyyy-MM-dd");
     
-    console.log(`Filtrando dados para frente ${frenteCodigo} na data ${dataFormatada}`);
+    console.log(`Filtrando dados para frente ${frenteCodigo} na data ${dataFormatadaDisplay}`);
     
-    // Aqui devemos consultar a tabela granular para obter as frotas associadas a esta frente
-    // Por enquanto, vamos simular isso filtrando apenas pela data
+    // 1. Filtrar dados do arquivo OPC pela data
     const dadosFiltrados = dadosOPC.filter(dado => {
-      // Verificar se a data corresponde (formato dd/MM/yyyy)
-      return dado.data === dataFormatada;
+      return dado.data === dataFormatadaDisplay;
     });
     
-    console.log(`Dados filtrados por data ${dataFormatada}:`, dadosFiltrados);
-    
-    // Criar objeto de frotas filtrado
+    // Criar objeto de frotas filtrado do OPC
     const frotasFiltradas: Record<string, DiarioCavFrotaData> = {};
     dadosFiltrados.forEach(dado => {
       frotasFiltradas[dado.maquina] = {
         h_motor: dado.horasMotor,
         h_ociosa: dado.horasMotor * (dado.fatorCargaMotorOcioso / 100),
-        h_trabalho: dado.horasMotor * (1 - dado.fatorCargaMotorOcioso / 100)
+        h_trabalho: dado.horasMotor * (1 - dado.fatorCargaMotorOcioso / 100),
+        combustivel_consumido: dado.combustivelConsumido,
+        fator_carga_motor_ocioso: dado.fatorCargaMotorOcioso
       };
     });
     
-    console.log(`Frotas filtradas para frente ${frenteCodigo} na data ${dataFormatada}:`, frotasFiltradas);
-    
-    // Atualizar o estado com as frotas filtradas para este ID de frente
-    setFrentes(prev => prev.map(f => 
-      f.id === frenteId ? { ...f, dadosFiltrados: frotasFiltradas } : f
-    ));
+    // 2. Buscar dados de boletins CAV (granulares e agregados)
+    try {
+      const supabase = createClientComponentClient();
+      
+      // O valor da frente vem com o formato "Frente X SETOR", mas no banco está apenas "Frente X"
+      // Precisamos extrair apenas a parte "Frente X" para busca no banco de dados
+      let frenteBusca = frenteCodigo;
+      
+      // Se o nome contém um espaço após "Frente X", extrair apenas a parte "Frente X"
+      if (frenteBusca.startsWith("Frente ")) {
+        // Pegar apenas "Frente X" e remover o sufixo (MOE, ITU, etc.)
+        const match = frenteBusca.match(/^(Frente \d+)/);
+        if (match) {
+          frenteBusca = match[1];
+        }
+      } else if (frenteBusca.includes(" ")) {
+        // Para casos como "Iturama ITU", pegar apenas a primeira parte
+        frenteBusca = frenteBusca.split(" ")[0];
+      }
+      
+      console.log(`Buscando dados para frente formatada: "${frenteBusca}" na data ${dataFormatadaAPI}`);
+      
+      // Buscar dados granulares (boletins_cav)
+      const { data: dadosGranulares, error: errorGranular } = await supabase
+        .from("boletins_cav")
+        .select("id, data, frente, frota, turno, operador, codigo, producao, lamina_alvo")
+        .eq("frente", frenteBusca)
+        .eq("data", dataFormatadaAPI);
+      
+      if (errorGranular) {
+        console.error("Erro ao buscar dados granulares:", errorGranular);
+      }
+      
+      // Buscar dados agregados (boletins_cav_agregado)
+      const { data: dadosAgregados, error: errorAgregado } = await supabase
+        .from("boletins_cav_agregado")
+        .select("id, data, frente, codigo, setor, total_producao, total_viagens_feitas, total_viagens_orcadas, lamina_alvo, lamina_aplicada, dif_viagens_perc, dif_lamina_perc")
+        .eq("frente", frenteBusca)
+        .eq("data", dataFormatadaAPI)
+        .single();
+      
+      if (errorAgregado && errorAgregado.code !== 'PGRST116') { // Ignorar erro "não encontrado"
+        console.error("Erro ao buscar dados agregados:", errorAgregado);
+      }
+      
+      // Formatar dados granulares para o formato que precisamos
+      const producaoPorFrotaTurno: ProducaoFrotaTurno[] = (dadosGranulares || []).map(item => ({
+        frota: item.frota,
+        turno: item.turno,
+        codigo: item.codigo,
+        producao: item.producao
+      }));
+      
+      console.log("Dados granulares encontrados:", producaoPorFrotaTurno.length);
+      console.log("Dados agregados encontrados:", dadosAgregados ? "Sim" : "Não");
+      
+      // Atualizar o estado com os dados de boletins CAV
+      setFrentes(prev => prev.map(f => 
+        f.id === frenteId ? { 
+          ...f, 
+          dadosFiltrados: frotasFiltradas,
+          dadosBoletinsCav: {
+            dadosGranulares: producaoPorFrotaTurno,
+            dadosAgregados: dadosAgregados || undefined
+          }
+        } : f
+      ));
+      
+    } catch (error) {
+      console.error("Erro ao buscar dados de boletins CAV:", error);
+      
+      // Atualizar apenas com os dados do OPC em caso de erro
+      setFrentes(prev => prev.map(f => 
+        f.id === frenteId ? { ...f, dadosFiltrados: frotasFiltradas } : f
+      ));
+    }
   };
   
   // Processar arquivo de imagem
@@ -710,10 +780,11 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     <>
       <Dialog open={open} onOpenChange={handleCloseModal}>
         <DialogContent
-          className="sm:max-w-[1100px] w-full max-h-[90vh] overflow-y-auto overflow-x-hidden"
+          className="sm:max-w-[1100px] w-full max-h-[90vh] overflow-hidden flex flex-col"
           onPointerDownOutside={(e)=>e.preventDefault()}
           onEscapeKeyDown={(e)=>e.preventDefault()}
         >
+          {/* Cabeçalho fixo */}
           <div className="flex items-center justify-between py-4 border-b">
             <span className="flex-1 text-center font-semibold text-lg">Novo Diário CAV</span>
             <DialogClose asChild>
@@ -728,146 +799,147 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
             </DialogClose>
           </div>
 
+          {/* Área de erro fixa */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
               {error}
             </div>
           )}
 
-          <div className="space-y-6">
-            {/* Visualização dos dados processados */}
-            {Object.keys(dadosFrotas).length > 0 && (
-              <div className="border rounded-md p-4 mb-4">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="border px-2 py-1 text-left">Máquina</th>
-                        <th className="border px-2 py-1 text-right">Horas Período</th>
-                        <th className="border px-2 py-1 text-right">Consumo Período</th>
-                        <th className="border px-2 py-1 text-right">Motor Ocioso %</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(dadosFrotas)
-                        .filter(([_, dados]) => dados.h_motor > 0) // Filtra máquinas com horas motor > 0
-                        .map(([maquina, dados]) => {
-                          // Recuperar dados originais do OPC para esta máquina
-                          const dadoOpc = dadosOPC.find(d => d.maquina === maquina);
-                          return (
-                            <tr key={maquina} className="hover:bg-gray-50">
-                              <td className="border px-2 py-1">{maquina}</td>
-                              <td className="border px-2 py-1 text-right">{dados.h_motor > 0 ? dados.h_motor.toFixed(2) : ""}</td>
-                              <td className="border px-2 py-1 text-right">
-                                {dadoOpc && dadoOpc.combustivelConsumido > 0 ? dadoOpc.combustivelConsumido.toFixed(2) : ""}
-                              </td>
-                              <td className="border px-2 py-1 text-right">
-                                {dadoOpc && dadoOpc.fatorCargaMotorOcioso > 0 ? `${(dadoOpc.fatorCargaMotorOcioso * 100).toFixed(2)}%` : ""}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      }
-                    </tbody>
-                  </table>
-                </div>
+          {/* Área fixa para visualização de dados OPC */}
+          {Object.keys(dadosFrotas).length > 0 && (
+            <div className="border rounded-md p-4 mb-4">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border px-2 py-1 text-left">Máquina</th>
+                      <th className="border px-2 py-1 text-right">Horas Período</th>
+                      <th className="border px-2 py-1 text-right">Consumo Período</th>
+                      <th className="border px-2 py-1 text-right">Motor Ocioso %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(dadosFrotas)
+                      .filter(([_, dados]) => dados.h_motor > 0) // Filtra máquinas com horas motor > 0
+                      .map(([maquina, dados]) => {
+                        // Recuperar dados originais do OPC para esta máquina
+                        const dadoOpc = dadosOPC.find(d => d.maquina === maquina);
+                        return (
+                          <tr key={maquina} className="hover:bg-gray-50">
+                            <td className="border px-2 py-1">{maquina}</td>
+                            <td className="border px-2 py-1 text-right">{dados.h_motor > 0 ? dados.h_motor.toFixed(2) : ""}</td>
+                            <td className="border px-2 py-1 text-right">
+                              {dadoOpc && dadoOpc.combustivelConsumido > 0 ? dadoOpc.combustivelConsumido.toFixed(2) : ""}
+                            </td>
+                            <td className="border px-2 py-1 text-right">
+                              {dadoOpc && dadoOpc.fatorCargaMotorOcioso > 0 ? `${(dadoOpc.fatorCargaMotorOcioso * 100).toFixed(2)}%` : ""}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    }
+                  </tbody>
+                </table>
               </div>
-            )}
-            
-            {/* Arquivo OPC e Data */}
-            <div className="border rounded-md p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className={cn(
-                        "border-2 border-dashed rounded-md p-2 transition-colors flex items-center",
-                        arquivoOPC ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
-                      )}
-                      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-black'); }}
-                      onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-black'); }}
-                      onDrop={(e) => { 
-                        e.preventDefault(); 
-                        e.currentTarget.classList.remove('border-black'); 
-                        const droppedFiles = Array.from(e.dataTransfer.files); 
-                        const file = droppedFiles[0];
-                        if (file && (file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.txt'))) {
-                          setArquivoOPC(file);
-                          setArquivoNome(file.name);
-                          processarArquivoOPC(file);
-                        } else {
-                          setError("Por favor, arraste apenas arquivos CSV, XLSX, XLS ou TXT.");
-                        }
-                      }}
-                      onClick={() => document.getElementById('csvFile')?.click()}
-                    >
-                      <Button
-                        variant="outline"
-                        className="h-10 whitespace-nowrap border-0"
-                        disabled={processandoArquivo}
-                        type="button"
-                      >
-                        <FileUp className="h-4 w-4 mr-2" />
-                        {arquivoOPC ? "Trocar arquivo" : "Arquivo OPC"}
-                      </Button>
-                      <span className="text-xs text-gray-500 ml-2">
-                        {arquivoOPC ? null : "ou arraste aqui"}
-                      </span>
-                    </div>
-                  </div>
-                  <Input
-                    id="csvFile"
-                    type="file"
-                    accept=".csv,.xlsx,.xls,.txt"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
+            </div>
+          )}
+          
+          {/* Área fixa para upload de arquivo OPC e botão adicionar frente */}
+          <div className="border rounded-md p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className={cn(
+                      "border-2 border-dashed rounded-md p-2 transition-colors flex items-center",
+                      arquivoOPC ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
+                    )}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-black'); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-black'); }}
+                    onDrop={(e) => { 
+                      e.preventDefault(); 
+                      e.currentTarget.classList.remove('border-black'); 
+                      const droppedFiles = Array.from(e.dataTransfer.files); 
+                      const file = droppedFiles[0];
+                      if (file && (file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.txt'))) {
                         setArquivoOPC(file);
                         setArquivoNome(file.name);
                         processarArquivoOPC(file);
+                      } else {
+                        setError("Por favor, arraste apenas arquivos CSV, XLSX, XLS ou TXT.");
                       }
                     }}
-                  />
-                  {processandoArquivo ? (
-                    <div className="flex items-center">
-                      <span className="text-sm text-amber-600">Processando arquivo...</span>
-                    </div>
-                  ) : arquivoNome ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">
-                        Arquivo: <span className="font-medium">{arquivoNome}</span>
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setArquivoOPC(null);
-                          setArquivoNome("");
-                          setDadosOPC([]);
-                          setDadosFrotas({});
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : null}
+                    onClick={() => document.getElementById('csvFile')?.click()}
+                  >
+                    <Button
+                      variant="outline"
+                      className="h-10 whitespace-nowrap border-0"
+                      disabled={processandoArquivo}
+                      type="button"
+                    >
+                      <FileUp className="h-4 w-4 mr-2" />
+                      {arquivoOPC ? "Trocar arquivo" : "Arquivo OPC"}
+                    </Button>
+                    <span className="text-xs text-gray-500 ml-2">
+                      {arquivoOPC ? null : "ou arraste aqui"}
+                    </span>
+                  </div>
                 </div>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddFrente}
-                  className="flex items-center gap-1"
-                >
-                  <Plus className="h-4 w-4" /> Adicionar Frente
-                </Button>
+                <Input
+                  id="csvFile"
+                  type="file"
+                  accept=".csv,.xlsx,.xls,.txt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setArquivoOPC(file);
+                      setArquivoNome(file.name);
+                      processarArquivoOPC(file);
+                    }
+                  }}
+                />
+                {processandoArquivo ? (
+                  <div className="flex items-center">
+                    <span className="text-sm text-amber-600">Processando arquivo...</span>
+                  </div>
+                ) : arquivoNome ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">
+                      Arquivo: <span className="font-medium">{arquivoNome}</span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setArquivoOPC(null);
+                        setArquivoNome("");
+                        setDadosOPC([]);
+                        setDadosFrotas({});
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : null}
               </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddFrente}
+                className="flex items-center gap-1"
+              >
+                <Plus className="h-4 w-4" /> Adicionar Frente
+              </Button>
             </div>
+          </div>
 
-            {/* Blocos de Frentes */}
+          {/* Conteúdo scrollable - Blocos de Frentes */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-6">
             {frentes.map((frente, index) => (
               <div key={frente.id} className="border rounded-md p-4">
                 <div className="flex items-center justify-end mb-2">
@@ -912,8 +984,8 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                           <SelectValue placeholder="Selecione uma frente" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(FRENTES_CONFIG).map(([key, config]) => (
-                            <SelectItem key={key} value={key}>
+                          {FRENTES_CONFIG.map((config, index) => (
+                            <SelectItem key={index} value={config.nome}>
                               {config.nome}
                             </SelectItem>
                           ))}
@@ -1022,11 +1094,11 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                     </div>
                   </div>
                   
-                  {/* Dados filtrados para esta frente */}
+                  {/* Dados do arquivo OPC filtrados para esta frente */}
                   {frente.frente && frente.data && Object.keys(frente.dadosFiltrados || {}).length > 0 && (
                     <div className="w-full mt-4 border-t pt-4">
                       <h4 className="text-sm font-medium mb-2">
-                        Dados filtrados para frente {frente.frente && FRENTES_CONFIG.find(f => f.nome.includes(frente.frente))?.nome || frente.frente} em {format(frente.data, "dd/MM/yyyy")}:
+                        Dados do arquivo OPC para frente {frente.frente} em {format(frente.data, "dd/MM/yyyy")}:
                       </h4>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm border-collapse">
@@ -1036,6 +1108,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                               <th className="border px-2 py-1 text-right">Horas Período</th>
                               <th className="border px-2 py-1 text-right">Horas Ociosas</th>
                               <th className="border px-2 py-1 text-right">Horas Trabalho</th>
+                              <th className="border px-2 py-1 text-right">Consumo (L)</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1045,11 +1118,12 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                                 <td className="border px-2 py-1 text-right">{dados.h_motor.toFixed(2)}</td>
                                 <td className="border px-2 py-1 text-right">{dados.h_ociosa.toFixed(2)}</td>
                                 <td className="border px-2 py-1 text-right">{dados.h_trabalho.toFixed(2)}</td>
+                                <td className="border px-2 py-1 text-right">{dados.combustivel_consumido?.toFixed(2) || "-"}</td>
                               </tr>
                             ))}
                             {Object.keys(frente.dadosFiltrados || {}).length === 0 && (
                               <tr>
-                                <td colSpan={4} className="border px-2 py-1 text-center text-gray-500">
+                                <td colSpan={5} className="border px-2 py-1 text-center text-gray-500">
                                   Nenhum dado encontrado para esta frente/data.
                                 </td>
                               </tr>
@@ -1059,11 +1133,97 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                       </div>
                     </div>
                   )}
+                  
+                  {/* Dados de boletins CAV para esta frente */}
+                  {frente.frente && frente.data && frente.dadosBoletinsCav && (
+                    <div className="w-full mt-4 border-t pt-4">
+                      <h4 className="text-sm font-medium mb-2">
+                        Dados de produção para frente {frente.frente} em {format(frente.data, "dd/MM/yyyy")}:
+                      </h4>
+                      
+                      {/* Dados granulares - Produção por frota/turno */}
+                      {frente.dadosBoletinsCav.dadosGranulares && frente.dadosBoletinsCav.dadosGranulares.length > 0 ? (
+                        <div className="mb-4">
+                          <h5 className="text-sm font-medium mb-1">Produção por Frota/Turno:</h5>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm border-collapse">
+                              <thead>
+                                <tr className="bg-gray-50">
+                                  <th className="border px-2 py-1 text-left">Frota</th>
+                                  <th className="border px-2 py-1 text-left">Turno</th>
+                                  <th className="border px-2 py-1 text-left">Código</th>
+                                  <th className="border px-2 py-1 text-right">Produção (ha)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {frente.dadosBoletinsCav.dadosGranulares.map((item, index) => (
+                                  <tr key={index} className="hover:bg-gray-50">
+                                    <td className="border px-2 py-1">{item.frota}</td>
+                                    <td className="border px-2 py-1">{item.turno}</td>
+                                    <td className="border px-2 py-1">{item.codigo}</td>
+                                    <td className="border px-2 py-1 text-right">{item.producao.toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mb-4 text-gray-500 text-sm">
+                          Nenhum dado de produção encontrado para esta frente/data.
+                        </div>
+                      )}
+                      
+                      {/* Dados agregados - Resumo */}
+                      {frente.dadosBoletinsCav.dadosAgregados && (
+                        <div>
+                          <h5 className="text-sm font-medium mb-1">Resumo:</h5>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                            <div className="bg-gray-50 p-2 rounded">
+                              <div className="text-xs text-gray-500">Total Aplicado</div>
+                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_producao.toFixed(2)} ha</div>
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded">
+                              <div className="text-xs text-gray-500">Lâmina Alvo</div>
+                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.lamina_alvo.toFixed(2)} m³</div>
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded">
+                              <div className="text-xs text-gray-500">Lâmina Aplicada</div>
+                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.lamina_aplicada.toFixed(2)} m³</div>
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded">
+                              <div className="text-xs text-gray-500">Dif. Lâmina</div>
+                              <div className={`font-semibold ${frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc < 0 ? 'text-red-600' : frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}`}>
+                                {frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc > 0 ? '+' : ''}{frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc.toFixed(2)}%
+                              </div>
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded">
+                              <div className="text-xs text-gray-500">Viagens Feitas</div>
+                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_viagens_feitas}</div>
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded">
+                              <div className="text-xs text-gray-500">Viagens Orçadas</div>
+                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_viagens_orcadas.toFixed(0)}</div>
+                            </div>
+                            <div className="bg-gray-50 p-2 rounded">
+                              <div className="text-xs text-gray-500">Dif. Viagens</div>
+                              <div className={`font-semibold ${frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc < 0 ? 'text-red-600' : frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}`}>
+                                {frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc > 0 ? '+' : ''}{frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc.toFixed(2)}%
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
 
-            {/* Botões de ação */}
+          </div>
+          
+          {/* Botões de ação - Fixos na parte inferior */}
+          <div className="py-4 border-t mt-4">
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => handleCloseModal(false)}>
                 Cancelar

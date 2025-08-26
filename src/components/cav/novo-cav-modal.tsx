@@ -15,6 +15,7 @@ import { funcionariosService } from "@/services/funcionariosService"
 import { FuncionarioSearchResult } from "@/types/funcionarios"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { v4 as uuidv4 } from "uuid"
+import { arredondarViagens } from "@/lib/utils"
 
 interface NovoCavModalProps {
   open: boolean
@@ -956,7 +957,10 @@ export function NovoCavModal({
                                       atualizarTurno(frotaIndex, turno.id, 'operador', e.target.value)
                                       handleFuncionarioSearch(turnoKey, e.target.value)
                                     }}
-                                    onFocus={() => {
+                                    onFocus={(e) => {
+                                      // Selecionar todo o conteúdo do campo
+                                      e.target.select();
+                                      
                                       if (turno.operador.length >= 2) {
                                         setFuncionarioStates(prev => ({
                                           ...prev,
@@ -979,8 +983,23 @@ export function NovoCavModal({
                                       }, 200)
                                     }}
                                     onKeyDown={(e) => {
-                                      // Se não está mostrando sugestões, permite navegação
-                                      if (!funcionarioState.showSuggestions) {
+                                      // Se está mostrando sugestões e tem pelo menos um resultado
+                                      if (funcionarioState.showSuggestions && funcionarioState.suggestions.length > 0) {
+                                        // Se pressionar Tab, selecionar o primeiro resultado
+                                        if (e.key === 'Tab') {
+                                          e.preventDefault();
+                                          const primeiroFuncionario = funcionarioState.suggestions[0];
+                                          handleFuncionarioSelect(frotaIndex, turno.id, primeiroFuncionario);
+                                        }
+                                        // Se pressionar Enter, também selecionar o primeiro resultado
+                                        else if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          const primeiroFuncionario = funcionarioState.suggestions[0];
+                                          handleFuncionarioSelect(frotaIndex, turno.id, primeiroFuncionario);
+                                        }
+                                      } 
+                                      // Se não está mostrando sugestões, permite navegação normal
+                                      else if (!funcionarioState.showSuggestions) {
                                         handleKeyNavigation(e, frotaIndex, turno.id, 'operador')
                                       }
                                     }}
@@ -1250,7 +1269,9 @@ export function NovoCavModal({
                             frota.turnos.forEach(turno => {
                               if (turno.producao > 0 && turno.lamina_alvo > 0) {
                                 somaLaminaProducao += turno.lamina_alvo * turno.producao
-                                totalViagensOrcadas += (turno.producao * turno.lamina_alvo) / 60
+                                // Calcular viagens orçadas com arredondamento personalizado
+                                const viagensOrcadasTurno = (turno.producao * turno.lamina_alvo) / 60
+                                totalViagensOrcadas += viagensOrcadasTurno
                               }
                             })
                           })
@@ -1263,8 +1284,9 @@ export function NovoCavModal({
                           const diferencaLamina = laminaAplicada - laminaMediaPonderada
                           const percentualLamina = ((laminaAplicada - laminaMediaPonderada) / laminaMediaPonderada) * 100
                           
-                          const diferencaViagens = formData.total_viagens_feitas - totalViagensOrcadas
-                          const percentualViagens = totalViagensOrcadas > 0 ? (diferencaViagens / totalViagensOrcadas) * 100 : 0
+                          const viagensOrcadasArredondadas = arredondarViagens(totalViagensOrcadas)
+                          const diferencaViagens = formData.total_viagens_feitas - viagensOrcadasArredondadas
+                          const percentualViagens = viagensOrcadasArredondadas > 0 ? (diferencaViagens / viagensOrcadasArredondadas) * 100 : 0
                           
                           return (
                             <>
@@ -1282,7 +1304,7 @@ export function NovoCavModal({
                               <div className="mt-3 pt-2 border-t">
                                 <div className="text-orange-600 text-center">🚛 <strong>VIAGENS</strong></div>
                                 <div className="mt-1 space-y-1">
-                                  <div><strong>Viagens Orçadas:</strong> {totalViagensOrcadas.toFixed(2)}</div>
+                                  <div><strong>Viagens Orçadas:</strong> {arredondarViagens(totalViagensOrcadas).toFixed(0)}</div>
                                   <div><strong>Viagens Feitas:</strong> {formData.total_viagens_feitas}</div>
                                   <div><strong>Diferença:</strong> {diferencaViagens.toFixed(2)} ({percentualViagens >= 0 ? '+' : ''}{percentualViagens.toFixed(1)}%)</div>
                                 </div>

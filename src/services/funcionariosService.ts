@@ -15,7 +15,7 @@ export const funcionariosService = {
     const { data, error } = await supabase
       .from("funcionarios")
       .select("id, nome, cpf, funcao, unidade")
-      .or(`nome.ilike.%${primeiro}%,funcao.ilike.%${primeiro}%`)
+      .or(`nome.ilike.%${primeiro}%,funcao.ilike.%${primeiro}%,unidade.ilike.%${primeiro}%`)
       .eq("ativo", true)
       .order("nome")
       .limit(100)
@@ -29,8 +29,19 @@ export const funcionariosService = {
     const normalizar = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
     const filtrado = (data || []).filter(func => {
-      const alvo = normalizar(`${func.nome} ${func.funcao || ""}`)
-      return tokens.every(t => alvo.includes(normalizar(t)))
+      // Incluir nome completo, função e unidade no texto de busca
+      const nomeCompleto = func.nome || "";
+      const funcao = func.funcao || "";
+      const unidade = func.unidade || "";
+      
+      // Separar o nome em partes (nome e sobrenomes)
+      const partesDoCampoNome = nomeCompleto.split(" ");
+      
+      // Criar um texto completo para busca incluindo todas as informações
+      const alvo = normalizar(`${nomeCompleto} ${funcao} ${unidade} ${partesDoCampoNome.join(" ")}`);
+      
+      // Verificar se todos os tokens de busca estão presentes
+      return tokens.every(t => alvo.includes(normalizar(t)));
     })
 
     return filtrado.slice(0, 10)
