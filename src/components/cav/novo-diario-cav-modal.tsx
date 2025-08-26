@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, FileUp, Image, Plus, Trash2, Upload, X } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
+import { CalendarIcon, FileText, FileUp, Image, Plus, Trash2, Upload, X } from "lucide-react"
 import { format, parse } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
@@ -17,7 +18,7 @@ import Papa from "papaparse"
 import * as XLSX from "xlsx"
 import { DiarioCavFrotaData, PreviaBoletinsCav, ProducaoFrotaTurno, BoletimCavAgregado } from "@/types/diario-cav"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { RelatorioDiarioCav } from "./relatorio-diario-cav"
+// Removida importação do RelatorioDiarioCav, pois relatórios serão acessados em outra tela
 
 interface NovoDiarioCavModalProps {
   open: boolean
@@ -48,9 +49,16 @@ interface OpcData {
 }
 
 export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiarioCavModalProps) {
-  // Definir a data de ontem como padrão
-  const ontem = new Date();
-  ontem.setDate(ontem.getDate() - 1);
+  // Definir a data de ontem como padrão, garantindo que o dia esteja correto
+  const hoje = new Date();
+  // Criar uma nova data para ontem usando ano, mês e dia explicitamente
+  const ontem = new Date(
+    hoje.getFullYear(),
+    hoje.getMonth(),
+    hoje.getDate() - 1,
+    12, 0, 0 // Meio-dia para evitar problemas de fuso horário
+  );
+  console.log(`Data de ontem inicializada: ${ontem.toISOString()}, Dia: ${ontem.getDate()}`);
   
   // Não usamos mais data global
   
@@ -78,14 +86,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
   const [frenteToDelete, setFrenteToDelete] = useState<string | null>(null);
   const [processandoArquivo, setProcessandoArquivo] = useState(false);
   
-  // Estado para controlar o relatório
-  const [showRelatorio, setShowRelatorio] = useState(false);
-  const [relatorioData, setRelatorioData] = useState<{
-    frente: string;
-    data: Date;
-    imagemDeslocamento?: string;
-    imagemArea?: string;
-  } | null>(null);
+  // Removemos os estados relacionados ao relatório, pois ele será acessado em outra tela
   
   // Adicionar nova frente
   const handleAddFrente = () => {
@@ -142,24 +143,80 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     const frente = frentes.find(f => f.id === frenteId);
     if (!frente) return;
     
+    // Garantir que estamos usando a data correta
     const dataAtual = dataFiltro || frente.data;
+    
+    // Verificar se a data está correta
+    console.log(`Data atual para filtro: ${dataAtual.toISOString()}, Dia: ${dataAtual.getDate()}`);
+    
     const dataFormatadaDisplay = format(dataAtual, "dd/MM/yyyy");
     const dataFormatadaAPI = format(dataAtual, "yyyy-MM-dd");
     
     console.log(`Filtrando dados para frente ${frenteCodigo} na data ${dataFormatadaDisplay}`);
     
     // 1. Filtrar dados do arquivo OPC pela data
+    console.log("Dados OPC disponíveis:", dadosOPC.map(d => ({ data: d.data, maquina: d.maquina })));
     const dadosFiltrados = dadosOPC.filter(dado => {
-      return dado.data === dataFormatadaDisplay;
+      // Verificar se a data do dado corresponde à data selecionada
+      // Primeiro, verificar se é exatamente igual (já formatada corretamente)
+      if (dado.data === dataFormatadaDisplay) {
+        return true;
+      }
+      
+      // Se não for igual, tentar comparar convertendo para objeto Date
+      try {
+        // Tentar extrair dia, mês e ano da data do dado
+        let diaOPC, mesOPC, anoOPC;
+        
+        if (dado.data.includes("/")) {
+          const partes = dado.data.split("/");
+          if (partes.length === 3) {
+            // Formato provável: dd/MM/yyyy ou MM/dd/yyyy
+            if (parseInt(partes[0]) <= 31) {
+              // Provavelmente dd/MM/yyyy
+              diaOPC = parseInt(partes[0]);
+              mesOPC = parseInt(partes[1]);
+              anoOPC = parseInt(partes[2]);
+            } else {
+              // Provavelmente MM/dd/yyyy
+              mesOPC = parseInt(partes[0]);
+              diaOPC = parseInt(partes[1]);
+              anoOPC = parseInt(partes[2]);
+            }
+          }
+        } else if (dado.data.includes("-")) {
+          const partes = dado.data.split("-");
+          if (partes.length === 3) {
+            // Formato provável: yyyy-MM-dd
+            anoOPC = parseInt(partes[0]);
+            mesOPC = parseInt(partes[1]);
+            diaOPC = parseInt(partes[2]);
+          }
+        }
+        
+        // Se conseguimos extrair dia, mês e ano, comparar com a data selecionada
+        if (diaOPC && mesOPC && anoOPC) {
+          const diaAtual = dataAtual.getDate();
+          const mesAtual = dataAtual.getMonth() + 1; // getMonth() retorna 0-11
+          const anoAtual = dataAtual.getFullYear();
+          
+          return diaOPC === diaAtual && mesOPC === mesAtual && anoOPC === anoAtual;
+        }
+      } catch (e) {
+        console.error("Erro ao comparar datas:", e);
+      }
+      
+      // Se não conseguimos comparar, retornar false
+      return false;
     });
     
-    // Criar objeto de frotas filtrado do OPC
-    const frotasFiltradas: Record<string, DiarioCavFrotaData> = {};
+    console.log(`Dados filtrados para data ${dataFormatadaDisplay}:`, dadosFiltrados);
+    
+    // Criar objeto de frotas filtrado do OPC (temporário)
+    const todasFrotasFiltradas: Record<string, DiarioCavFrotaData> = {};
     dadosFiltrados.forEach(dado => {
-      frotasFiltradas[dado.maquina] = {
+      todasFrotasFiltradas[dado.maquina] = {
         h_motor: dado.horasMotor,
-        h_ociosa: dado.horasMotor * (dado.fatorCargaMotorOcioso / 100),
-        h_trabalho: dado.horasMotor * (1 - dado.fatorCargaMotorOcioso / 100),
         combustivel_consumido: dado.combustivelConsumido,
         fator_carga_motor_ocioso: dado.fatorCargaMotorOcioso
       };
@@ -221,6 +278,32 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       console.log("Dados granulares encontrados:", producaoPorFrotaTurno.length);
       console.log("Dados agregados encontrados:", dadosAgregados ? "Sim" : "Não");
       
+      // IMPORTANTE: Filtrar dados OPC para incluir apenas as frotas encontradas nos boletins
+      const frotasFiltradas: Record<string, DiarioCavFrotaData> = {};
+      
+      if (dadosGranulares && dadosGranulares.length > 0) {
+        // Obter lista de frotas encontradas nos boletins
+        const frotasEncontradas = new Set<string>();
+        dadosGranulares.forEach(boletim => {
+          frotasEncontradas.add(boletim.frota.toString());
+        });
+        
+        console.log("Frotas encontradas nos boletins:", Array.from(frotasEncontradas));
+        
+        // Filtrar dados OPC para incluir apenas as frotas encontradas nos boletins
+        Object.keys(todasFrotasFiltradas).forEach(frotaKey => {
+          if (frotasEncontradas.has(frotaKey)) {
+            frotasFiltradas[frotaKey] = todasFrotasFiltradas[frotaKey];
+          }
+        });
+        
+        console.log("Dados OPC filtrados por frotas dos boletins:", frotasFiltradas);
+      } else {
+        // Se não temos dados de boletins, usar todas as frotas filtradas pela data
+        console.log("Sem dados de boletins, usando todas as frotas filtradas pela data");
+        Object.assign(frotasFiltradas, todasFrotasFiltradas);
+      }
+      
       // Atualizar o estado com os dados de boletins CAV
       setFrentes(prev => prev.map(f => 
         f.id === frenteId ? { 
@@ -237,6 +320,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       console.error("Erro ao buscar dados de boletins CAV:", error);
       
       // Atualizar apenas com os dados do OPC em caso de erro
+      const frotasFiltradas: Record<string, DiarioCavFrotaData> = {};
+      Object.assign(frotasFiltradas, todasFrotasFiltradas);
+      
       setFrentes(prev => prev.map(f => 
         f.id === frenteId ? { ...f, dadosFiltrados: frotasFiltradas } : f
       ));
@@ -297,6 +383,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
   
   // Remover imagem
   const handleRemoveImage = (frenteId: string, isDeslocamento: boolean) => {
+    console.log(`Removendo imagem: frenteId=${frenteId}, isDeslocamento=${isDeslocamento}`);
+    
+    // Primeiro atualizar o estado para remover a imagem
     setFrentes(prev => prev.map(f => {
       if (f.id === frenteId) {
         if (isDeslocamento) {
@@ -309,6 +398,19 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       }
       return f;
     }));
+    
+    // Resetar o input de arquivo para permitir selecionar a mesma imagem novamente
+    // Usar setTimeout para garantir que o DOM foi atualizado
+    setTimeout(() => {
+      const inputId = isDeslocamento ? `imgDesloc-${frenteId}` : `imgArea-${frenteId}`;
+      const inputElement = document.getElementById(inputId) as HTMLInputElement;
+      if (inputElement) {
+        inputElement.value = '';
+        console.log(`Input ${inputId} resetado com sucesso`);
+      } else {
+        console.error(`Input ${inputId} não encontrado`);
+      }
+    }, 100);
   };
   
   // Limpar recursos ao fechar o modal
@@ -363,7 +465,64 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
           
           results.data.forEach((row: any) => {
             // Mapeamento das colunas do arquivo para o nosso formato
-            const data = row[colunas.data] || "";
+            let dataOriginal = row[colunas.data] || "";
+            let dataFormatada = "";
+            
+            // Tentar padronizar o formato da data para dd/MM/yyyy
+            try {
+              if (dataOriginal) {
+                // Se for uma data no formato Excel (número serial)
+                if (!isNaN(Number(dataOriginal))) {
+                  // Converter número serial do Excel para data JavaScript
+                  const excelEpoch = new Date(1899, 11, 30);
+                  const dataObj = new Date(excelEpoch.getTime() + Number(dataOriginal) * 24 * 60 * 60 * 1000);
+                  dataFormatada = format(dataObj, "dd/MM/yyyy");
+                } 
+                // Se for uma string de data, tentar converter para o formato padrão
+                else {
+                  // Tentar detectar o formato da data
+                  let dataObj;
+                  if (dataOriginal.includes("/")) {
+                    // Formato dd/MM/yyyy ou MM/dd/yyyy
+                    const partes = dataOriginal.split("/");
+                    if (partes.length === 3) {
+                      // Assumir dd/MM/yyyy se o primeiro número for <= 31
+                      if (parseInt(partes[0]) <= 31) {
+                        dataObj = new Date(
+                          parseInt(partes[2]), // ano
+                          parseInt(partes[1]) - 1, // mês (0-11)
+                          parseInt(partes[0]) // dia
+                        );
+                      } else {
+                        // Assumir MM/dd/yyyy
+                        dataObj = new Date(
+                          parseInt(partes[2]), // ano
+                          parseInt(partes[0]) - 1, // mês (0-11)
+                          parseInt(partes[1]) // dia
+                        );
+                      }
+                      dataFormatada = format(dataObj, "dd/MM/yyyy");
+                    }
+                  } else if (dataOriginal.includes("-")) {
+                    // Formato yyyy-MM-dd
+                    dataObj = new Date(dataOriginal);
+                    dataFormatada = format(dataObj, "dd/MM/yyyy");
+                  } else {
+                    // Outros formatos, tentar parse genérico
+                    dataObj = new Date(dataOriginal);
+                    if (!isNaN(dataObj.getTime())) {
+                      dataFormatada = format(dataObj, "dd/MM/yyyy");
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Erro ao converter data:", e);
+              dataFormatada = dataOriginal; // Manter o valor original em caso de erro
+            }
+            
+            const data = dataFormatada || dataOriginal;
+          console.log(`Data original: "${dataOriginal}", Data formatada: "${data}"`);
             const maquina = String(row[colunas.maquina] || "").trim();
             
             // Tratar valores numéricos
@@ -409,12 +568,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
               // Calcular horas ociosas baseado no fator de carga
               // Assumindo que: horas_ociosas = horas_motor * fator_carga / 100
               const horasOciosas = horasMotor * (fatorCarga / 100);
-              const horasTrabalho = horasMotor - horasOciosas;
               
               frotas[maquina] = {
                 h_motor: horasMotor,
-                h_ociosa: horasOciosas,
-                h_trabalho: horasTrabalho,
                 combustivel_consumido: combustivel,
                 fator_carga_motor_ocioso: fatorCarga
               };
@@ -497,7 +653,67 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         
         jsonData.forEach((row: any) => {
           // Mapeamento das colunas do arquivo para o nosso formato
-          const data = row[colunas.data] || "";
+          let dataOriginal = row[colunas.data] || "";
+          let dataFormatada = "";
+          
+          // Tentar padronizar o formato da data para dd/MM/yyyy
+          try {
+            if (dataOriginal) {
+              // Se for uma data no formato Excel (número serial)
+              if (!isNaN(Number(dataOriginal))) {
+                // Converter número serial do Excel para data JavaScript
+                const excelEpoch = new Date(1899, 11, 30);
+                const dataObj = new Date(excelEpoch.getTime() + Number(dataOriginal) * 24 * 60 * 60 * 1000);
+                dataFormatada = format(dataObj, "dd/MM/yyyy");
+              } 
+              // Se for uma string de data, tentar converter para o formato padrão
+              else if (dataOriginal instanceof Date) {
+                dataFormatada = format(dataOriginal, "dd/MM/yyyy");
+              }
+              else {
+                // Tentar detectar o formato da data
+                let dataObj;
+                if (dataOriginal.includes("/")) {
+                  // Formato dd/MM/yyyy ou MM/dd/yyyy
+                  const partes = dataOriginal.split("/");
+                  if (partes.length === 3) {
+                    // Assumir dd/MM/yyyy se o primeiro número for <= 31
+                    if (parseInt(partes[0]) <= 31) {
+                      dataObj = new Date(
+                        parseInt(partes[2]), // ano
+                        parseInt(partes[1]) - 1, // mês (0-11)
+                        parseInt(partes[0]) // dia
+                      );
+                    } else {
+                      // Assumir MM/dd/yyyy
+                      dataObj = new Date(
+                        parseInt(partes[2]), // ano
+                        parseInt(partes[0]) - 1, // mês (0-11)
+                        parseInt(partes[1]) // dia
+                      );
+                    }
+                    dataFormatada = format(dataObj, "dd/MM/yyyy");
+                  }
+                } else if (dataOriginal.includes("-")) {
+                  // Formato yyyy-MM-dd
+                  dataObj = new Date(dataOriginal);
+                  dataFormatada = format(dataObj, "dd/MM/yyyy");
+                } else {
+                  // Outros formatos, tentar parse genérico
+                  dataObj = new Date(dataOriginal);
+                  if (!isNaN(dataObj.getTime())) {
+                    dataFormatada = format(dataObj, "dd/MM/yyyy");
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Erro ao converter data:", e);
+            dataFormatada = String(dataOriginal); // Manter o valor original em caso de erro
+          }
+          
+          const data = dataFormatada || String(dataOriginal);
+          console.log(`Data original: "${dataOriginal}", Data formatada: "${data}"`);
           const maquina = String(row[colunas.maquina] || "").trim();
           
           // Tratar valores numéricos
@@ -540,18 +756,15 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
               fatorCargaMotorOcioso: fatorCarga
             });
             
-            // Calcular horas ociosas baseado no fator de carga
-            // Assumindo que: horas_ociosas = horas_motor * fator_carga / 100
-            const horasOciosas = horasMotor * (fatorCarga / 100);
-            const horasTrabalho = horasMotor - horasOciosas;
-            
-            frotas[maquina] = {
-              h_motor: horasMotor,
-              h_ociosa: horasOciosas,
-              h_trabalho: horasTrabalho,
-              combustivel_consumido: combustivel,
-              fator_carga_motor_ocioso: fatorCarga
-            };
+                          // Calcular horas ociosas baseado no fator de carga
+              // Assumindo que: horas_ociosas = horas_motor * fator_carga / 100
+              const horasOciosas = horasMotor * (fatorCarga / 100);
+              
+              frotas[maquina] = {
+                h_motor: horasMotor,
+                combustivel_consumido: combustivel,
+                fator_carga_motor_ocioso: fatorCarga
+              };
           }
         });
         
@@ -656,33 +869,37 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       // Salvar cada frente como um registro separado
       for (const frente of frentes) {
         // Verificar se temos dados filtrados para esta frente
-        const dadosFiltradosFrota = frente.dadosFiltrados || {};
+        let dadosFiltradosFrota: Record<string, DiarioCavFrotaData> = {};
         
-        // Se não temos dados filtrados, filtramos agora
-        if (Object.keys(dadosFiltradosFrota).length === 0) {
+        // Se a frente já tem dados filtrados, usar esses dados
+        if (frente.dadosFiltrados && Object.keys(frente.dadosFiltrados).length > 0) {
+          dadosFiltradosFrota = { ...frente.dadosFiltrados };
+        } else {
           // Filtrar dados pela data da frente
           const dataFormatada = format(frente.data, "dd/MM/yyyy");
           const dadosFiltrados = dadosOPC.filter(dado => dado.data === dataFormatada);
           
-          // Criar objeto de frotas filtrado
+          // Criar objeto de frotas filtrado com TODOS os campos necessários
           dadosFiltrados.forEach(dado => {
             dadosFiltradosFrota[dado.maquina] = {
               h_motor: dado.horasMotor,
-              h_ociosa: dado.horasMotor * (dado.fatorCargaMotorOcioso / 100),
-              h_trabalho: dado.horasMotor * (1 - dado.fatorCargaMotorOcioso / 100)
+              combustivel_consumido: dado.combustivelConsumido,
+              fator_carga_motor_ocioso: dado.fatorCargaMotorOcioso
             };
           });
           
           console.log(`Dados filtrados para frente ${frente.frente} na data ${dataFormatada}:`, dadosFiltradosFrota);
         }
         
-        // Se ainda não temos dados filtrados, usar todos os dados
+        // Se ainda não temos dados, mostrar erro e continuar para a próxima frente
         if (Object.keys(dadosFiltradosFrota).length === 0) {
-          console.log("Não foi possível filtrar dados específicos para esta frente. Usando todos os dados disponíveis.");
+          const dataFormatada = format(frente.data, "dd/MM/yyyy");
+          console.warn(`AVISO: Não foi possível encontrar dados para a frente ${frente.frente} na data ${dataFormatada}. Esta frente será ignorada.`);
+          continue; // Pular para a próxima frente
         }
         
-        // Dados a serem salvos (filtrados ou todos)
-        const dadosParaSalvar = Object.keys(dadosFiltradosFrota).length > 0 ? dadosFiltradosFrota : dadosFrotas;
+        // Dados a serem salvos (apenas os filtrados)
+        const dadosParaSalvar = dadosFiltradosFrota;
         
         // Upload da imagem de deslocamento (obrigatória)
         let imgDeslocamentoUrl = null;
@@ -740,33 +957,16 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         }
       }
       
-      // Para cada frente salva, mostrar relatório da primeira
-      if (frentes.length > 0) {
-        const primeiraFrente = frentes[0];
-        
-        // Obter URLs das imagens salvas
-        let imgDeslocUrl: string | undefined = undefined;
-        if (primeiraFrente.prevDesloc) {
-          imgDeslocUrl = primeiraFrente.prevDesloc;
-        }
-        
-        let imgAreaUrl: string | undefined = undefined;
-        if (primeiraFrente.prevArea) {
-          imgAreaUrl = primeiraFrente.prevArea;
-        }
-        
-        setRelatorioData({
-          frente: primeiraFrente.frente,
-          data: primeiraFrente.data,
-          imagemDeslocamento: imgDeslocUrl,
-          imagemArea: imgAreaUrl
-        });
-        setShowRelatorio(true);
-      }
+      // Mostrar mensagem de sucesso e fechar o modal
+      toast({
+        title: "Diários salvos com sucesso!",
+        description: "Você pode visualizar os relatórios na aba Diário CAV.",
+      });
+      
+      // Fechar o modal após salvar com sucesso
+      handleCloseModal(false);
       
       setIsLoading(false);
-      // Não fechamos o modal ainda, pois vamos mostrar o relatório
-      // handleCloseModal(false);
       if (onSuccess) onSuccess();
       
     } catch (error: any) {
@@ -780,9 +980,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     <>
       <Dialog open={open} onOpenChange={handleCloseModal}>
         <DialogContent
-          className="sm:max-w-[1100px] w-full max-h-[90vh] overflow-hidden flex flex-col"
+          className="sm:max-w-[1400px] w-full max-h-[90vh] overflow-hidden flex flex-col"
           onPointerDownOutside={(e)=>e.preventDefault()}
           onEscapeKeyDown={(e)=>e.preventDefault()}
+          onInteractOutside={(e)=>e.preventDefault()}
         >
           {/* Cabeçalho fixo */}
           <div className="flex items-center justify-between py-4 border-b">
@@ -799,147 +1000,112 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
             </DialogClose>
           </div>
 
-          {/* Área de erro fixa */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
-              {error}
-            </div>
-          )}
-
-          {/* Área fixa para visualização de dados OPC */}
-          {Object.keys(dadosFrotas).length > 0 && (
-            <div className="border rounded-md p-4 mb-4">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="border px-2 py-1 text-left">Máquina</th>
-                      <th className="border px-2 py-1 text-right">Horas Período</th>
-                      <th className="border px-2 py-1 text-right">Consumo Período</th>
-                      <th className="border px-2 py-1 text-right">Motor Ocioso %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(dadosFrotas)
-                      .filter(([_, dados]) => dados.h_motor > 0) // Filtra máquinas com horas motor > 0
-                      .map(([maquina, dados]) => {
-                        // Recuperar dados originais do OPC para esta máquina
-                        const dadoOpc = dadosOPC.find(d => d.maquina === maquina);
-                        return (
-                          <tr key={maquina} className="hover:bg-gray-50">
-                            <td className="border px-2 py-1">{maquina}</td>
-                            <td className="border px-2 py-1 text-right">{dados.h_motor > 0 ? dados.h_motor.toFixed(2) : ""}</td>
-                            <td className="border px-2 py-1 text-right">
-                              {dadoOpc && dadoOpc.combustivelConsumido > 0 ? dadoOpc.combustivelConsumido.toFixed(2) : ""}
-                            </td>
-                            <td className="border px-2 py-1 text-right">
-                              {dadoOpc && dadoOpc.fatorCargaMotorOcioso > 0 ? `${(dadoOpc.fatorCargaMotorOcioso * 100).toFixed(2)}%` : ""}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    }
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          
-          {/* Área fixa para upload de arquivo OPC e botão adicionar frente */}
-          <div className="border rounded-md p-4 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className={cn(
-                      "border-2 border-dashed rounded-md p-2 transition-colors flex items-center",
-                      arquivoOPC ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
-                    )}
-                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-black'); }}
-                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-black'); }}
-                    onDrop={(e) => { 
-                      e.preventDefault(); 
-                      e.currentTarget.classList.remove('border-black'); 
-                      const droppedFiles = Array.from(e.dataTransfer.files); 
-                      const file = droppedFiles[0];
-                      if (file && (file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.txt'))) {
-                        setArquivoOPC(file);
-                        setArquivoNome(file.name);
-                        processarArquivoOPC(file);
-                      } else {
-                        setError("Por favor, arraste apenas arquivos CSV, XLSX, XLS ou TXT.");
-                      }
-                    }}
-                    onClick={() => document.getElementById('csvFile')?.click()}
-                  >
-                    <Button
-                      variant="outline"
-                      className="h-10 whitespace-nowrap border-0"
-                      disabled={processandoArquivo}
-                      type="button"
-                    >
-                      <FileUp className="h-4 w-4 mr-2" />
-                      {arquivoOPC ? "Trocar arquivo" : "Arquivo OPC"}
-                    </Button>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {arquivoOPC ? null : "ou arraste aqui"}
-                    </span>
-                  </div>
+          {/* Layout principal: conteúdo à esquerda, JSON à direita */}
+          <div className="flex flex-row h-full">
+            {/* Conteúdo principal (lado esquerdo) */}
+            <div className="w-3/4 flex flex-col overflow-hidden pr-4">
+              {/* Área de erro fixa */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
+                  {error}
                 </div>
-                <Input
-                  id="csvFile"
-                  type="file"
-                  accept=".csv,.xlsx,.xls,.txt"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setArquivoOPC(file);
-                      setArquivoNome(file.name);
-                      processarArquivoOPC(file);
-                    }
-                  }}
-                />
-                {processandoArquivo ? (
-                  <div className="flex items-center">
-                    <span className="text-sm text-amber-600">Processando arquivo...</span>
-                  </div>
-                ) : arquivoNome ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">
-                      Arquivo: <span className="font-medium">{arquivoNome}</span>
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setArquivoOPC(null);
-                        setArquivoNome("");
-                        setDadosOPC([]);
-                        setDadosFrotas({});
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddFrente}
-                className="flex items-center gap-1"
-              >
-                <Plus className="h-4 w-4" /> Adicionar Frente
-              </Button>
-            </div>
-          </div>
+              )}
 
-          {/* Conteúdo scrollable - Blocos de Frentes */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-6">
+              {/* Área fixa para upload de arquivo OPC e botão adicionar frente */}
+              <div className="border rounded-md p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className={cn(
+                          "border-2 border-dashed rounded-md p-2 transition-colors flex items-center",
+                          arquivoOPC ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
+                        )}
+                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-black'); }}
+                        onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-black'); }}
+                        onDrop={(e) => { 
+                          e.preventDefault(); 
+                          e.currentTarget.classList.remove('border-black'); 
+                          const droppedFiles = Array.from(e.dataTransfer.files); 
+                          const file = droppedFiles[0];
+                          if (file && (file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.txt'))) {
+                            setArquivoOPC(file);
+                            setArquivoNome(file.name);
+                            processarArquivoOPC(file);
+                          } else {
+                            setError("Por favor, arraste apenas arquivos CSV, XLSX, XLS ou TXT.");
+                          }
+                        }}
+                        onClick={() => document.getElementById('csvFile')?.click()}
+                      >
+                        <Button
+                          variant="outline"
+                          className="h-10 whitespace-nowrap border-0"
+                          disabled={processandoArquivo}
+                          type="button"
+                        >
+                          <FileUp className="h-4 w-4 mr-2" />
+                          {arquivoOPC ? "Trocar arquivo" : "Arquivo OPC"}
+                        </Button>
+                        <span className="text-xs text-gray-500 ml-2">
+                          {arquivoOPC ? null : "ou arraste aqui"}
+                        </span>
+                      </div>
+                    </div>
+                    <Input
+                      id="csvFile"
+                      type="file"
+                      accept=".csv,.xlsx,.xls,.txt"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setArquivoOPC(file);
+                          setArquivoNome(file.name);
+                          processarArquivoOPC(file);
+                        }
+                      }}
+                    />
+                    {processandoArquivo ? (
+                      <div className="flex items-center">
+                        <span className="text-sm text-amber-600">Processando arquivo...</span>
+                      </div>
+                    ) : arquivoNome ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">
+                          Arquivo: <span className="font-medium">{arquivoNome}</span>
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setArquivoOPC(null);
+                            setArquivoNome("");
+                            setDadosOPC([]);
+                            setDadosFrotas({});
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddFrente}
+                    className="flex items-center gap-1"
+                  >
+                    <Plus className="h-4 w-4" /> Adicionar Frente
+                  </Button>
+                </div>
+              </div>
+
+              {/* Conteúdo scrollable - Blocos de Frentes */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-6">
             {frentes.map((frente, index) => (
               <div key={frente.id} className="border rounded-md p-4">
                 <div className="flex items-center justify-end mb-2">
@@ -962,15 +1128,30 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                     <div className="w-[180px]">
                       <Label htmlFor={`data-${frente.id}`} className="mb-2 block text-base font-medium truncate">Data</Label>
                       <Input
-                        id={`data-${frente.id}`}
-                        type="date"
-                        className="w-full"
-                        value={frente.data ? format(frente.data, "yyyy-MM-dd") : ""}
-                        onChange={(e) => {
-                          const newDate = e.target.value ? new Date(e.target.value) : ontem;
-                          handleDataChange(frente.id, newDate);
-                        }}
-                      />
+                          id={`data-${frente.id}`}
+                          type="date"
+                          className="w-full"
+                          value={frente.data ? format(frente.data, "yyyy-MM-dd") : ""}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              // Usar diretamente o valor do input como string
+                              const dataString = e.target.value; // Formato yyyy-MM-dd
+                              console.log(`Data selecionada no input: ${dataString}`);
+                              
+                              // Criar uma data usando o construtor nativo para garantir que o dia seja preservado
+                              const dataCorreta = new Date(dataString + "T12:00:00");
+                              
+                              // Verificar se a data foi criada corretamente
+                              console.log(`Data selecionada: ${dataString}`);
+                              console.log(`Data convertida: ${dataCorreta.toISOString()}`);
+                              console.log(`Dia selecionado: ${dataCorreta.getDate()}`);
+                              
+                              handleDataChange(frente.id, dataCorreta);
+                            } else {
+                              handleDataChange(frente.id, ontem);
+                            }
+                          }}
+                        />
                     </div>
 
                     {/* Frente */}
@@ -1097,30 +1278,39 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                   {/* Dados do arquivo OPC filtrados para esta frente */}
                   {frente.frente && frente.data && Object.keys(frente.dadosFiltrados || {}).length > 0 && (
                     <div className="w-full mt-4 border-t pt-4">
-                      <h4 className="text-sm font-medium mb-2">
-                        Dados do arquivo OPC para frente {frente.frente} em {format(frente.data, "dd/MM/yyyy")}:
-                      </h4>
-                      <div className="overflow-x-auto">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium">
+                          Dados do arquivo OPC para frente {frente.frente} em {format(frente.data, "dd/MM/yyyy")}
+                        </h4>
+                        <div className="text-xs text-gray-500">
+                          {Object.keys(frente.dadosFiltrados || {}).length} registros encontrados
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto overflow-y-auto" style={{ height: "185px" }}>
                         <table className="w-full text-sm border-collapse">
-                          <thead>
+                          <thead className="sticky top-0 bg-white">
                             <tr className="bg-gray-50">
+                              <th className="border px-2 py-1 text-left">Data</th>
                               <th className="border px-2 py-1 text-left">Máquina</th>
                               <th className="border px-2 py-1 text-right">Horas Período</th>
-                              <th className="border px-2 py-1 text-right">Horas Ociosas</th>
-                              <th className="border px-2 py-1 text-right">Horas Trabalho</th>
+                              <th className="border px-2 py-1 text-right">Motor Ocioso %</th>
                               <th className="border px-2 py-1 text-right">Consumo (L)</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {Object.entries(frente.dadosFiltrados || {}).map(([maquina, dados]) => (
-                              <tr key={maquina} className="hover:bg-gray-50">
-                                <td className="border px-2 py-1">{maquina}</td>
-                                <td className="border px-2 py-1 text-right">{dados.h_motor.toFixed(2)}</td>
-                                <td className="border px-2 py-1 text-right">{dados.h_ociosa.toFixed(2)}</td>
-                                <td className="border px-2 py-1 text-right">{dados.h_trabalho.toFixed(2)}</td>
-                                <td className="border px-2 py-1 text-right">{dados.combustivel_consumido?.toFixed(2) || "-"}</td>
-                              </tr>
-                            ))}
+                            {Object.entries(frente.dadosFiltrados || {}).map(([maquina, dados]) => {
+                              // Recuperar dados originais do OPC para esta máquina
+                              const dadoOpc = dadosOPC.find(d => d.maquina === maquina);
+                              return (
+                                <tr key={maquina} className="hover:bg-gray-50">
+                                  <td className="border px-2 py-1">{dadoOpc?.data || format(frente.data, "dd/MM/yyyy")}</td>
+                                  <td className="border px-2 py-1">{maquina}</td>
+                                  <td className="border px-2 py-1 text-right">{dados.h_motor.toFixed(2)}</td>
+                                  <td className="border px-2 py-1 text-right">{dados.fator_carga_motor_ocioso?.toFixed(2) || "-"}%</td>
+                                  <td className="border px-2 py-1 text-right">{dados.combustivel_consumido?.toFixed(2) || "-"}</td>
+                                </tr>
+                              );
+                            })}
                             {Object.keys(frente.dadosFiltrados || {}).length === 0 && (
                               <tr>
                                 <td colSpan={5} className="border px-2 py-1 text-center text-gray-500">
@@ -1137,17 +1327,26 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                   {/* Dados de boletins CAV para esta frente */}
                   {frente.frente && frente.data && frente.dadosBoletinsCav && (
                     <div className="w-full mt-4 border-t pt-4">
-                      <h4 className="text-sm font-medium mb-2">
-                        Dados de produção para frente {frente.frente} em {format(frente.data, "dd/MM/yyyy")}:
-                      </h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium">
+                          Dados de produção para frente {frente.frente} em {format(frente.data, "dd/MM/yyyy")}:
+                        </h4>
+                        
+                        {/* Removido o botão "Abrir Relatório" - relatórios serão acessados na lista de Diário CAV */}
+                      </div>
                       
                       {/* Dados granulares - Produção por frota/turno */}
                       {frente.dadosBoletinsCav.dadosGranulares && frente.dadosBoletinsCav.dadosGranulares.length > 0 ? (
                         <div className="mb-4">
-                          <h5 className="text-sm font-medium mb-1">Produção por Frota/Turno:</h5>
-                          <div className="overflow-x-auto">
+                          <div className="flex items-center justify-between mb-2">
+                            <h5 className="text-sm font-medium">Produção por Frota/Turno:</h5>
+                            <div className="text-xs text-gray-500">
+                              {frente.dadosBoletinsCav.dadosGranulares.length} registros encontrados
+                            </div>
+                          </div>
+                          <div className="overflow-x-auto overflow-y-auto" style={{ height: "185px" }}>
                             <table className="w-full text-sm border-collapse">
-                              <thead>
+                              <thead className="sticky top-0 bg-white">
                                 <tr className="bg-gray-50">
                                   <th className="border px-2 py-1 text-left">Frota</th>
                                   <th className="border px-2 py-1 text-left">Turno</th>
@@ -1174,43 +1373,64 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                         </div>
                       )}
                       
-                      {/* Dados agregados - Resumo */}
+                      {/* Resumo e JSON */}
                       {frente.dadosBoletinsCav.dadosAgregados && (
                         <div>
-                          <h5 className="text-sm font-medium mb-1">Resumo:</h5>
-                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                            <div className="bg-gray-50 p-2 rounded">
-                              <div className="text-xs text-gray-500">Total Aplicado</div>
-                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_producao.toFixed(2)} ha</div>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <div className="text-xs text-gray-500">Lâmina Alvo</div>
-                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.lamina_alvo.toFixed(2)} m³</div>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <div className="text-xs text-gray-500">Lâmina Aplicada</div>
-                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.lamina_aplicada.toFixed(2)} m³</div>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <div className="text-xs text-gray-500">Dif. Lâmina</div>
-                              <div className={`font-semibold ${frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc < 0 ? 'text-red-600' : frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}`}>
-                                {frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc > 0 ? '+' : ''}{frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc.toFixed(2)}%
+                          <div className="flex flex-row gap-4">
+                            {/* Coluna da esquerda - Resumo */}
+                            <div className="flex-1">
+                              <h5 className="text-sm font-medium mb-1">Resumo:</h5>
+                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <div className="text-xs text-gray-500">Total Aplicado</div>
+                                  <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_producao.toFixed(2)} ha</div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <div className="text-xs text-gray-500">Lâmina Alvo</div>
+                                  <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.lamina_alvo.toFixed(2)} m³</div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <div className="text-xs text-gray-500">Lâmina Aplicada</div>
+                                  <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.lamina_aplicada.toFixed(2)} m³</div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <div className="text-xs text-gray-500">Dif. Lâmina</div>
+                                  <div className={`font-semibold ${frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc < 0 ? 'text-red-600' : frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}`}>
+                                    {frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc > 0 ? '+' : ''}{frente.dadosBoletinsCav.dadosAgregados.dif_lamina_perc.toFixed(2)}%
+                                  </div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <div className="text-xs text-gray-500">Viagens Feitas</div>
+                                  <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_viagens_feitas}</div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <div className="text-xs text-gray-500">Viagens Orçadas</div>
+                                  <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_viagens_orcadas.toFixed(0)}</div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded">
+                                  <div className="text-xs text-gray-500">Dif. Viagens</div>
+                                  <div className={`font-semibold ${frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc < 0 ? 'text-red-600' : frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}`}>
+                                    {frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc > 0 ? '+' : ''}{frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc.toFixed(2)}%
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <div className="text-xs text-gray-500">Viagens Feitas</div>
-                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_viagens_feitas}</div>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <div className="text-xs text-gray-500">Viagens Orçadas</div>
-                              <div className="font-semibold">{frente.dadosBoletinsCav.dadosAgregados.total_viagens_orcadas.toFixed(0)}</div>
-                            </div>
-                            <div className="bg-gray-50 p-2 rounded">
-                              <div className="text-xs text-gray-500">Dif. Viagens</div>
-                              <div className={`font-semibold ${frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc < 0 ? 'text-red-600' : frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc <= 10 ? 'text-green-600' : 'text-yellow-500'}`}>
-                                {frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc > 0 ? '+' : ''}{frente.dadosBoletinsCav.dadosAgregados.dif_viagens_perc.toFixed(2)}%
+                            
+                            {/* Coluna da direita - JSON */}
+                            {frente.frente && frente.data && (
+                              <div className="w-1/3 bg-green-500 bg-opacity-10 border border-green-500 rounded-md">
+                                <div className="border-b border-green-500 p-2">
+                                  <h5 className="text-sm font-medium text-green-700">Dados JSON</h5>
+                                </div>
+                                <pre className="text-xs p-2 overflow-auto h-[200px]">
+                                  {JSON.stringify({
+                                    data: format(frente.data, "yyyy-MM-dd"),
+                                    frente: frente.frente,
+                                    dados: frente.dadosFiltrados || {},
+                                  }, null, 2)}
+                                </pre>
                               </div>
-                            </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1221,7 +1441,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
             ))}
 
           </div>
-          
+
           {/* Botões de ação - Fixos na parte inferior */}
           <div className="py-4 border-t mt-4">
             <div className="flex justify-end gap-2">
@@ -1236,6 +1456,44 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
               </Button>
             </div>
           </div>
+
+          {/* Painel JSON à direita */}
+          <div className="w-1/4 bg-green-500 bg-opacity-10 border-l border-green-500 flex flex-col">
+            <div className="border-b border-green-500 p-4">
+              <h3 className="text-lg font-medium text-green-700">Visualizador JSON</h3>
+              <p className="text-sm text-green-600">Dados que serão enviados para o Supabase</p>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {frentes.map((frente) => (
+                frente.frente && frente.data && (
+                  <div key={`json-${frente.id}`} className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium text-green-700">
+                        Frente: {frente.frente}
+                      </h4>
+                      <span className="text-xs text-green-600">
+                        {format(frente.data, "dd/MM/yyyy")}
+                      </span>
+                    </div>
+                    <pre className="text-xs bg-white p-2 rounded overflow-auto max-h-[300px] border border-green-200">
+                      {JSON.stringify({
+                        data: format(frente.data, "yyyy-MM-dd"),
+                        frente: frente.frente,
+                        dados: frente.dadosFiltrados || {},
+                      }, null, 2)}
+                    </pre>
+                  </div>
+                )
+              ))}
+              {frentes.every(f => !f.frente || !f.data) && (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-sm text-green-600">
+                    Selecione uma frente e uma data para visualizar os dados
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       
@@ -1247,24 +1505,6 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         description="Tem certeza que deseja remover esta frente? Esta ação não pode ser desfeita."
         onConfirm={() => frenteToDelete && handleRemoveFrente(frenteToDelete)}
       />
-
-      {/* Relatório Diário CAV */}
-      {relatorioData && (
-        <RelatorioDiarioCav
-          open={showRelatorio}
-          onOpenChange={(open) => {
-            setShowRelatorio(open);
-            if (!open) {
-              // Quando fechar o relatório, fechar o modal principal também
-              handleCloseModal(false);
-            }
-          }}
-          frente={relatorioData.frente}
-          data={relatorioData.data}
-          imagemDeslocamento={relatorioData.imagemDeslocamento}
-          imagemArea={relatorioData.imagemArea}
-        />
-      )}
     </>
   )
 }

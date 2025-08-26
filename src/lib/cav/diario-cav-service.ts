@@ -28,9 +28,12 @@ interface FrotaProducaoData {
 
 export async function buscarDadosProducaoPorFrenteData(frente: string, data: Date) {
   const supabase = createClientComponentClient();
+  
+  // Forçar a data correta sem ajustes de fuso horário
+  // Usar diretamente o formato yyyy-MM-dd sem criar um novo objeto Date
   const dataFormatada = format(data, "yyyy-MM-dd");
   
-  console.log(`Buscando dados para frente ${frente} na data ${dataFormatada}`);
+  console.log(`Data original: ${data.toISOString()}, Formato para banco: ${dataFormatada}`);
   
   try {
     // Buscar dados de boletins para a frente e data
@@ -74,12 +77,34 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
         dadosPorFrota.get(boletim.frota)?.push(boletim);
       });
       
-      // Dados mockados para OPC
-      const mockOpcData = {
-        "6127": { h_motor: 12.95, h_ociosa: 3.59, h_trabalho: 9.36, combustivel_consumido: 12.0, fator_carga_motor_ocioso: 27.74 },
-        "6131": { h_motor: 16.3, h_ociosa: 4.28, h_trabalho: 12.02, combustivel_consumido: 13.55, fator_carga_motor_ocioso: 26.23 },
-        "6133": { h_motor: 13.65, h_ociosa: 3.7, h_trabalho: 9.95, combustivel_consumido: 14.8, fator_carga_motor_ocioso: 27.13 }
-      };
+      // Dados mockados para OPC - apenas para as frotas que temos nos boletins
+      const mockOpcData: Record<string, DiarioCavFrotaData> = {};
+      
+      // Obter lista de frotas encontradas nos boletins granulares mockados
+      const frotasEncontradas = new Set<number>();
+      dadosPorFrota.forEach((_, frota) => {
+        frotasEncontradas.add(frota);
+        
+        // Criar dados mockados específicos para cada frota encontrada
+        if (frota === 6127) {
+          mockOpcData[frota.toString()] = { h_motor: 12.95, h_ociosa: 3.59, combustivel_consumido: 12.0, fator_carga_motor_ocioso: 27.74 };
+        } else if (frota === 6131) {
+          mockOpcData[frota.toString()] = { h_motor: 16.3, h_ociosa: 4.28, combustivel_consumido: 13.55, fator_carga_motor_ocioso: 26.23 };
+        } else if (frota === 6133) {
+          mockOpcData[frota.toString()] = { h_motor: 13.65, h_ociosa: 3.7, combustivel_consumido: 14.8, fator_carga_motor_ocioso: 27.13 };
+        } else {
+          // Para outras frotas, gerar dados aleatórios plausíveis
+          mockOpcData[frota.toString()] = { 
+            h_motor: 10 + Math.random() * 10, 
+            h_ociosa: Math.random() * 5, 
+            combustivel_consumido: 10 + Math.random() * 10,
+            fator_carga_motor_ocioso: Math.random() * 30
+          };
+        }
+      });
+      
+      console.log(`Frotas encontradas nos boletins mockados para frente ${frente}:`, Array.from(frotasEncontradas));
+      console.log("Dados OPC mockados gerados:", mockOpcData);
       
       // Montar dados consolidados com dados mockados
       const frotasProducao: FrotaProducaoData[] = [];
@@ -88,7 +113,8 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
         const dadosFrota = mockOpcData[frota.toString()] || {
           h_motor: 0,
           h_ociosa: 0,
-          h_trabalho: 0
+          combustivel_consumido: 0,
+          fator_carga_motor_ocioso: 0
         };
         
         // Calcular total de produção para esta frota
@@ -99,13 +125,12 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
           ? totalProducao / dadosFrota.h_motor 
           : 0;
         
-        // Calcular percentual de motor ocioso
-        const motorOciosoPerc = dadosFrota.h_motor > 0 
-          ? (dadosFrota.h_ociosa / dadosFrota.h_motor) * 100 
-          : 0;
+        // Usar diretamente o fator de carga do motor ocioso
+        const motorOciosoPerc = dadosFrota.fator_carga_motor_ocioso || 0;
         
-        // Consumo de combustível mockado
-        const combustivelConsumido = frota === 6127 ? 12.0 : frota === 6131 ? 13.55 : 14.8;
+        // Buscar consumo de combustível do OPC mockado
+        const combustivelConsumido = typeof dadosFrota.combustivel_consumido === 'number' ? dadosFrota.combustivel_consumido : 0;
+        console.log(`Consumo de combustível para frota ${frota}: ${combustivelConsumido}`);
         
         // Organizar dados por turno
         const turnosDados = boletins.map(b => ({
@@ -149,6 +174,11 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
         ? ((totalGeral.total_viagens - viagensOrcadas) / viagensOrcadas) * 100
         : 0;
       
+      // Não precisamos verificar todas as propriedades, apenas garantir que os dados são válidos
+      console.log("Frotas mockadas antes de retornar:", frotasProducao.map(f => ({ 
+        frota: f.frota
+      })));
+      
       return {
         frotas: frotasProducao,
         totais: {
@@ -187,14 +217,35 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
     // Dados OPC (horas motor, consumo, etc)
     const dadosOPC = opcData?.dados || {};
     
+    // Obter lista de frotas encontradas nos boletins granulares
+    const frotasEncontradas = new Set<number>();
+    dadosPorFrota.forEach((_, frota) => {
+      frotasEncontradas.add(frota);
+    });
+    
+    console.log(`Frotas encontradas nos boletins para frente ${frente}:`, Array.from(frotasEncontradas));
+    
+    // Filtrar dados OPC para incluir apenas as frotas encontradas nos boletins
+    const dadosOPCFiltrados: Record<string, any> = {};
+    Object.keys(dadosOPC).forEach(frotaKey => {
+      const frotaNum = parseInt(frotaKey, 10);
+      if (frotasEncontradas.has(frotaNum)) {
+        dadosOPCFiltrados[frotaKey] = dadosOPC[frotaKey];
+      }
+    });
+    
+    console.log(`Dados OPC filtrados para as frotas encontradas:`, dadosOPCFiltrados);
+    
     // Montar dados consolidados
     const frotasProducao: FrotaProducaoData[] = [];
     
     dadosPorFrota.forEach((boletins, frota) => {
-      const dadosFrota = dadosOPC[frota.toString()] as DiarioCavFrotaData || {
+      // Verificar se a frota existe nos dados OPC filtrados
+      const dadosFrota = dadosOPCFiltrados[frota.toString()] as DiarioCavFrotaData || {
         h_motor: 0,
         h_ociosa: 0,
-        h_trabalho: 0
+        combustivel_consumido: 0,
+        fator_carga_motor_ocioso: 0
       };
       
       // Calcular total de produção para esta frota
@@ -205,13 +256,11 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
         ? totalProducao / dadosFrota.h_motor 
         : 0;
       
-      // Calcular percentual de motor ocioso
-      const motorOciosoPerc = dadosFrota.h_motor > 0 
-        ? (dadosFrota.h_ociosa / dadosFrota.h_motor) * 100 
-        : 0;
+      // Usar diretamente o fator de carga do motor ocioso
+      const motorOciosoPerc = dadosFrota.fator_carga_motor_ocioso || 0;
       
       // Buscar consumo de combustível do OPC
-      const combustivelConsumido = dadosFrota.combustivel_consumido || 0;
+      const combustivelConsumido = typeof dadosFrota.combustivel_consumido === 'number' ? dadosFrota.combustivel_consumido : 0;
       
       // Organizar dados por turno
       const turnosDados = boletins.map(b => ({
@@ -254,6 +303,11 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
     const difViagensPerc = viagensOrcadas > 0
       ? ((totalGeral.total_viagens - viagensOrcadas) / viagensOrcadas) * 100
       : 0;
+    
+    // Não precisamos verificar todas as propriedades, apenas garantir que os dados são válidos
+    console.log("Frotas antes de retornar:", frotasProducao.map(f => ({ 
+      frota: f.frota
+    })));
     
     return {
       frotas: frotasProducao,

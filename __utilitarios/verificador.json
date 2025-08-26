@@ -1,0 +1,56 @@
+{
+    "6125": {
+        "h_motor": 0.2000000000007276,
+        "h_ociosa": 0.0005199328630859655,
+        "combustivel_consumido": 0.9068858333333334,
+        "fator_carga_motor_ocioso": 0.259966431542037
+    },
+    "6127": {
+        "h_motor": 11.75,
+        "h_ociosa": 0.02715274051809963,
+        "combustivel_consumido": 111.7431666666667,
+        "fator_carga_motor_ocioso": 0.2310871533455288
+    },
+    "6130": {
+        "h_motor": 14.89999999999964,
+        "h_ociosa": 0.03852957214880482,
+        "combustivel_consumido": 141.1693494444444,
+        "fator_carga_motor_ocioso": 0.2585877325423205
+    },
+    "6131": {
+        "h_motor": 21.44999999999982,
+        "h_ociosa": 0.05454112642882142,
+        "combustivel_consumido": 210.4193277777778,
+        "fator_carga_motor_ocioso": 0.2542709856821532
+    },
+    "6132": {
+        "h_motor": 21.94999999999891,
+        "h_ociosa": 0.058746573318309785,
+        "combustivel_consumido": 212.4859988888888,
+        "fator_carga_motor_ocioso": 0.2676381472360488
+    },
+    "6134": {
+        "h_motor": 0.2999999999992724,
+        "h_ociosa": 0.0007439234290375256,
+        "combustivel_consumido": 1.567882222222222,
+        "fator_carga_motor_ocioso": 0.2479744763464433
+    },
+    "6137": {
+        "h_motor": 43.54999999999995,
+        "h_ociosa": 0.15007297373350795,
+        "combustivel_consumido": 152.1890477777778,
+        "fator_carga_motor_ocioso": 0.3445992508232104
+    },
+    "6138": {
+        "h_motor": 57.80000000000018,
+        "h_ociosa": 0.1932522667043359,
+        "combustivel_consumido": 270.3161797222223,
+        "fator_carga_motor_ocioso": 0.3343464821874313
+    },
+    "6144": {
+        "h_motor": 11.85000000000014,
+        "h_ociosa": 0.04202400060500135,
+        "combustivel_consumido": 160.9432413888889,
+        "fator_carga_motor_ocioso": 0.3546329164978975
+    }
+}

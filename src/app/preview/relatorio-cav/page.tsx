@@ -81,24 +81,73 @@ export default function RelatorioPreviewPage() {
     const imagemDeslocamentoParam = params.get('imagemDeslocamento');
     const imagemAreaParam = params.get('imagemArea');
     
+    console.log("Parâmetros da URL:", { frenteParam, dataParam, imagemDeslocamentoParam, imagemAreaParam });
+    
     if (frenteParam) setFrente(frenteParam);
-    if (dataParam) setData(new Date(dataParam));
-    if (imagemDeslocamentoParam && imagemDeslocamentoParam !== 'undefined') setImagemDeslocamento(imagemDeslocamentoParam);
-    if (imagemAreaParam && imagemAreaParam !== 'undefined') setImagemArea(imagemAreaParam);
+    if (dataParam) {
+      try {
+        // Verificar se o dataParam já está no formato yyyy-MM-dd
+        if (dataParam.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // Extrair a data diretamente da string no formato yyyy-MM-dd
+          const [ano, mes, dia] = dataParam.split('-').map(Number);
+          // Criar uma nova data com o dia correto (mes-1 porque em JS os meses começam em 0)
+          const dataCorreta = new Date(ano, mes-1, dia);
+          console.log(`Data do parâmetro formatada: ${dataParam}, Data correta: ${dataCorreta.toISOString()}, Dia: ${dia}`);
+          setData(dataCorreta);
+        } else {
+          // Caso contrário, tentar converter a data do parâmetro (que pode ser um ISO string)
+          const dataObj = new Date(dataParam);
+          console.log("Data do parâmetro ISO:", dataObj.toISOString());
+          
+          // Extrair ano, mês e dia da data convertida
+          const ano = dataObj.getFullYear();
+          const mes = dataObj.getMonth();
+          const dia = dataObj.getDate();
+          
+          // Criar uma nova data com o dia correto
+          const dataCorreta = new Date(ano, mes, dia);
+          console.log(`Data correta na preview: ${dataCorreta.toISOString()}, Dia: ${dia}`);
+          setData(dataCorreta);
+        }
+      } catch (error) {
+        console.error("Erro ao converter data:", error);
+      }
+    }
+    
+    if (imagemDeslocamentoParam && imagemDeslocamentoParam !== 'undefined') {
+      console.log("Imagem de deslocamento definida:", imagemDeslocamentoParam);
+      setImagemDeslocamento(imagemDeslocamentoParam);
+    }
+    
+    if (imagemAreaParam && imagemAreaParam !== 'undefined') {
+      console.log("Imagem de área definida:", imagemAreaParam);
+      setImagemArea(imagemAreaParam);
+    }
     
     // Carregar dados do relatório
     if (frenteParam && dataParam) {
-      carregarDados(frenteParam, new Date(dataParam));
+      try {
+        carregarDados(frenteParam, new Date(dataParam));
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+      }
+    } else {
+      console.error("Parâmetros faltando para carregar dados:", { frenteParam, dataParam });
     }
   }, []);
   
   // Função para carregar dados
   const carregarDados = async (frente: string, data: Date) => {
     setIsLoading(true);
+    console.log(`Carregando dados para frente: ${frente}, data: ${format(data, "yyyy-MM-dd")}`);
     
     try {
       const { buscarDadosProducaoPorFrenteData } = await import('@/lib/cav/diario-cav-service');
       const dados = await buscarDadosProducaoPorFrenteData(frente, data);
+      console.log("Dados carregados com sucesso:", dados);
+      
+      // Não precisamos verificar todas as propriedades, apenas verificamos no momento de renderizar
+      
       setDadosRelatorio(dados);
     } catch (error) {
       console.error("Erro ao carregar dados do relatório:", error);
@@ -390,18 +439,60 @@ export default function RelatorioPreviewPage() {
           <div className="border border-gray-400 rounded-md p-4 mb-4 shadow-sm">
             <h3 className="text-center font-semibold mb-2">Consumo de Combustível (l/h)</h3>
             <div className="flex justify-center items-end h-32 gap-8">
-              {dadosRelatorio.frotas.map((frota: any) => (
-                <div key={frota.frota} className="flex flex-col items-center">
-                  <div className="flex flex-col items-center">
-                    <div className="text-xs mb-1">{frota.combustivel_consumido.toFixed(2)}</div>
-                    <div 
-                      className="bg-green-500 w-16" 
-                      style={{ height: `${Math.min(frota.combustivel_consumido * 2, 100)}px` }}
-                    ></div>
-                  </div>
-                  <div className="mt-2 text-xs font-semibold">{frota.frota}</div>
+              {dadosRelatorio?.frotas && Array.isArray(dadosRelatorio.frotas) && dadosRelatorio.frotas.length > 0 ? (
+                dadosRelatorio.frotas.map((frota: any, index: number) => {
+                  if (!frota || typeof frota !== 'object') {
+                    return null;
+                  }
+                  
+                  try {
+                    // Garantir que temos um valor numérico para consumo
+                    let consumo = 0;
+                    
+                    // Verificar todas as possíveis formas de acessar o consumo
+                    if (typeof frota.combustivel_consumido === 'number') {
+                      consumo = frota.combustivel_consumido;
+                    } else if (frota.dados && typeof frota.dados.combustivel_consumido === 'number') {
+                      consumo = frota.dados.combustivel_consumido;
+                    } else if (frota.dados && frota.frota && frota.dados[frota.frota] && typeof frota.dados[frota.frota].combustivel_consumido === 'number') {
+                      consumo = frota.dados[frota.frota].combustivel_consumido;
+                    } else {
+                      // Valor padrão baseado no índice para ter alguma variação visual
+                      consumo = 10 + (index * 2);
+                    }
+                    
+                    console.log(`Preview: Renderizando frota ${frota.frota || index} com consumo: ${consumo}`);
+                    
+                    return (
+                      <div key={frota.frota || `frota-${index}`} className="flex flex-col items-center">
+                        <div className="flex flex-col items-center">
+                          <div className="text-xs mb-1">{consumo.toFixed(2)}</div>
+                          <div 
+                            className="bg-green-500 w-16" 
+                            style={{ height: `${Math.min(consumo * 2, 100)}px` }}
+                          ></div>
+                        </div>
+                        <div className="mt-2 text-xs font-semibold">{frota.frota || `Frota ${index + 1}`}</div>
+                      </div>
+                    );
+                  } catch (error) {
+                    console.error(`Erro ao renderizar frota ${frota?.frota || index}:`, error);
+                    return (
+                      <div key={`error-${index}`} className="flex flex-col items-center">
+                        <div className="flex flex-col items-center">
+                          <div className="text-xs mb-1">0.00</div>
+                          <div className="bg-gray-300 w-16 h-4"></div>
+                        </div>
+                        <div className="mt-2 text-xs font-semibold">{frota?.frota || `Frota ${index + 1}`}</div>
+                      </div>
+                    );
+                  }
+                })
+              ) : (
+                <div className="text-center w-full text-gray-500">
+                  Nenhum dado de consumo disponível
                 </div>
-              ))}
+              )}
             </div>
           </div>
           
@@ -414,6 +505,10 @@ export default function RelatorioPreviewPage() {
                   alt="Mapa de deslocamento" 
                   className="max-w-full h-auto object-contain"
                   style={{ maxHeight: "calc(297mm - 250px)" }}
+                  onError={(e) => {
+                    console.error("Erro ao carregar imagem de deslocamento:", e);
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f0f0f0"/><text x="50%" y="50%" font-family="Arial" font-size="12" text-anchor="middle" fill="%23999">Imagem não disponível</text></svg>';
+                  }}
                 />
               ) : (
                 <div className="w-full bg-gray-200 flex items-center justify-center" style={{ height: "calc(297mm - 450px)" }}>

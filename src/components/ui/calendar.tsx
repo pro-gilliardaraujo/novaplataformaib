@@ -14,10 +14,40 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
+  // Corrigir problema de fuso horário na seleção de datas
+  const fixTimeZoneIssue = React.useCallback((date: Date | undefined): Date | undefined => {
+    if (!date) return undefined;
+    // Criar uma nova data sem ajuste de fuso horário
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+  }, []);
+
+  // Interceptar o onSelect para corrigir as datas selecionadas
+  const originalOnSelect = props.onSelect;
+  const onSelectWithFix = React.useCallback(
+    (range: any) => {
+      if (!range) {
+        originalOnSelect?.(range);
+        return;
+      }
+
+      // Corrigir as datas no range
+      const fixedRange = {
+        ...range,
+        from: fixTimeZoneIssue(range.from),
+        to: fixTimeZoneIssue(range.to),
+      };
+
+      // Chamar o onSelect original com as datas corrigidas
+      originalOnSelect?.(fixedRange);
+    },
+    [originalOnSelect, fixTimeZoneIssue]
+  );
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
+      onSelect={onSelectWithFix}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",

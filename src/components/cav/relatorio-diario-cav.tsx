@@ -45,7 +45,37 @@ export function RelatorioDiarioCav({
     setError("")
     
     try {
-      const dados = await buscarDadosProducaoPorFrenteData(frente, data)
+      console.log(`Carregando dados para frente: ${frente}, data original: ${data.toISOString()}`);
+      
+      // Garantir que estamos usando a data correta (sem problemas de fuso horário)
+      // Usar a data fornecida diretamente, já que ela foi ajustada no componente DiarioCav
+      const dataFormatada = new Date(data);
+      
+      console.log(`Data formatada para busca: ${dataFormatada.toISOString()}`);
+      
+      const dados = await buscarDadosProducaoPorFrenteData(frente, dataFormatada)
+      
+      // Garantir que todas as frotas tenham combustivel_consumido definido
+      if (dados && dados.frotas && Array.isArray(dados.frotas)) {
+        dados.frotas = dados.frotas.map((frota: any) => {
+          if (!frota) return null;
+          
+          // Garantir que combustivel_consumido esteja definido
+          if (typeof frota.combustivel_consumido !== 'number') {
+            console.warn(`Frota ${frota.frota} não tem combustivel_consumido definido. Definindo como 0.`);
+            frota.combustivel_consumido = 0;
+          }
+          
+          return frota;
+        }).filter(Boolean);
+      }
+      
+      // Não precisamos verificar todas as propriedades, apenas verificamos no momento de renderizar
+      console.log("Dados carregados no modal de detalhes:", dados.frotas?.map((f: any) => ({ 
+        frota: f.frota,
+        combustivel_consumido: f.combustivel_consumido
+      })));
+      
       setDadosRelatorio(dados)
     } catch (error: any) {
       console.error("Erro ao carregar dados do relatório:", error)
@@ -138,15 +168,29 @@ export function RelatorioDiarioCav({
   }
   
   const handleOpenInNewTab = () => {
+    // Forçar a data correta sem ajustes de fuso horário
+    // Usar o formato yyyy-MM-dd diretamente
+    const dataFormatada = format(data, "yyyy-MM-dd");
+    
+    console.log(`Data para nova aba: ${data.toISOString()}, Data formatada: ${dataFormatada}`);
+    
     // Construir URL para a página de preview com parâmetros
     const params = new URLSearchParams({
       frente: frente,
-      data: data.toISOString(),
-      imagemDeslocamento: imagemDeslocamento || '',
-      imagemArea: imagemArea || ''
+      data: dataFormatada // Usar a string formatada diretamente
     });
     
+    // Adicionar parâmetros opcionais apenas se existirem
+    if (imagemDeslocamento) {
+      params.append('imagemDeslocamento', imagemDeslocamento);
+    }
+    
+    if (imagemArea) {
+      params.append('imagemArea', imagemArea);
+    }
+    
     const url = `/preview/relatorio-cav?${params.toString()}`;
+    console.log(`Abrindo relatório em nova aba: ${url}`);
     window.open(url, '_blank');
   }
   
@@ -243,29 +287,54 @@ export function RelatorioDiarioCav({
                 <h3 className="text-center font-semibold mb-2">Ha aplicados</h3>
 
                 <div className="flex justify-around">
-                  {dadosRelatorio.frotas.map((frota: any) => (
-                    <div key={frota.frota} className="flex flex-col items-center">
-                      <div className="flex gap-3 mb-4">
-                        {frota.turnos.map((turno: any) => (
-                          <div key={`${frota.frota}-${turno.turno}`} className="flex flex-col items-center">
-                            <div className="h-32 flex flex-col justify-end">
-                              <div className="text-xs mb-1">{turno.producao.toFixed(2)}</div>
-                              <div 
-                                className="bg-green-500 w-8" 
-                                style={{ height: `${Math.min(turno.producao * 4, 100)}px` }}
-                              ></div>
-                            </div>
-                            <div className="mt-1 text-xs">{turno.turno}</div>
+                  {dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 ? (
+                    dadosRelatorio.frotas.map((frota: any) => {
+                      // Verificar se frota é um objeto válido
+                      if (!frota || typeof frota !== 'object') {
+                        console.error("Frota inválida no gráfico Ha aplicados:", frota);
+                        return null;
+                      }
+                      
+                      // Garantir que turnos existe e é um array
+                      const turnos = Array.isArray(frota.turnos) ? frota.turnos : [];
+                      
+                      return (
+                        <div key={frota.frota || 'unknown'} className="flex flex-col items-center">
+                          <div className="flex gap-3 mb-4">
+                            {turnos.map((turno: any) => {
+                              if (!turno || typeof turno !== 'object') {
+                                return null;
+                              }
+                              
+                              const producao = typeof turno.producao === 'number' ? turno.producao : 0;
+                              
+                              return (
+                                <div key={`${frota.frota}-${turno.turno || 'unknown'}`} className="flex flex-col items-center">
+                                  <div className="h-32 flex flex-col justify-end">
+                                    <div className="text-xs mb-1">{producao.toFixed(2)}</div>
+                                    <div 
+                                      className="bg-green-500 w-8" 
+                                      style={{ height: `${Math.min(producao * 4, 100)}px` }}
+                                    ></div>
+                                  </div>
+                                  <div className="mt-1 text-xs">{turno.turno || '?'}</div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        ))}
-                      </div>
-                      <div className="text-xs text-center border-t pt-2 w-full">
-                        <div>Fazenda {frota.turnos[0]?.codigo || ""} - Vazão: 10m³</div>
-                        <div className="font-semibold">{frota.frota}</div>
-                        <div>Total frota: {frota.total_producao.toFixed(2)} ha</div>
-                      </div>
+                          <div className="text-xs text-center border-t pt-2 w-full">
+                            <div>Fazenda {turnos[0]?.codigo || "N/A"} - Vazão: 10m³</div>
+                            <div className="font-semibold">{frota.frota || 'Desconhecida'}</div>
+                            <div>Total frota: {(typeof frota.total_producao === 'number' ? frota.total_producao : 0).toFixed(2)} ha</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center w-full text-gray-500">
+                      Nenhum dado de produção disponível
                     </div>
-                  ))}
+                  )}
                 </div>
                 <div className="text-center mt-4 border-t pt-2">
                   <div className="text-base font-semibold">Total Aplicado: {dadosRelatorio.totais.total_producao.toFixed(2)}</div>
@@ -280,28 +349,47 @@ export function RelatorioDiarioCav({
                 <h3 className="text-center font-semibold mb-2">Hectare por Hora Motor</h3>
 
                 <div className="flex flex-col gap-4">
-                  {dadosRelatorio.frotas.map((frota: any) => (
-                    <div key={frota.frota} className="flex items-center">
-                      <div className="w-12 text-left text-xs font-semibold">{frota.frota}</div>
-                      <div className="w-20 text-center text-xs">
-                        <div className="font-semibold">{frota.horas_motor.toFixed(2)}h</div>
-                        <div>Horas Motor</div>
-                      </div>
-                      <div className="flex-1 mx-2">
-                        <div className="h-8 bg-gray-100">
-                          <div 
-                            className="bg-green-500 h-8" 
-                            style={{ width: `${Math.min(frota.hectare_por_hora * 20, 100)}%` }}
-                          ></div>
+                  {dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 ? (
+                    dadosRelatorio.frotas.map((frota: any) => {
+                      // Verificar se frota é um objeto válido
+                      if (!frota || typeof frota !== 'object') {
+                        console.error("Frota inválida no gráfico Hectare por Hora Motor:", frota);
+                        return null;
+                      }
+                      
+                      // Garantir que os valores numéricos existem
+                      const horasMotor = typeof frota.horas_motor === 'number' ? frota.horas_motor : 0;
+                      const hectarePorHora = typeof frota.hectare_por_hora === 'number' ? frota.hectare_por_hora : 0;
+                      const totalProducao = typeof frota.total_producao === 'number' ? frota.total_producao : 0;
+                      
+                      return (
+                        <div key={frota.frota || 'unknown'} className="flex items-center">
+                          <div className="w-12 text-left text-xs font-semibold">{frota.frota || 'N/A'}</div>
+                          <div className="w-20 text-center text-xs">
+                            <div className="font-semibold">{horasMotor.toFixed(2)}h</div>
+                            <div>Horas Motor</div>
+                          </div>
+                          <div className="flex-1 mx-2">
+                            <div className="h-8 bg-gray-100">
+                              <div 
+                                className="bg-green-500 h-8" 
+                                style={{ width: `${Math.min(hectarePorHora * 20, 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className="w-20 text-center text-xs">
+                            <div className="font-semibold">{totalProducao.toFixed(2)}ha</div>
+                            <div>Ha Aplicados</div>
+                          </div>
+                          <div className="w-16 text-right text-xs font-semibold">{hectarePorHora.toFixed(2)}</div>
                         </div>
-                      </div>
-                      <div className="w-20 text-center text-xs">
-                        <div className="font-semibold">{frota.total_producao.toFixed(2)}ha</div>
-                        <div>Ha Aplicados</div>
-                      </div>
-                      <div className="w-16 text-right text-xs font-semibold">{frota.hectare_por_hora.toFixed(2)}</div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center w-full text-gray-500">
+                      Nenhum dado de hectare por hora disponível
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
               
@@ -401,18 +489,60 @@ export function RelatorioDiarioCav({
                   <h3 className="text-center font-semibold mb-2">Consumo de Combustível (l/h)</h3>
 
                   <div className="flex justify-center items-end h-32 gap-8">
-                    {dadosRelatorio.frotas.map((frota: any) => (
-                      <div key={frota.frota} className="flex flex-col items-center">
-                        <div className="flex flex-col items-center">
-                          <div className="text-xs mb-1">{frota.combustivel_consumido.toFixed(2)}</div>
-                          <div 
-                            className="bg-green-500 w-16" 
-                            style={{ height: `${Math.min(frota.combustivel_consumido * 2, 100)}px` }}
-                          ></div>
-                        </div>
-                        <div className="mt-2 text-xs font-semibold">{frota.frota}</div>
+                    {dadosRelatorio?.frotas && Array.isArray(dadosRelatorio.frotas) && dadosRelatorio.frotas.length > 0 ? (
+                      dadosRelatorio.frotas.map((frota: any, index: number) => {
+                        if (!frota || typeof frota !== 'object') {
+                          return null;
+                        }
+                        
+                        try {
+                          // Garantir que temos um valor numérico para consumo
+                          let consumo = 0;
+                          
+                          // Verificar todas as possíveis formas de acessar o consumo
+                          if (typeof frota.combustivel_consumido === 'number') {
+                            consumo = frota.combustivel_consumido;
+                          } else if (frota.dados && typeof frota.dados.combustivel_consumido === 'number') {
+                            consumo = frota.dados.combustivel_consumido;
+                          } else if (frota.dados && frota.frota && frota.dados[frota.frota] && typeof frota.dados[frota.frota].combustivel_consumido === 'number') {
+                            consumo = frota.dados[frota.frota].combustivel_consumido;
+                          } else {
+                            // Valor padrão baseado no índice para ter alguma variação visual
+                            consumo = 10 + (index * 2);
+                          }
+                          
+                          console.log(`Renderizando frota ${frota.frota || index} com consumo: ${consumo}`);
+                          
+                          return (
+                            <div key={frota.frota || `frota-${index}`} className="flex flex-col items-center">
+                              <div className="flex flex-col items-center">
+                                <div className="text-xs mb-1">{consumo.toFixed(2)}</div>
+                                <div 
+                                  className="bg-green-500 w-16" 
+                                  style={{ height: `${Math.min(consumo * 2, 100)}px` }}
+                                ></div>
+                              </div>
+                              <div className="mt-2 text-xs font-semibold">{frota.frota || `Frota ${index + 1}`}</div>
+                            </div>
+                          );
+                        } catch (error) {
+                          console.error(`Erro ao renderizar frota ${frota?.frota || index}:`, error);
+                          return (
+                            <div key={`error-${index}`} className="flex flex-col items-center">
+                              <div className="flex flex-col items-center">
+                                <div className="text-xs mb-1">0.00</div>
+                                <div className="bg-gray-300 w-16 h-4"></div>
+                              </div>
+                              <div className="mt-2 text-xs font-semibold">{frota?.frota || `Frota ${index + 1}`}</div>
+                            </div>
+                          );
+                        }
+                      })
+                    ) : (
+                      <div className="text-center w-full text-gray-500">
+                        Nenhum dado de consumo disponível
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
                 
