@@ -139,14 +139,69 @@ export default function RelatorioPreviewPage() {
   // Função para carregar dados
   const carregarDados = async (frente: string, data: Date) => {
     setIsLoading(true);
-    console.log(`Carregando dados para frente: ${frente}, data: ${format(data, "yyyy-MM-dd")}`);
+    const dataFormatada = format(data, "yyyy-MM-dd");
+    console.log(`🔍 Carregando dados salvos para frente: ${frente}, data: ${dataFormatada}`);
     
     try {
-      const { buscarDadosProducaoPorFrenteData } = await import('@/lib/cav/diario-cav-service');
-      const dados = await buscarDadosProducaoPorFrenteData(frente, data);
-      console.log("Dados carregados com sucesso:", dados);
+      // Buscar dados salvos na tabela diario_cav
+      const { createClientComponentClient } = await import('@supabase/auth-helpers-nextjs');
+      const supabase = createClientComponentClient();
       
-      // Não precisamos verificar todas as propriedades, apenas verificamos no momento de renderizar
+      const { data: diarioData, error } = await supabase
+        .from("diario_cav")
+        .select("dados")
+        .eq("frente", frente)
+        .eq("data", dataFormatada)
+        .single();
+        
+      if (error) {
+        console.error("Erro ao buscar dados do diário:", error);
+        throw error;
+      }
+      
+      if (!diarioData || !diarioData.dados) {
+        console.warn("Nenhum dado encontrado, usando dados mockados");
+        setDadosRelatorio(dadosMock);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("📊 Dados brutos do diário:", diarioData.dados);
+      
+      // Transformar dados salvos para o formato do relatório
+      const dadosSalvos = diarioData.dados;
+      const frotasData = dadosSalvos.frotas || dadosSalvos; // Compatibilidade
+      const agregadosData = dadosSalvos.agregados || null;
+      
+      const frotasTransformadas = Object.entries(frotasData).map(([frotaKey, dadosFrota]: [string, any]) => {
+        const frotaNum = parseInt(frotaKey);
+        return {
+          frota: frotaNum,
+          turnos: dadosFrota.turnos || [],
+          total_producao: dadosFrota.total_producao || 0,
+          horas_motor: dadosFrota.h_motor || 0,
+          hectare_por_hora: dadosFrota.hectare_por_hora || 0,
+          motor_ocioso_perc: (dadosFrota.fator_carga_motor_ocioso || 0) * 100,
+          combustivel_consumido: dadosFrota.combustivel_consumido || 0
+        };
+      });
+      
+      const totaisCalculados = agregadosData ? {
+        total_producao: agregadosData.total_producao || 0,
+        total_horas_motor: frotasTransformadas.reduce((sum: number, f: any) => sum + f.horas_motor, 0),
+        lamina_alvo: agregadosData.lamina_alvo || 10,
+        total_viagens: agregadosData.total_viagens_feitas || 20,
+        lamina_aplicada: agregadosData.lamina_aplicada || 0,
+        viagens_orcadas: agregadosData.total_viagens_orcadas || 0,
+        dif_viagens_perc: agregadosData.dif_viagens_perc || 0
+      } : dadosMock.totais;
+      
+      const dados = {
+        frotas: frotasTransformadas,
+        totais: totaisCalculados
+      };
+      
+      console.log("✅ Dados transformados para preview:", dados);
       
       setDadosRelatorio(dados);
     } catch (error) {
@@ -171,20 +226,39 @@ export default function RelatorioPreviewPage() {
       const contentHeight = pageHeight - (margin * 2)
       
       // Primeira página com gráficos
-      const canvas1 = await html2canvas(relatorioRef.current.querySelector(".pagina-1") as HTMLElement, {
-        logging: false,
-        useCORS: true
-      } as any)
-      const imgData1 = canvas1.toDataURL("image/png")
-      pdf.addImage(imgData1, "PNG", margin, margin, contentWidth, contentHeight)
+      const pagina1 = relatorioRef.current.querySelector(".pagina-1") as HTMLElement
+      if (pagina1) {
+        const canvas1 = await html2canvas(pagina1, {
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          scale: 2, // Melhor qualidade
+          width: pagina1.offsetWidth,
+          height: pagina1.offsetHeight,
+          backgroundColor: '#ffffff'
+        } as any)
+        const imgData1 = canvas1.toDataURL("image/png", 1.0)
+        pdf.addImage(imgData1, "PNG", margin, margin, contentWidth, contentHeight)
+      }
       
-      // Segunda página com mapa de deslocamento
-      pdf.addPage()
-      const canvas2 = await html2canvas(relatorioRef.current.querySelector(".pagina-2") as HTMLElement)
-      const imgData2 = canvas2.toDataURL("image/png")
-      pdf.addImage(imgData2, "PNG", margin, margin, contentWidth, contentHeight)
+      // Segunda página com gráfico de combustível + mapa de deslocamento
+      const pagina2 = relatorioRef.current.querySelector(".pagina-2") as HTMLElement
+      if (pagina2) {
+        pdf.addPage()
+        const canvas2 = await html2canvas(pagina2, {
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          scale: 2, // Melhor qualidade
+          width: pagina2.offsetWidth,
+          height: pagina2.offsetHeight,
+          backgroundColor: '#ffffff'
+        } as any)
+        const imgData2 = canvas2.toDataURL("image/png", 1.0)
+        pdf.addImage(imgData2, "PNG", margin, margin, contentWidth, contentHeight)
+      }
       
-      pdf.save(`Relatório-CAV-Preview.pdf`)
+      pdf.save(`Relatório-CAV-${frente}-${format(data, "dd-MM-yyyy")}.pdf`)
     } catch (error) {
       console.error("Erro ao gerar PDF:", error)
     } finally {
@@ -230,10 +304,11 @@ export default function RelatorioPreviewPage() {
   }
   
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Preview do Relatório CAV</h1>
-      
-      <div className="flex justify-end gap-2 mb-4">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto">
+        <h1 className="text-2xl font-bold mb-6 text-center">Preview do Relatório CAV</h1>
+        
+        <div className="flex justify-center gap-2 mb-6">
         <Button 
           variant="outline" 
           size="sm" 
@@ -264,9 +339,10 @@ export default function RelatorioPreviewPage() {
           <Printer className="h-4 w-4" />
           <span>Imprimir</span>
         </Button>
-      </div>
-      
-      <div ref={relatorioRef} className="print:shadow-none" style={{ width: "210mm", minHeight: "297mm" }}>
+        </div>
+        
+        <div className="flex justify-center">
+          <div ref={relatorioRef} className="bg-white shadow-lg print:shadow-none" style={{ width: "210mm", minHeight: "297mm" }}>
         {/* Primeira página com gráficos */}
         <div className="pagina-1 border rounded-md p-6 mb-4 print:border-none print:p-0 bg-white" style={{ width: "210mm", height: "297mm" }}>
           <div className="flex justify-between items-center mb-6">
@@ -284,7 +360,7 @@ export default function RelatorioPreviewPage() {
           
           <div className="border border-gray-400 rounded-md p-4 mb-6 shadow-sm">
             <h3 className="text-center font-semibold mb-2">Ha aplicados</h3>
-            <div className="flex justify-around">
+                            <div className={`flex justify-center ${dadosRelatorio.frotas.length <= 2 ? 'gap-32' : dadosRelatorio.frotas.length === 3 ? 'gap-20' : 'gap-12'}`}>
               {dadosRelatorio.frotas.map((frota: any) => (
                 <div key={frota.frota} className="flex flex-col items-center">
                   <div className="flex gap-3 mb-4">
@@ -319,37 +395,64 @@ export default function RelatorioPreviewPage() {
           </div>
           
           <div className="border border-gray-400 rounded-md p-4 mb-6 shadow-sm">
-            <h3 className="text-center font-semibold mb-2">Hectare por Hora Motor</h3>
+            <h3 className="text-center font-semibold mb-2">Hectares por Hora Motor</h3>
             <div className="flex flex-col gap-4">
-              {dadosRelatorio.frotas.map((frota: any) => (
-                <div key={frota.frota} className="flex items-center">
-                  <div className="w-12 text-left text-xs font-semibold">{frota.frota}</div>
-                  <div className="w-20 text-center text-xs">
-                    <div className="font-semibold">{frota.horas_motor.toFixed(2)}h</div>
-                    <div>Horas Motor</div>
-                  </div>
-                  <div className="flex-1 mx-2">
-                    <div className="h-8 bg-gray-100">
-                      <div 
-                        className="bg-green-500 h-8" 
-                        style={{ width: `${Math.min(frota.hectare_por_hora * 20, 100)}%` }}
-                      ></div>
+              {dadosRelatorio.frotas.filter((frota: any) => {
+                // Filtrar apenas frotas com dados válidos
+                const frotaValida = frota && 
+                  typeof frota === 'object' && 
+                  frota.frota && 
+                  frota.frota !== 'N/A' && 
+                  !isNaN(frota.frota) &&
+                  typeof frota.horas_motor === 'number' && 
+                  frota.horas_motor > 0;
+                return frotaValida;
+              }).map((frota: any) => {
+                // Calcular porcentagem para barra (baseado no maior hectare_por_hora)
+                const frotasValidas = dadosRelatorio.frotas.filter((f: any) => f && f.hectare_por_hora > 0);
+                const maxHectarePorHora = frotasValidas.length > 0 ? Math.max(...frotasValidas.map((f: any) => f.hectare_por_hora)) : 1;
+                const porcentagemBarra = maxHectarePorHora > 0 ? Math.min((frota.hectare_por_hora / maxHectarePorHora) * 80, 80) : 5;
+                
+                return (
+                  <div key={frota.frota} className="flex items-center">
+                    <div className="w-12 text-left text-xs font-semibold">{frota.frota}</div>
+                    <div className="w-20 text-center text-xs">
+                      <div className="font-semibold">{frota.horas_motor.toFixed(2)}h</div>
+                      <div>Horas Motor</div>
                     </div>
+                    <div className="flex-1 mx-2 relative">
+                      <div className="w-full h-6 bg-gray-300 rounded-full border">
+                        <div 
+                          className="bg-green-600 h-6 rounded-full transition-all duration-300" 
+                          style={{ width: `${Math.max(porcentagemBarra, 5)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="w-20 text-center text-xs">
+                      <div className="font-semibold">{frota.total_producao.toFixed(2)}ha</div>
+                      <div>Ha Aplicados</div>
+                    </div>
+                    <div className="w-16 text-right text-xs font-semibold">{frota.hectare_por_hora.toFixed(2)}</div>
                   </div>
-                  <div className="w-20 text-center text-xs">
-                    <div className="font-semibold">{frota.total_producao.toFixed(2)}ha</div>
-                    <div>Ha Aplicados</div>
-                  </div>
-                  <div className="w-16 text-right text-xs font-semibold">{frota.hectare_por_hora.toFixed(2)}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           
           <div className="border border-gray-400 rounded-md p-4 shadow-sm">
             <h3 className="text-center font-semibold mb-2">% Motor Ocioso</h3>
-            <div className="flex justify-center gap-20 py-8">
-              {dadosRelatorio.frotas.map((frota: any) => (
+            <div className={`flex justify-center py-8 ${dadosRelatorio.frotas.filter((f: any) => f && f.frota && f.frota !== 'N/A' && !isNaN(f.frota) && f.horas_motor > 0).length <= 2 ? 'gap-32' : dadosRelatorio.frotas.filter((f: any) => f && f.frota && f.frota !== 'N/A' && !isNaN(f.frota) && f.horas_motor > 0).length === 3 ? 'gap-20' : 'gap-12'}`}>
+              {dadosRelatorio.frotas.filter((frota: any) => {
+                // Filtrar apenas frotas com dados válidos
+                const frotaValida = frota && 
+                  typeof frota === 'object' && 
+                  frota.frota && 
+                  frota.frota !== 'N/A' && 
+                  !isNaN(frota.frota) &&
+                  typeof frota.horas_motor === 'number' && 
+                  frota.horas_motor > 0;
+                return frotaValida;
+              }).map((frota: any) => (
                 <div key={frota.frota} className="flex flex-col items-center">
                   <div className="relative w-40 h-40">
                     <svg viewBox="-20 -20 140 140" className="w-full h-full">
@@ -438,59 +541,70 @@ export default function RelatorioPreviewPage() {
         <div className="pagina-2 border rounded-md p-6 mb-4 print:border-none print:p-0 print:page-break-before bg-white flex flex-col" style={{ width: "210mm", height: "297mm" }}>
           <div className="border border-gray-400 rounded-md p-4 mb-4 shadow-sm">
             <h3 className="text-center font-semibold mb-2">Consumo de Combustível (l/h)</h3>
-            <div className="flex justify-center items-end h-32 gap-8">
-              {dadosRelatorio?.frotas && Array.isArray(dadosRelatorio.frotas) && dadosRelatorio.frotas.length > 0 ? (
-                dadosRelatorio.frotas.map((frota: any, index: number) => {
+
+            <div className="flex flex-col gap-4">
+              {dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 ? (
+                dadosRelatorio.frotas.filter((frota: any) => {
+                  // Filtrar apenas frotas com dados válidos
+                  const frotaValida = frota && 
+                    typeof frota === 'object' && 
+                    frota.frota && 
+                    frota.frota !== 'N/A' && 
+                    !isNaN(frota.frota) &&
+                    typeof frota.horas_motor === 'number' && 
+                    frota.horas_motor > 0;
+                  return frotaValida;
+                }).map((frota: any) => {
+                  // Verificar se frota é um objeto válido
                   if (!frota || typeof frota !== 'object') {
+                    console.error("Frota inválida no gráfico Consumo de Combustível:", frota);
                     return null;
                   }
                   
-                  try {
-                    // Garantir que temos um valor numérico para consumo
-                    let consumo = 0;
-                    
-                    // Verificar todas as possíveis formas de acessar o consumo
-                    if (typeof frota.combustivel_consumido === 'number') {
-                      consumo = frota.combustivel_consumido;
-                    } else if (frota.dados && typeof frota.dados.combustivel_consumido === 'number') {
-                      consumo = frota.dados.combustivel_consumido;
-                    } else if (frota.dados && frota.frota && frota.dados[frota.frota] && typeof frota.dados[frota.frota].combustivel_consumido === 'number') {
-                      consumo = frota.dados[frota.frota].combustivel_consumido;
-                    } else {
-                      // Valor padrão baseado no índice para ter alguma variação visual
-                      consumo = 10 + (index * 2);
-                    }
-                    
-                    console.log(`Preview: Renderizando frota ${frota.frota || index} com consumo: ${consumo}`);
-                    
-                    return (
-                      <div key={frota.frota || `frota-${index}`} className="flex flex-col items-center">
-                        <div className="flex flex-col items-center">
-                          <div className="text-xs mb-1">{consumo.toFixed(2)}</div>
+                  // Garantir que os valores numéricos existem
+                  const horasMotor = typeof frota.horas_motor === 'number' ? frota.horas_motor : 0;
+                  const consumoTotal = typeof frota.combustivel_consumido === 'number' ? frota.combustivel_consumido : 0;
+                  const consumoPorHora = horasMotor > 0 ? consumoTotal / horasMotor : 0;
+                  
+                  // Calcular porcentagem para barra de consumo (baseado no maior consumo por hora)
+                  const frotasValidasConsumo = dadosRelatorio.frotas.filter((f: any) => {
+                    const hMotor = typeof f.horas_motor === 'number' ? f.horas_motor : 0;
+                    const cTotal = typeof f.combustivel_consumido === 'number' ? f.combustivel_consumido : 0;
+                    return hMotor > 0 && cTotal > 0;
+                  });
+                  const maxConsumoPorHora = frotasValidasConsumo.length > 0 ? Math.max(...frotasValidasConsumo.map((f: any) => {
+                    const hMotor = f.horas_motor || 0;
+                    const cTotal = f.combustivel_consumido || 0;
+                    return hMotor > 0 ? cTotal / hMotor : 0;
+                  })) : 1;
+                  const porcentagemBarraConsumo = maxConsumoPorHora > 0 ? Math.min((consumoPorHora / maxConsumoPorHora) * 80, 80) : 5;
+                  
+                  return (
+                    <div key={frota.frota || 'unknown'} className="flex items-center">
+                      <div className="w-12 text-left text-xs font-semibold">{frota.frota || 'N/A'}</div>
+                      <div className="w-20 text-center text-xs">
+                        <div className="font-semibold">{horasMotor.toFixed(2)}h</div>
+                        <div>Horas Motor</div>
+                      </div>
+                      <div className="flex-1 mx-2 relative">
+                        <div className="w-full h-6 bg-gray-300 rounded-full border">
                           <div 
-                            className="bg-green-500 w-16" 
-                            style={{ height: `${Math.min(consumo * 2, 100)}px` }}
+                            className="bg-green-600 h-6 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.max(porcentagemBarraConsumo, 5)}%` }}
                           ></div>
                         </div>
-                        <div className="mt-2 text-xs font-semibold">{frota.frota || `Frota ${index + 1}`}</div>
                       </div>
-                    );
-                  } catch (error) {
-                    console.error(`Erro ao renderizar frota ${frota?.frota || index}:`, error);
-                    return (
-                      <div key={`error-${index}`} className="flex flex-col items-center">
-                        <div className="flex flex-col items-center">
-                          <div className="text-xs mb-1">0.00</div>
-                          <div className="bg-gray-300 w-16 h-4"></div>
-                        </div>
-                        <div className="mt-2 text-xs font-semibold">{frota?.frota || `Frota ${index + 1}`}</div>
+                      <div className="w-20 text-center text-xs">
+                        <div className="font-semibold">{consumoTotal.toFixed(2)} L</div>
+                        <div>Total Consumo</div>
                       </div>
-                    );
-                  }
+                      <div className="w-16 text-right text-xs font-semibold">{consumoPorHora.toFixed(2)}</div>
+                    </div>
+                  );
                 })
               ) : (
-                <div className="text-center w-full text-gray-500">
-                  Nenhum dado de consumo disponível
+                <div className="text-center text-gray-500 text-sm">
+                  Nenhum dado disponível
                 </div>
               )}
             </div>
@@ -519,6 +633,8 @@ export default function RelatorioPreviewPage() {
             <div className="text-center text-xs mt-2">
               <p>*** As cores dos rastros não refletem lâmina de aplicação, apenas diferem a frota ***</p>
             </div>
+          </div>
+          </div>
           </div>
         </div>
       </div>

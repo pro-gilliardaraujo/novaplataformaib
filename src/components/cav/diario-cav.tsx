@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { 
-  PlusCircle, 
+  Plus, 
   FileText, 
   Image, 
   Loader2, 
@@ -17,7 +17,8 @@ import {
   ChevronRight, 
   ArrowUpDown,
   Download,
-  Calendar
+  Calendar,
+  Eye
 } from "lucide-react"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { NovoDiarioCavModal } from "@/components/cav/novo-diario-cav-modal"
@@ -66,6 +67,7 @@ interface RelatorioData {
   data: Date;
   imagemDeslocamento?: string;
   imagemArea?: string;
+  dados?: Record<string, any>;
 }
 
 export function DiarioCav() {
@@ -240,61 +242,46 @@ export function DiarioCav() {
   }
   
   return (
-    <div className="h-full flex flex-col space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Diário CAV</h2>
-        <div className="flex gap-2">
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="w-[400px]">
+          <Input
+            placeholder="Buscar por frente ou data..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-9"
+          />
+        </div>
+        <div className="flex gap-2 items-center">
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            placeholder="Filtrar por data"
+            className="h-9"
+            align="end"
+          />
           <Button 
             variant="outline"
-            className="flex items-center gap-2"
+            className="h-9"
             onClick={exportarCSV}
           >
-            <Download className="h-4 w-4" />
-            Exportar CSV
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
           </Button>
           <Button 
-            variant="outline"
-            className="flex items-center gap-2"
-            onClick={() => window.open("/preview/relatorio-cav", "_blank")}
-          >
-            <FileText className="h-4 w-4" />
-            Preview do Relatório
-          </Button>
-          <Button 
-            className="flex items-center gap-2"
+            className="bg-black hover:bg-black/90 text-white h-9"
             onClick={() => setIsModalOpen(true)}
           >
-            <PlusCircle className="h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" /> 
             Novo Diário
           </Button>
         </div>
       </div>
-      
-      <Card className="flex-1">
-        <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <CardTitle>Diários Cadastrados</CardTitle>
-            
-            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-              <div className="flex gap-2 w-full md:w-auto">
-                <DateRangePicker
-                  value={dateRange}
-                  onChange={setDateRange}
-                  placeholder="Filtrar por data"
-                  className="w-full md:w-auto"
-                  align="end"
-                />
-                <Input
-                  placeholder="Buscar..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full md:w-60"
-                />
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+
+      {/* Table */}
+      <div className="flex-1 border rounded-lg flex flex-col min-h-0 overflow-hidden">
+        <div className="overflow-auto flex-1">
           {isLoading ? (
             <div className="flex justify-center items-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -304,95 +291,109 @@ export function DiarioCav() {
               {error}
             </div>
           ) : diarios.length === 0 ? (
-            <p className="text-muted-foreground">
-              Nenhum diário encontrado com os filtros selecionados.
-            </p>
+            <div className="flex justify-center items-center py-8">
+              <p className="text-muted-foreground">
+                Nenhum diário encontrado com os filtros selecionados.
+              </p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[120px]">
-                      <div className="flex items-center space-x-1">
+            <Table>
+              <TableHeader className="bg-black sticky top-0">
+                <TableRow className="h-[47px]">
+                  <TableHead className="text-white font-medium px-3 text-center">
+                    <div className="flex items-center gap-1">
+                      <div 
+                        className="flex items-center gap-1 cursor-pointer"
+                        onClick={() => toggleSort("data")}
+                      >
                         <span>Data</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => toggleSort("data")}
-                        >
-                          <ArrowUpDown className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableHead>
-                    <TableHead>
-                      <div className="flex items-center space-x-1">
-                        <span>Frente</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => toggleSort("frente")}
-                        >
-                          <ArrowUpDown className="h-3.5 w-3.5" />
-                        </Button>
-                        <ClassicFilter
-                          options={uniqueFrentes}
-                          selected={frenteFilter}
-                          onToggle={toggleFrenteFilter}
-                          onClear={() => setFrenteFilter(new Set())}
-                        />
-                      </div>
-                    </TableHead>
-                    <TableHead className="w-[120px]">Máquinas</TableHead>
-                    <TableHead className="w-[120px]">Imagens</TableHead>
-                    <TableHead className="w-[100px] text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {diarios.map((diario) => (
-                    <TableRow key={diario.id}>
-                      <TableCell>
-                        {format(parseISO(diario.data), "dd/MM/yyyy", { locale: ptBR })}
-                      </TableCell>
-                      <TableCell>
-                        {diario.frente}
-                      </TableCell>
-                      <TableCell>
-                        {Object.keys(diario.dados).length} máquinas
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {diario.imagem_deslocamento && (
-                            <a 
-                              href={diario.imagem_deslocamento} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:text-blue-700"
-                              title="Ver imagem de deslocamento"
-                            >
-                              <Image className="h-4 w-4" />
-                            </a>
-                          )}
-                          {diario.imagem_area && (
-                            <a 
-                              href={diario.imagem_area} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-green-500 hover:text-green-700"
-                              title="Ver imagem de área"
-                            >
-                              <Image className="h-4 w-4" />
-                            </a>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
                         <Button 
                           variant="ghost" 
+                          size="sm" 
+                          className={`h-7 w-7 p-0 hover:bg-transparent ${
+                            sortField === "data" ? 'text-white' : 'text-gray-400'
+                          }`}
+                        >
+                          <ArrowUpDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-white font-medium px-3 text-center">
+                    <div className="flex items-center gap-1">
+                      <div 
+                        className="flex items-center gap-1 cursor-pointer"
+                        onClick={() => toggleSort("frente")}
+                      >
+                        <span>Frente</span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className={`h-7 w-7 p-0 hover:bg-transparent ${
+                            sortField === "frente" ? 'text-white' : 'text-gray-400'
+                          }`}
+                        >
+                          <ArrowUpDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <ClassicFilter
+                        options={uniqueFrentes}
+                        selected={frenteFilter}
+                        onToggle={toggleFrenteFilter}
+                        onClear={() => setFrenteFilter(new Set())}
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-white font-medium px-3 text-center">Máquinas</TableHead>
+                  <TableHead className="text-white font-medium px-3 text-center">Imagens</TableHead>
+                  <TableHead className="text-white font-medium w-[100px] px-3">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {diarios.map((diario) => (
+                  <TableRow key={diario.id} className="h-[47px] hover:bg-gray-50 border-b border-gray-200">
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
+                      {format(parseISO(diario.data), "dd/MM/yyyy", { locale: ptBR })}
+                    </TableCell>
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
+                      {diario.frente}
+                    </TableCell>
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
+                      {Object.keys(diario.dados).length} máquinas
+                    </TableCell>
+                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {diario.imagem_deslocamento && (
+                          <a 
+                            href={diario.imagem_deslocamento} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-700"
+                            title="Ver imagem de deslocamento"
+                          >
+                            <Image className="h-4 w-4" />
+                          </a>
+                        )}
+                        {diario.imagem_area && (
+                          <a 
+                            href={diario.imagem_area} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-green-500 hover:text-green-700"
+                            title="Ver imagem de área"
+                          >
+                            <Image className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 py-0 border-x border-gray-100">
+                      <div className="flex items-center justify-center">
+                        <Button
+                          variant="ghost"
                           size="sm"
-                          className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                          title="Ver relatório"
+                          className="h-8 w-8 p-0"
+                          title="Ver detalhes"
                           onClick={() => {
                             console.log(`Abrindo relatório para frente ${diario.frente} na data ${diario.data}`);
                             console.log(`Dados do diário:`, diario);
@@ -436,45 +437,47 @@ export function DiarioCav() {
                             setIsRelatorioOpen(true);
                           }}
                         >
-                          <FileText className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
+                      </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              
-              {/* Paginação */}
-              <div className="flex items-center justify-between py-4">
-                <div className="text-sm text-muted-foreground">
-                  Mostrando {diarios.length} de {totalCount} registros
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(page - 1)}
-                    disabled={page === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="text-sm">
-                    Página {page} de {totalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(page + 1)}
-                    disabled={page >= totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+            )}
+        </div>
+        
+        {/* Paginação */}
+        {!isLoading && !error && diarios.length > 0 && (
+          <div className="flex items-center justify-between p-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Mostrando {diarios.length} de {totalCount} registros
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-sm">
+                Página {page} de {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
       
       <NovoDiarioCavModal
         open={isModalOpen}
@@ -492,6 +495,7 @@ export function DiarioCav() {
           data={relatorioData.data}
           imagemDeslocamento={relatorioData.imagemDeslocamento}
           imagemArea={relatorioData.imagemArea}
+          dadosPassados={relatorioData.dados}
         />
       )}
     </div>

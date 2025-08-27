@@ -152,14 +152,19 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     const dataFormatadaDisplay = format(dataAtual, "dd/MM/yyyy");
     const dataFormatadaAPI = format(dataAtual, "yyyy-MM-dd");
     
-    console.log(`Filtrando dados para frente ${frenteCodigo} na data ${dataFormatadaDisplay}`);
+    console.log(`🔍 FILTRO: Filtrando dados para frente ${frenteCodigo} na data ${dataFormatadaDisplay}`);
     
     // 1. Filtrar dados do arquivo OPC pela data
-    console.log("Dados OPC disponíveis:", dadosOPC.map(d => ({ data: d.data, maquina: d.maquina })));
+    console.log("📊 Dados OPC disponíveis:", dadosOPC.map(d => ({ data: d.data, maquina: d.maquina })));
+    console.log(`📅 Data de filtro formatada: ${dataFormatadaDisplay}`);
+    
     const dadosFiltrados = dadosOPC.filter(dado => {
+      console.log(`🔍 Comparando: "${dado.data}" com "${dataFormatadaDisplay}"`);
+      
       // Verificar se a data do dado corresponde à data selecionada
       // Primeiro, verificar se é exatamente igual (já formatada corretamente)
       if (dado.data === dataFormatadaDisplay) {
+        console.log(`✅ Match exato encontrado para máquina ${dado.maquina}`);
         return true;
       }
       
@@ -200,7 +205,11 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
           const mesAtual = dataAtual.getMonth() + 1; // getMonth() retorna 0-11
           const anoAtual = dataAtual.getFullYear();
           
-          return diaOPC === diaAtual && mesOPC === mesAtual && anoOPC === anoAtual;
+          const match = diaOPC === diaAtual && mesOPC === mesAtual && anoOPC === anoAtual;
+          if (match) {
+            console.log(`✅ Match por comparação de data encontrado para máquina ${dado.maquina} (${diaOPC}/${mesOPC}/${anoOPC} = ${diaAtual}/${mesAtual}/${anoAtual})`);
+          }
+          return match;
         }
       } catch (e) {
         console.error("Erro ao comparar datas:", e);
@@ -210,7 +219,8 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       return false;
     });
     
-    console.log(`Dados filtrados para data ${dataFormatadaDisplay}:`, dadosFiltrados);
+    console.log(`🎯 RESULTADO DO FILTRO para data ${dataFormatadaDisplay}:`, dadosFiltrados.length, "registros encontrados");
+    console.log("📝 Detalhes dos dados filtrados:", dadosFiltrados.map(d => ({ data: d.data, maquina: d.maquina })));
     
     // Criar objeto de frotas filtrado do OPC (temporário)
     const todasFrotasFiltradas: Record<string, DiarioCavFrotaData> = {};
@@ -279,7 +289,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       console.log("Dados agregados encontrados:", dadosAgregados ? "Sim" : "Não");
       
       // IMPORTANTE: Filtrar dados OPC para incluir apenas as frotas encontradas nos boletins
-      const frotasFiltradas: Record<string, DiarioCavFrotaData> = {};
+      const frotasFiltradas: Record<string, any> = {};
       
       if (dadosGranulares && dadosGranulares.length > 0) {
         // Obter lista de frotas encontradas nos boletins
@@ -290,21 +300,55 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         
         console.log("Frotas encontradas nos boletins:", Array.from(frotasEncontradas));
         
-        // Filtrar dados OPC para incluir apenas as frotas encontradas nos boletins
+        // Agrupar produção por frota
+        const producaoPorFrota = new Map<string, number>();
+        dadosGranulares.forEach(boletim => {
+          const frotaKey = boletim.frota.toString();
+          const producaoAtual = producaoPorFrota.get(frotaKey) || 0;
+          producaoPorFrota.set(frotaKey, producaoAtual + boletim.producao);
+        });
+        
+        console.log("🎯 Produção por frota calculada:", Object.fromEntries(producaoPorFrota));
+        
+        // Filtrar e combinar dados OPC com produção
         Object.keys(todasFrotasFiltradas).forEach(frotaKey => {
           if (frotasEncontradas.has(frotaKey)) {
-            frotasFiltradas[frotaKey] = todasFrotasFiltradas[frotaKey];
+            const dadosOPC = todasFrotasFiltradas[frotaKey];
+            const totalProducao = producaoPorFrota.get(frotaKey) || 0;
+            const horasMotor = dadosOPC.h_motor || 0;
+            const hectarePorHora = horasMotor > 0 ? totalProducao / horasMotor : 0;
+            
+            // Buscar turnos individuais desta frota
+            const turnosFrota = dadosGranulares.filter(boletim => 
+              boletim.frota.toString() === frotaKey
+            ).map(boletim => ({
+              turno: boletim.turno,
+              operador: boletim.operador,
+              codigo: boletim.codigo,
+              producao: boletim.producao,
+              lamina_alvo: boletim.lamina_alvo
+            }));
+            
+            // Combinar dados OPC + Produção + Turnos
+            frotasFiltradas[frotaKey] = {
+              ...dadosOPC,
+              total_producao: totalProducao,
+              hectare_por_hora: hectarePorHora,
+              turnos: turnosFrota
+            };
+            
+            console.log(`🚜 Frota ${frotaKey} combinada: ${totalProducao}ha, ${horasMotor}h, ${hectarePorHora.toFixed(2)}ha/h, ${turnosFrota.length} turnos`);
           }
         });
         
-        console.log("Dados OPC filtrados por frotas dos boletins:", frotasFiltradas);
+        console.log("✅ Dados OPC + Produção combinados:", frotasFiltradas);
       } else {
-        // Se não temos dados de boletins, usar todas as frotas filtradas pela data
-        console.log("Sem dados de boletins, usando todas as frotas filtradas pela data");
+        // Se não temos dados de boletins, usar apenas os dados OPC
+        console.log("Sem dados de boletins, usando apenas dados OPC");
         Object.assign(frotasFiltradas, todasFrotasFiltradas);
       }
       
-      // Atualizar o estado com os dados de boletins CAV
+      // Atualizar o estado com os dados combinados
       setFrentes(prev => prev.map(f => 
         f.id === frenteId ? { 
           ...f, 
@@ -898,8 +942,13 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
           continue; // Pular para a próxima frente
         }
         
-        // Dados a serem salvos (apenas os filtrados)
-        const dadosParaSalvar = dadosFiltradosFrota;
+        // Combinar dados das frotas com dados agregados
+        const dadosParaSalvar = {
+          frotas: dadosFiltradosFrota,
+          agregados: frente.dadosBoletinsCav?.dadosAgregados || null
+        };
+        
+        console.log(`💾 Salvando dados completos para frente ${frente.frente}:`, dadosParaSalvar);
         
         // Upload da imagem de deslocamento (obrigatória)
         let imgDeslocamentoUrl = null;
@@ -980,7 +1029,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     <>
       <Dialog open={open} onOpenChange={handleCloseModal}>
         <DialogContent
-          className="sm:max-w-[1400px] w-full max-h-[90vh] overflow-hidden flex flex-col"
+          className="sm:max-w-[1100px] w-full max-h-[90vh] overflow-hidden flex flex-col"
           onPointerDownOutside={(e)=>e.preventDefault()}
           onEscapeKeyDown={(e)=>e.preventDefault()}
           onInteractOutside={(e)=>e.preventDefault()}
@@ -999,23 +1048,21 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
               </Button>
             </DialogClose>
           </div>
+          
+          {/* Conteúdo principal */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Área de erro fixa */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
+                {error}
+              </div>
+            )}
 
-          {/* Layout principal: conteúdo à esquerda, JSON à direita */}
-          <div className="flex flex-row h-full">
-            {/* Conteúdo principal (lado esquerdo) */}
-            <div className="w-3/4 flex flex-col overflow-hidden pr-4">
-              {/* Área de erro fixa */}
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
-                  {error}
-                </div>
-              )}
-
-              {/* Área fixa para upload de arquivo OPC e botão adicionar frente */}
-              <div className="border rounded-md p-4 mb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
+            {/* Área fixa para upload de arquivo OPC e botão adicionar frente */}
+            <div className="border rounded-md p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
                       <div 
                         className={cn(
                           "border-2 border-dashed rounded-md p-2 transition-colors flex items-center",
@@ -1104,8 +1151,8 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                 </div>
               </div>
 
-              {/* Conteúdo scrollable - Blocos de Frentes */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-6">
+            {/* Conteúdo scrollable - Blocos de Frentes */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-6">
             {frentes.map((frente, index) => (
               <div key={frente.id} className="border rounded-md p-4">
                 <div className="flex items-center justify-end mb-2">
@@ -1299,11 +1346,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                           </thead>
                           <tbody>
                             {Object.entries(frente.dadosFiltrados || {}).map(([maquina, dados]) => {
-                              // Recuperar dados originais do OPC para esta máquina
-                              const dadoOpc = dadosOPC.find(d => d.maquina === maquina);
+                              // Usar sempre a data selecionada da frente, não a data original do OPC
                               return (
                                 <tr key={maquina} className="hover:bg-gray-50">
-                                  <td className="border px-2 py-1">{dadoOpc?.data || format(frente.data, "dd/MM/yyyy")}</td>
+                                  <td className="border px-2 py-1">{format(frente.data, "dd/MM/yyyy")}</td>
                                   <td className="border px-2 py-1">{maquina}</td>
                                   <td className="border px-2 py-1 text-right">{dados.h_motor.toFixed(2)}</td>
                                   <td className="border px-2 py-1 text-right">{dados.fator_carga_motor_ocioso?.toFixed(2) || "-"}%</td>
@@ -1426,7 +1472,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                                   {JSON.stringify({
                                     data: format(frente.data, "yyyy-MM-dd"),
                                     frente: frente.frente,
-                                    dados: frente.dadosFiltrados || {},
+                                    dados: {
+                                      frotas: frente.dadosFiltrados || {},
+                                      agregados: frente.dadosBoletinsCav?.dadosAgregados || null
+                                    }
                                   }, null, 2)}
                                 </pre>
                               </div>
@@ -1441,6 +1490,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
             ))}
 
           </div>
+          </div>
 
           {/* Botões de ação - Fixos na parte inferior */}
           <div className="py-4 border-t mt-4">
@@ -1454,44 +1504,6 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
               >
                 {isLoading ? "Salvando..." : "Salvar"}
               </Button>
-            </div>
-          </div>
-
-          {/* Painel JSON à direita */}
-          <div className="w-1/4 bg-green-500 bg-opacity-10 border-l border-green-500 flex flex-col">
-            <div className="border-b border-green-500 p-4">
-              <h3 className="text-lg font-medium text-green-700">Visualizador JSON</h3>
-              <p className="text-sm text-green-600">Dados que serão enviados para o Supabase</p>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              {frentes.map((frente) => (
-                frente.frente && frente.data && (
-                  <div key={`json-${frente.id}`} className="mb-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-medium text-green-700">
-                        Frente: {frente.frente}
-                      </h4>
-                      <span className="text-xs text-green-600">
-                        {format(frente.data, "dd/MM/yyyy")}
-                      </span>
-                    </div>
-                    <pre className="text-xs bg-white p-2 rounded overflow-auto max-h-[300px] border border-green-200">
-                      {JSON.stringify({
-                        data: format(frente.data, "yyyy-MM-dd"),
-                        frente: frente.frente,
-                        dados: frente.dadosFiltrados || {},
-                      }, null, 2)}
-                    </pre>
-                  </div>
-                )
-              ))}
-              {frentes.every(f => !f.frente || !f.data) && (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-green-600">
-                    Selecione uma frente e uma data para visualizar os dados
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         </DialogContent>

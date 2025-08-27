@@ -87,17 +87,16 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
         
         // Criar dados mockados específicos para cada frota encontrada
         if (frota === 6127) {
-          mockOpcData[frota.toString()] = { h_motor: 12.95, h_ociosa: 3.59, combustivel_consumido: 12.0, fator_carga_motor_ocioso: 27.74 };
+          mockOpcData[frota.toString()] = { h_motor: 12.95, combustivel_consumido: 42.8, fator_carga_motor_ocioso: 27.74 };
         } else if (frota === 6131) {
-          mockOpcData[frota.toString()] = { h_motor: 16.3, h_ociosa: 4.28, combustivel_consumido: 13.55, fator_carga_motor_ocioso: 26.23 };
+          mockOpcData[frota.toString()] = { h_motor: 16.3, combustivel_consumido: 53.2, fator_carga_motor_ocioso: 26.23 };
         } else if (frota === 6133) {
-          mockOpcData[frota.toString()] = { h_motor: 13.65, h_ociosa: 3.7, combustivel_consumido: 14.8, fator_carga_motor_ocioso: 27.13 };
+          mockOpcData[frota.toString()] = { h_motor: 13.65, combustivel_consumido: 48.6, fator_carga_motor_ocioso: 27.13 };
         } else {
           // Para outras frotas, gerar dados aleatórios plausíveis
           mockOpcData[frota.toString()] = { 
             h_motor: 10 + Math.random() * 10, 
-            h_ociosa: Math.random() * 5, 
-            combustivel_consumido: 10 + Math.random() * 10,
+            combustivel_consumido: 30 + Math.random() * 20,
             fator_carga_motor_ocioso: Math.random() * 30
           };
         }
@@ -112,7 +111,6 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
       dadosPorFrota.forEach((boletins, frota) => {
         const dadosFrota = mockOpcData[frota.toString()] || {
           h_motor: 0,
-          h_ociosa: 0,
           combustivel_consumido: 0,
           fator_carga_motor_ocioso: 0
         };
@@ -129,8 +127,11 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
         const motorOciosoPerc = dadosFrota.fator_carga_motor_ocioso || 0;
         
         // Buscar consumo de combustível do OPC mockado
-        const combustivelConsumido = typeof dadosFrota.combustivel_consumido === 'number' ? dadosFrota.combustivel_consumido : 0;
-        console.log(`Consumo de combustível para frota ${frota}: ${combustivelConsumido}`);
+        const combustivelConsumido = typeof dadosFrota.combustivel_consumido === 'number' && !isNaN(dadosFrota.combustivel_consumido) 
+          ? dadosFrota.combustivel_consumido 
+          : 0;
+        
+        console.log(`Frota mockada ${frota}: combustivel_consumido = ${combustivelConsumido} (tipo: ${typeof dadosFrota.combustivel_consumido})`);
         
         // Organizar dados por turno
         const turnosDados = boletins.map(b => ({
@@ -144,10 +145,10 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
           frota,
           turnos: turnosDados,
           total_producao: totalProducao,
-          horas_motor: dadosFrota.h_motor,
+          horas_motor: dadosFrota.h_motor || 0,
           hectare_por_hora: hectarePorHora,
           motor_ocioso_perc: motorOciosoPerc,
-          combustivel_consumido
+          combustivel_consumido: combustivelConsumido
         });
       });
       
@@ -243,7 +244,6 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
       // Verificar se a frota existe nos dados OPC filtrados
       const dadosFrota = dadosOPCFiltrados[frota.toString()] as DiarioCavFrotaData || {
         h_motor: 0,
-        h_ociosa: 0,
         combustivel_consumido: 0,
         fator_carga_motor_ocioso: 0
       };
@@ -259,8 +259,12 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
       // Usar diretamente o fator de carga do motor ocioso
       const motorOciosoPerc = dadosFrota.fator_carga_motor_ocioso || 0;
       
-      // Buscar consumo de combustível do OPC
-      const combustivelConsumido = typeof dadosFrota.combustivel_consumido === 'number' ? dadosFrota.combustivel_consumido : 0;
+      // Buscar consumo de combustível do OPC - garantir que sempre seja um número
+      const combustivelConsumido = typeof dadosFrota.combustivel_consumido === 'number' && !isNaN(dadosFrota.combustivel_consumido) 
+        ? dadosFrota.combustivel_consumido 
+        : 0;
+      
+      console.log(`Frota ${frota}: combustivel_consumido = ${combustivelConsumido} (tipo: ${typeof dadosFrota.combustivel_consumido})`);
       
       // Organizar dados por turno
       const turnosDados = boletins.map(b => ({
@@ -274,10 +278,10 @@ export async function buscarDadosProducaoPorFrenteData(frente: string, data: Dat
         frota,
         turnos: turnosDados,
         total_producao: totalProducao,
-        horas_motor: dadosFrota.h_motor,
+        horas_motor: dadosFrota.h_motor || 0,
         hectare_por_hora: hectarePorHora,
         motor_ocioso_perc: motorOciosoPerc,
-        combustivel_consumido
+        combustivel_consumido: combustivelConsumido
       });
     });
     

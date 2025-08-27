@@ -10,6 +10,7 @@ import { X, Download, Copy, Printer } from "lucide-react"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { cn } from "@/lib/utils"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import "./relatorio-styles.css"
 
 interface RelatorioDiarioCavProps {
@@ -19,6 +20,7 @@ interface RelatorioDiarioCavProps {
   data: Date
   imagemDeslocamento?: string
   imagemArea?: string
+  dadosPassados?: Record<string, any>
 }
 
 export function RelatorioDiarioCav({ 
@@ -27,7 +29,8 @@ export function RelatorioDiarioCav({
   frente, 
   data,
   imagemDeslocamento,
-  imagemArea
+  imagemArea,
+  dadosPassados
 }: RelatorioDiarioCavProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
@@ -38,7 +41,7 @@ export function RelatorioDiarioCav({
     if (open && frente && data) {
       carregarDados()
     }
-  }, [open, frente, data])
+  }, [open, frente, data, dadosPassados])
   
   const carregarDados = async () => {
     setIsLoading(true)
@@ -46,6 +49,87 @@ export function RelatorioDiarioCav({
     
     try {
       console.log(`Carregando dados para frente: ${frente}, data original: ${data.toISOString()}`);
+      console.log(`Dados já passados:`, dadosPassados);
+      
+      // Se temos dados passados diretamente (do diario_cav), usar esses dados
+      if (dadosPassados && Object.keys(dadosPassados).length > 0) {
+        console.log("🎯 Usando dados passados diretamente da tabela diario_cav");
+        console.log("📊 Dados recebidos:", dadosPassados);
+        
+        // Os dados agora vêm com a nova estrutura: { frotas: {...}, agregados: {...} }
+        const frotasData = dadosPassados.frotas || dadosPassados; // Compatibilidade com dados antigos
+        const agregadosData = dadosPassados.agregados || null;
+        
+        console.log("📊 Frotas recebidas:", frotasData);
+        console.log("📊 Agregados recebidos:", agregadosData);
+        
+        // Transformar para o formato esperado pelo relatório
+        const frotasProducao = Object.entries(frotasData).map(([frotaKey, dadosFrota]: [string, any]) => {
+          const frotaNum = parseInt(frotaKey);
+          const totalProducao = dadosFrota.total_producao || 0;
+          const horasMotor = dadosFrota.h_motor || 0;
+          const hectarePorHora = dadosFrota.hectare_por_hora || 0;
+          const turnos = dadosFrota.turnos || [];
+          
+          // Converter fator de carga para porcentagem (multiplicar por 100)
+          const motorOciosoPerc = (dadosFrota.fator_carga_motor_ocioso || 0) * 100;
+          
+          console.log(`🚜 Frota ${frotaNum}: produção=${totalProducao}ha, horas=${horasMotor}h, ha/h=${hectarePorHora.toFixed(2)}, ocioso=${motorOciosoPerc.toFixed(1)}%, turnos=${turnos.length}`);
+          
+          return {
+            frota: frotaNum,
+            turnos: turnos,
+            total_producao: totalProducao,
+            horas_motor: horasMotor,
+            hectare_por_hora: hectarePorHora,
+            motor_ocioso_perc: motorOciosoPerc,
+            combustivel_consumido: dadosFrota.combustivel_consumido || 0
+          };
+        });
+        
+        console.log("🔄 Frotas transformadas:", frotasProducao);
+        
+        // Calcular totais (usar dados agregados se disponíveis)
+        const totalProducaoGeral = frotasProducao.reduce((sum, f) => sum + f.total_producao, 0);
+        const totalHorasMotor = frotasProducao.reduce((sum, f) => sum + f.horas_motor, 0);
+        
+        // Usar dados agregados se disponíveis, senão usar valores padrão
+        const totaisCalculados = agregadosData ? {
+          total_producao: agregadosData.total_producao || totalProducaoGeral,
+          total_horas_motor: totalHorasMotor,
+          lamina_alvo: agregadosData.lamina_alvo || 10,
+          total_viagens: agregadosData.total_viagens_feitas || 20,
+          lamina_aplicada: agregadosData.lamina_aplicada || 0,
+          viagens_orcadas: agregadosData.total_viagens_orcadas || 0,
+          dif_viagens_perc: agregadosData.dif_viagens_perc || 0,
+          dif_lamina_perc: agregadosData.dif_lamina_perc || 0
+        } : {
+          total_producao: totalProducaoGeral,
+          total_horas_motor: totalHorasMotor,
+          lamina_alvo: 10,
+          total_viagens: 20,
+          lamina_aplicada: 0,
+          viagens_orcadas: 0,
+          dif_viagens_perc: 0,
+          dif_lamina_perc: 0
+        };
+        
+        console.log("📊 Totais calculados:", totaisCalculados);
+        
+        const dadosTransformados = {
+          frotas: frotasProducao,
+          totais: totaisCalculados
+        };
+        
+        console.log("✅ Dados finais transformados:", dadosTransformados);
+        
+        setDadosRelatorio(dadosTransformados);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Caso contrário, buscar dados do serviço (fallback para dados mockados)
+      console.log("⚠️ Nenhum dado passado, buscando do serviço...");
       
       // Garantir que estamos usando a data correta (sem problemas de fuso horário)
       // Usar a data fornecida diretamente, já que ela foi ajustada no componente DiarioCav
@@ -55,18 +139,28 @@ export function RelatorioDiarioCav({
       
       const dados = await buscarDadosProducaoPorFrenteData(frente, dataFormatada)
       
-      // Garantir que todas as frotas tenham combustivel_consumido definido
+      // Garantir que todas as frotas tenham todas as propriedades necessárias definidas
       if (dados && dados.frotas && Array.isArray(dados.frotas)) {
         dados.frotas = dados.frotas.map((frota: any) => {
           if (!frota) return null;
           
-          // Garantir que combustivel_consumido esteja definido
-          if (typeof frota.combustivel_consumido !== 'number') {
-            console.warn(`Frota ${frota.frota} não tem combustivel_consumido definido. Definindo como 0.`);
-            frota.combustivel_consumido = 0;
-          }
+          // Garantir que todas as propriedades essenciais estejam definidas
+          const frotaNormalizada = {
+            ...frota,
+            combustivel_consumido: typeof frota.combustivel_consumido === 'number' && !isNaN(frota.combustivel_consumido) ? frota.combustivel_consumido : 0,
+            horas_motor: typeof frota.horas_motor === 'number' && !isNaN(frota.horas_motor) ? frota.horas_motor : 0,
+            motor_ocioso_perc: typeof frota.motor_ocioso_perc === 'number' && !isNaN(frota.motor_ocioso_perc) ? frota.motor_ocioso_perc : 0,
+            hectare_por_hora: typeof frota.hectare_por_hora === 'number' && !isNaN(frota.hectare_por_hora) ? frota.hectare_por_hora : 0,
+            total_producao: typeof frota.total_producao === 'number' && !isNaN(frota.total_producao) ? frota.total_producao : 0
+          };
           
-          return frota;
+          console.log(`Frota ${frotaNormalizada.frota} normalizada:`, {
+            combustivel_consumido: frotaNormalizada.combustivel_consumido,
+            horas_motor: frotaNormalizada.horas_motor,
+            motor_ocioso_perc: frotaNormalizada.motor_ocioso_perc
+          });
+          
+          return frotaNormalizada;
         }).filter(Boolean);
       }
       
@@ -98,33 +192,63 @@ export function RelatorioDiarioCav({
       const contentHeight = pageHeight - (margin * 2)
       
       // Primeira página com gráficos
-      const canvas1 = await html2canvas(relatorioRef.current.querySelector(".pagina-1") as HTMLElement, {
-        logging: false,
-        useCORS: true
-      } as any)
-      const imgData1 = canvas1.toDataURL("image/png")
-      pdf.addImage(imgData1, "PNG", margin, margin, contentWidth, contentHeight)
+      const pagina1 = relatorioRef.current.querySelector(".pagina-1") as HTMLElement
+      if (pagina1) {
+        const canvas1 = await html2canvas(pagina1, {
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          scale: 2, // Melhor qualidade
+          width: pagina1.offsetWidth,
+          height: pagina1.offsetHeight,
+          backgroundColor: '#ffffff'
+        } as any)
+        const imgData1 = canvas1.toDataURL("image/png", 1.0)
+        pdf.addImage(imgData1, "PNG", margin, margin, contentWidth, contentHeight)
+      }
       
-      // Segunda página com mapa de deslocamento
-      if (imagemDeslocamento) {
+      // Segunda página com gráfico de combustível + mapa de deslocamento
+      const pagina2 = relatorioRef.current.querySelector(".pagina-2") as HTMLElement
+      if (pagina2) {
         pdf.addPage()
-        const img = new Image()
-        img.src = imagemDeslocamento
-        await new Promise<void>((resolve) => {
-          img.onload = () => resolve()
-        })
-        pdf.addImage(img, "PNG", margin, margin, contentWidth, contentHeight)
+        const canvas2 = await html2canvas(pagina2, {
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          scale: 2, // Melhor qualidade
+          width: pagina2.offsetWidth,
+          height: pagina2.offsetHeight,
+          backgroundColor: '#ffffff'
+        } as any)
+        const imgData2 = canvas2.toDataURL("image/png", 1.0)
+        pdf.addImage(imgData2, "PNG", margin, margin, contentWidth, contentHeight)
       }
       
       // Terceira página com imagem de área (se existir)
       if (imagemArea) {
         pdf.addPage()
         const img = new Image()
+        img.crossOrigin = "anonymous"
         img.src = imagemArea
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
           img.onload = () => resolve()
+          img.onerror = () => reject(new Error("Erro ao carregar imagem de área"))
         })
-        pdf.addImage(img, "PNG", margin, margin, contentWidth, contentHeight)
+        
+        // Calcular dimensões para manter proporção
+        const imgAspectRatio = img.width / img.height
+        let imgWidth = contentWidth
+        let imgHeight = contentWidth / imgAspectRatio
+        
+        if (imgHeight > contentHeight) {
+          imgHeight = contentHeight
+          imgWidth = contentHeight * imgAspectRatio
+        }
+        
+        const x = margin + (contentWidth - imgWidth) / 2
+        const y = margin + (contentHeight - imgHeight) / 2
+        
+        pdf.addImage(img, "PNG", x, y, imgWidth, imgHeight)
       }
       
       pdf.save(`Relatório-CAV-${frente}-${format(data, "dd-MM-yyyy")}.pdf`)
@@ -196,78 +320,80 @@ export function RelatorioDiarioCav({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-              <DialogContent className="sm:max-w-[1000px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-center">Relatório Diário CAV</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center justify-between py-2 border-b">
-            <span className="flex-1 text-center text-sm text-gray-500">Frente: {frente} - Data: {format(data, "dd/MM/yyyy", { locale: ptBR })}</span>
-            <DialogClose asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 rounded-lg border border-gray-300 shadow-sm"
-                aria-label="Fechar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
+      <DialogContent className="max-w-7xl w-full max-h-[95vh] overflow-hidden p-0 flex flex-col">
+        <DialogHeader className="p-6 pb-4 text-center border-b">
+          <DialogTitle className="text-xl font-bold">Relatório Diário CAV</DialogTitle>
+          <div className="text-sm text-gray-600 mt-2">
+            Frente: {frente} - Data: {format(data, "dd/MM/yyyy", { locale: ptBR })}
           </div>
+          <DialogClose asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute right-4 top-4 h-8 w-8 rounded-lg border border-gray-300 shadow-sm"
+              aria-label="Fechar"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogClose>
+        </DialogHeader>
         
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
-            {error}
+        <div className="flex-1 overflow-auto p-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
+              {error}
+            </div>
+          )}
+          
+          <div className="flex justify-center gap-2 mb-6">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-1"
+              onClick={handleOpenInNewTab}
+              disabled={isLoading}
+            >
+              <span>Abrir em Nova Aba</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-1"
+              onClick={handleDownloadPDF}
+              disabled={isLoading}
+            >
+              <Download className="h-4 w-4" />
+              <span>Baixar PDF</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-1"
+              onClick={handleCopyAsPNG}
+              disabled={isLoading}
+            >
+              <Copy className="h-4 w-4" />
+              <span>Copiar como PNG</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-1"
+              onClick={handlePrint}
+              disabled={isLoading}
+            >
+              <Printer className="h-4 w-4" />
+              <span>Imprimir</span>
+            </Button>
           </div>
-        )}
-        
-        <div className="flex justify-end gap-2 mb-4">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex items-center gap-1"
-            onClick={handleOpenInNewTab}
-            disabled={isLoading}
-          >
-            <span>Abrir em Nova Aba</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex items-center gap-1"
-            onClick={handleDownloadPDF}
-            disabled={isLoading}
-          >
-            <Download className="h-4 w-4" />
-            <span>Baixar PDF</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex items-center gap-1"
-            onClick={handleCopyAsPNG}
-            disabled={isLoading}
-          >
-            <Copy className="h-4 w-4" />
-            <span>Copiar como PNG</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex items-center gap-1"
-            onClick={handlePrint}
-            disabled={isLoading}
-          >
-            <Printer className="h-4 w-4" />
-            <span>Imprimir</span>
-          </Button>
-        </div>
         
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
           </div>
-        ) : dadosRelatorio ? (
-          <div ref={relatorioRef} className="print:shadow-none" style={{ width: "210mm", minHeight: "297mm" }}>
+          ) : dadosRelatorio ? (
+            <div className="flex justify-center">
+              <div ref={relatorioRef} className="print:shadow-none" style={{ width: "210mm", minHeight: "297mm" }}>
             {/* Primeira página com gráficos */}
             <div className="pagina-1 border rounded-md p-6 mb-4 print:border-none print:p-0" style={{ width: "210mm", height: "297mm" }}>
               <div className="flex justify-between items-center mb-6">
@@ -286,9 +412,19 @@ export function RelatorioDiarioCav({
               <div className="border border-gray-400 rounded-md p-4 mb-6 shadow-sm">
                 <h3 className="text-center font-semibold mb-2">Ha aplicados</h3>
 
-                <div className="flex justify-around">
+                <div className={`flex justify-center ${dadosRelatorio.frotas.filter((f: any) => f && f.frota && f.frota !== 'N/A' && !isNaN(f.frota) && f.horas_motor > 0).length <= 2 ? 'gap-32' : dadosRelatorio.frotas.filter((f: any) => f && f.frota && f.frota !== 'N/A' && !isNaN(f.frota) && f.horas_motor > 0).length === 3 ? 'gap-20' : 'gap-12'}`}>
                   {dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 ? (
-                    dadosRelatorio.frotas.map((frota: any) => {
+                    dadosRelatorio.frotas.filter((frota: any) => {
+                      // Filtrar apenas frotas com dados válidos
+                      const frotaValida = frota && 
+                        typeof frota === 'object' && 
+                        frota.frota && 
+                        frota.frota !== 'N/A' && 
+                        !isNaN(frota.frota) &&
+                        typeof frota.horas_motor === 'number' && 
+                        frota.horas_motor > 0;
+                      return frotaValida;
+                    }).map((frota: any) => {
                       // Verificar se frota é um objeto válido
                       if (!frota || typeof frota !== 'object') {
                         console.error("Frota inválida no gráfico Ha aplicados:", frota);
@@ -346,14 +482,24 @@ export function RelatorioDiarioCav({
               </div>
               
               <div className="border border-gray-400 rounded-md p-4 mb-6 shadow-sm">
-                <h3 className="text-center font-semibold mb-2">Hectare por Hora Motor</h3>
+                <h3 className="text-center font-semibold mb-2">Hectares por Hora Motor</h3>
 
                 <div className="flex flex-col gap-4">
                   {dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 ? (
-                    dadosRelatorio.frotas.map((frota: any) => {
+                    dadosRelatorio.frotas.filter((frota: any) => {
+                      // Filtrar apenas frotas com dados válidos
+                      const frotaValida = frota && 
+                        typeof frota === 'object' && 
+                        frota.frota && 
+                        frota.frota !== 'N/A' && 
+                        !isNaN(frota.frota) &&
+                        typeof frota.horas_motor === 'number' && 
+                        frota.horas_motor > 0;
+                      return frotaValida;
+                    }).map((frota: any) => {
                       // Verificar se frota é um objeto válido
                       if (!frota || typeof frota !== 'object') {
-                        console.error("Frota inválida no gráfico Hectare por Hora Motor:", frota);
+                        console.error("Frota inválida no gráfico Hectares por Hora Motor:", frota);
                         return null;
                       }
                       
@@ -362,6 +508,11 @@ export function RelatorioDiarioCav({
                       const hectarePorHora = typeof frota.hectare_por_hora === 'number' ? frota.hectare_por_hora : 0;
                       const totalProducao = typeof frota.total_producao === 'number' ? frota.total_producao : 0;
                       
+                      // Calcular porcentagem para barra (baseado no maior hectare_por_hora, máximo 80%)
+                      const frotasValidas = dadosRelatorio.frotas.filter((f: any) => f && f.hectare_por_hora > 0);
+                      const maxHectarePorHora = frotasValidas.length > 0 ? Math.max(...frotasValidas.map((f: any) => f.hectare_por_hora)) : 1;
+                      const porcentagemBarra = maxHectarePorHora > 0 ? Math.min((hectarePorHora / maxHectarePorHora) * 80, 80) : 5;
+                      
                       return (
                         <div key={frota.frota || 'unknown'} className="flex items-center">
                           <div className="w-12 text-left text-xs font-semibold">{frota.frota || 'N/A'}</div>
@@ -369,11 +520,11 @@ export function RelatorioDiarioCav({
                             <div className="font-semibold">{horasMotor.toFixed(2)}h</div>
                             <div>Horas Motor</div>
                           </div>
-                          <div className="flex-1 mx-2">
-                            <div className="h-8 bg-gray-100">
+                          <div className="flex-1 mx-2 relative">
+                            <div className="w-full h-6 bg-gray-300 rounded-full border">
                               <div 
-                                className="bg-green-500 h-8" 
-                                style={{ width: `${Math.min(hectarePorHora * 20, 100)}%` }}
+                                className="bg-green-600 h-6 rounded-full transition-all duration-300" 
+                                style={{ width: `${Math.max(porcentagemBarra, 5)}%` }}
                               ></div>
                             </div>
                           </div>
@@ -387,7 +538,7 @@ export function RelatorioDiarioCav({
                     })
                   ) : (
                     <div className="text-center w-full text-gray-500">
-                      Nenhum dado de hectare por hora disponível
+                      Nenhum dado de hectares por hora disponível
                     </div>
                   )}
                 </div>
@@ -396,8 +547,18 @@ export function RelatorioDiarioCav({
               <div className="border border-gray-400 rounded-md p-4 shadow-sm">
                 <h3 className="text-center font-semibold mb-2">% Motor Ocioso</h3>
 
-                <div className="flex justify-center gap-20 py-8">
-                  {dadosRelatorio.frotas.map((frota: any) => (
+                <div className={`flex justify-center py-8 ${dadosRelatorio.frotas.filter((f: any) => f && f.frota && f.frota !== 'N/A' && !isNaN(f.frota) && f.horas_motor > 0).length <= 2 ? 'gap-32' : dadosRelatorio.frotas.filter((f: any) => f && f.frota && f.frota !== 'N/A' && !isNaN(f.frota) && f.horas_motor > 0).length === 3 ? 'gap-20' : 'gap-12'}`}>
+                  {dadosRelatorio.frotas.filter((frota: any) => {
+                    // Filtrar apenas frotas com dados válidos
+                    const frotaValida = frota && 
+                      typeof frota === 'object' && 
+                      frota.frota && 
+                      frota.frota !== 'N/A' && 
+                      !isNaN(frota.frota) &&
+                      typeof frota.horas_motor === 'number' && 
+                      frota.horas_motor > 0;
+                    return frotaValida;
+                  }).map((frota: any) => (
                     <div key={frota.frota} className="flex flex-col items-center">
                       <div className="relative w-40 h-40">
                         <svg viewBox="-20 -20 140 140" className="w-full h-full">
@@ -488,59 +649,69 @@ export function RelatorioDiarioCav({
                 <div className="border border-gray-400 rounded-md p-4 mb-4 shadow-sm">
                   <h3 className="text-center font-semibold mb-2">Consumo de Combustível (l/h)</h3>
 
-                  <div className="flex justify-center items-end h-32 gap-8">
-                    {dadosRelatorio?.frotas && Array.isArray(dadosRelatorio.frotas) && dadosRelatorio.frotas.length > 0 ? (
-                      dadosRelatorio.frotas.map((frota: any, index: number) => {
+                  <div className="flex flex-col gap-4">
+                    {dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 ? (
+                      dadosRelatorio.frotas.filter((frota: any) => {
+                        // Filtrar apenas frotas com dados válidos
+                        const frotaValida = frota && 
+                          typeof frota === 'object' && 
+                          frota.frota && 
+                          frota.frota !== 'N/A' && 
+                          !isNaN(frota.frota) &&
+                          typeof frota.horas_motor === 'number' && 
+                          frota.horas_motor > 0;
+                        return frotaValida;
+                      }).map((frota: any) => {
+                        // Verificar se frota é um objeto válido
                         if (!frota || typeof frota !== 'object') {
+                          console.error("Frota inválida no gráfico Consumo de Combustível:", frota);
                           return null;
                         }
                         
-                        try {
-                          // Garantir que temos um valor numérico para consumo
-                          let consumo = 0;
-                          
-                          // Verificar todas as possíveis formas de acessar o consumo
-                          if (typeof frota.combustivel_consumido === 'number') {
-                            consumo = frota.combustivel_consumido;
-                          } else if (frota.dados && typeof frota.dados.combustivel_consumido === 'number') {
-                            consumo = frota.dados.combustivel_consumido;
-                          } else if (frota.dados && frota.frota && frota.dados[frota.frota] && typeof frota.dados[frota.frota].combustivel_consumido === 'number') {
-                            consumo = frota.dados[frota.frota].combustivel_consumido;
-                          } else {
-                            // Valor padrão baseado no índice para ter alguma variação visual
-                            consumo = 10 + (index * 2);
-                          }
-                          
-                          console.log(`Renderizando frota ${frota.frota || index} com consumo: ${consumo}`);
-                          
-                          return (
-                            <div key={frota.frota || `frota-${index}`} className="flex flex-col items-center">
-                              <div className="flex flex-col items-center">
-                                <div className="text-xs mb-1">{consumo.toFixed(2)}</div>
+                        // Garantir que os valores numéricos existem
+                        const horasMotor = typeof frota.horas_motor === 'number' ? frota.horas_motor : 0;
+                        const consumoTotal = typeof frota.combustivel_consumido === 'number' ? frota.combustivel_consumido : 0;
+                        const consumoPorHora = horasMotor > 0 ? consumoTotal / horasMotor : 0;
+                        
+                        // Calcular porcentagem para barra de consumo (baseado no maior consumo por hora)
+                        const frotasValidasConsumo = dadosRelatorio.frotas.filter((f: any) => {
+                          const hMotor = typeof f.horas_motor === 'number' ? f.horas_motor : 0;
+                          const cTotal = typeof f.combustivel_consumido === 'number' ? f.combustivel_consumido : 0;
+                          return hMotor > 0 && cTotal > 0;
+                        });
+                        const maxConsumoPorHora = frotasValidasConsumo.length > 0 ? Math.max(...frotasValidasConsumo.map((f: any) => {
+                          const hMotor = f.horas_motor || 0;
+                          const cTotal = f.combustivel_consumido || 0;
+                          return hMotor > 0 ? cTotal / hMotor : 0;
+                        })) : 1;
+                        const porcentagemBarraConsumo = maxConsumoPorHora > 0 ? Math.min((consumoPorHora / maxConsumoPorHora) * 80, 80) : 5;
+                        
+                        return (
+                          <div key={frota.frota || 'unknown'} className="flex items-center">
+                            <div className="w-12 text-left text-xs font-semibold">{frota.frota || 'N/A'}</div>
+                            <div className="w-20 text-center text-xs">
+                              <div className="font-semibold">{horasMotor.toFixed(2)}h</div>
+                              <div>Horas Motor</div>
+                            </div>
+                            <div className="flex-1 mx-2 relative">
+                              <div className="w-full h-6 bg-gray-300 rounded-full border">
                                 <div 
-                                  className="bg-green-500 w-16" 
-                                  style={{ height: `${Math.min(consumo * 2, 100)}px` }}
+                                  className="bg-green-600 h-6 rounded-full transition-all duration-300"
+                                  style={{ width: `${Math.max(porcentagemBarraConsumo, 5)}%` }}
                                 ></div>
                               </div>
-                              <div className="mt-2 text-xs font-semibold">{frota.frota || `Frota ${index + 1}`}</div>
                             </div>
-                          );
-                        } catch (error) {
-                          console.error(`Erro ao renderizar frota ${frota?.frota || index}:`, error);
-                          return (
-                            <div key={`error-${index}`} className="flex flex-col items-center">
-                              <div className="flex flex-col items-center">
-                                <div className="text-xs mb-1">0.00</div>
-                                <div className="bg-gray-300 w-16 h-4"></div>
-                              </div>
-                              <div className="mt-2 text-xs font-semibold">{frota?.frota || `Frota ${index + 1}`}</div>
+                            <div className="w-20 text-center text-xs">
+                              <div className="font-semibold">{consumoTotal.toFixed(2)} L</div>
+                              <div>Total Consumo</div>
                             </div>
-                          );
-                        }
+                            <div className="w-16 text-right text-xs font-semibold">{consumoPorHora.toFixed(2)}</div>
+                          </div>
+                        );
                       })
                     ) : (
-                      <div className="text-center w-full text-gray-500">
-                        Nenhum dado de consumo disponível
+                      <div className="text-center text-gray-500 text-sm">
+                        Nenhum dado disponível
                       </div>
                     )}
                   </div>
@@ -576,12 +747,14 @@ export function RelatorioDiarioCav({
                 </div>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="text-center py-10 text-gray-500">
-            Nenhum dado disponível para o relatório
-          </div>
-        )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-10 text-gray-500">
+              Nenhum dado disponível para o relatório
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   )
