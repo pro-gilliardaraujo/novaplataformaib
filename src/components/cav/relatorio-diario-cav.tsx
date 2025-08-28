@@ -82,12 +82,15 @@ export function RelatorioDiarioCav({
 
   // Função para inicializar mapeamento de frotas por imagem
   const inicializarMapeamentoFrotas = (frotas: any[]) => {
+    console.log("🔧 Inicializando mapeamento de frotas:", frotas);
     const mapeamentoInicial: Record<number, string> = {}
     frotas.forEach((frota, index) => {
       if (frota && frota.frota) {
         mapeamentoInicial[index] = frota.frota.toString()
+        console.log(`🔧 Mapeamento[${index}] = ${frota.frota}`);
       }
     })
+    console.log("🔧 Mapeamento inicial completo:", mapeamentoInicial);
     setMapeamentoFrotasPorImagem(mapeamentoInicial)
   }
 
@@ -287,12 +290,21 @@ export function RelatorioDiarioCav({
         
         // Carregar configurações salvas da legenda
         if (dadosPassados.legenda) {
+          console.log("📂 Carregando configurações salvas da legenda:", dadosPassados.legenda);
           const { posicao, customPos, cores, destacarFrotas, mapeamentoFrotas } = dadosPassados.legenda;
           if (posicao) setLegendaPosicao(posicao);
           if (customPos) setLegendaCustomPos(customPos);
           if (cores) setFrotaCores(cores);
-          if (destacarFrotas !== undefined) setDestacarFrotasIndividualmente(destacarFrotas);
-          if (mapeamentoFrotas) setMapeamentoFrotasPorImagem(mapeamentoFrotas);
+          if (destacarFrotas !== undefined) {
+            console.log("📂 Definindo destacarFrotasIndividualmente:", destacarFrotas);
+            setDestacarFrotasIndividualmente(destacarFrotas);
+          }
+          if (mapeamentoFrotas) {
+            console.log("📂 Carregando mapeamento salvo:", mapeamentoFrotas);
+            setMapeamentoFrotasPorImagem(mapeamentoFrotas);
+          }
+        } else {
+          console.log("📂 Nenhuma configuração de legenda salva encontrada");
         }
         
         setIsLoading(false);
@@ -512,18 +524,43 @@ export function RelatorioDiarioCav({
         
         {/* Cabeçalho fixo com controles de legenda e comandos */}
         {!isLoading && dadosRelatorio && dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 && (
-          <div className="border-b bg-white px-6 py-3">
+          <div className="border-b bg-white">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
+              <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mx-6">
                 {error}
               </div>
             )}
             
-            <div className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg">
-              {/* Esquerda - Controles de Legenda */}
-              <div className="flex items-center gap-4">
+            {/* Primeira linha - Controles de Legenda */}
+            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center gap-6 flex-wrap">
+                {/* Checkbox Destacar Frotas */}
+                {(() => {
+                  let imagensArray: string[] = [];
+                  
+                  if (imagensDeslocamento && Array.isArray(imagensDeslocamento) && imagensDeslocamento.length > 0) {
+                    imagensArray = imagensDeslocamento;
+                  } else if (imagemDeslocamento) {
+                    imagensArray = [imagemDeslocamento];
+                  }
+                  
+                  return imagensArray.length >= 1 ? (
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={destacarFrotasIndividualmente}
+                          onChange={(e) => setDestacarFrotasIndividualmente(e.target.checked)}
+                          className="rounded"
+                        />
+                        Destacar frotas
+                      </label>
+                    </div>
+                  ) : null;
+                })()}
+
                 {/* Cores das Frotas */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-fit">
                   {dadosRelatorio.frotas
                     .filter((frota: any) => frota && frota.frota && frota.frota !== 'N/A' && !isNaN(frota.frota))
                     .map((frota: any) => (
@@ -544,66 +581,73 @@ export function RelatorioDiarioCav({
                 </div>
                 
                 {/* Posição da Legenda */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-fit">
                   <Button
                     variant={legendaPosicao === 'esquerda' && !legendaCustomPos ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => { setLegendaPosicao('esquerda'); setLegendaCustomPos(null); }}
+                    className="text-xs px-2 py-1 h-7"
                   >
-                    Inferior Esquerda
+                    Legenda | Esquerda
                   </Button>
                   <Button
                     variant={legendaPosicao === 'direita' && !legendaCustomPos ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => { setLegendaPosicao('direita'); setLegendaCustomPos(null); }}
+                    className="text-xs px-2 py-1 h-7"
                   >
-                    Inferior Direita
+                    Legenda | Direita
                   </Button>
                   {legendaCustomPos && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={resetarPosicaoLegenda}
-                      className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                      className="text-orange-600 border-orange-300 hover:bg-orange-50 text-xs px-2 py-1 h-7"
                     >
-                      Resetar Posição
+                      Resetar legenda
                     </Button>
                   )}
                 </div>
-                
-                {/* Controles para múltiplas imagens */}
-                {(() => {
-                  let imagensArray: string[] = [];
-                  
-                  if (imagensDeslocamento && Array.isArray(imagensDeslocamento) && imagensDeslocamento.length > 0) {
-                    imagensArray = imagensDeslocamento;
-                  } else if (imagemDeslocamento) {
-                    imagensArray = [imagemDeslocamento];
-                  }
-                  
-                  return imagensArray.length > 1 ? (
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={destacarFrotasIndividualmente}
-                          onChange={(e) => setDestacarFrotasIndividualmente(e.target.checked)}
-                          className="rounded"
-                        />
-                        Destacar frotas individualmente por imagem
-                      </label>
-                      
-                      {destacarFrotasIndividualmente && (
-                        <div className="flex items-center gap-2 ml-4">
-                          {imagensArray.map((_, index) => (
+              </div>
+            </div>
+            
+            {/* Segunda linha - Controles de Múltiplas Imagens e Botões Principais */}
+            <div className="px-6 py-3 bg-white">
+              <div className="flex items-center justify-between gap-4">
+                {/* Controles de múltiplas imagens à esquerda */}
+                <div className="flex items-center gap-4">
+                  {/* Controles para mapeamento de frotas por imagem */}
+                  {destacarFrotasIndividualmente && (() => {
+                    let imagensArray: string[] = [];
+                    
+                    if (imagensDeslocamento && Array.isArray(imagensDeslocamento) && imagensDeslocamento.length > 0) {
+                      imagensArray = imagensDeslocamento;
+                    } else if (imagemDeslocamento) {
+                      imagensArray = [imagemDeslocamento];
+                    }
+                    
+                    return imagensArray.length > 1 ? (
+                      <div className="flex items-center gap-2">
+                        {imagensArray.map((_, index) => {
+                          console.log(`🎮 Select Img ${index + 1}:`, {
+                            valorAtual: mapeamentoFrotasPorImagem[index],
+                            mapeamentoCompleto: mapeamentoFrotasPorImagem,
+                            frotasDisponiveis: dadosRelatorio.frotas?.map((f: any) => f.frota)
+                          });
+                          
+                          return (
                             <div key={index} className="flex items-center gap-1">
-                              <span className="text-sm">Img {index + 1}:</span>
+                              <span className="text-sm">Imagem {index + 1}:</span>
                               <select
                                 value={mapeamentoFrotasPorImagem[index] || ''}
-                                onChange={(e) => setMapeamentoFrotasPorImagem(prev => ({
-                                  ...prev,
-                                  [index]: e.target.value
-                                }))}
+                                onChange={(e) => {
+                                  console.log(`🎮 Mudando mapeamento Img ${index + 1} para: ${e.target.value}`);
+                                  setMapeamentoFrotasPorImagem(prev => ({
+                                    ...prev,
+                                    [index]: e.target.value
+                                  }));
+                                }}
                                 className="text-sm border rounded px-2 py-1"
                               >
                                 <option value="">Selecionar frota</option>
@@ -616,50 +660,47 @@ export function RelatorioDiarioCav({
                                   ))}
                               </select>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : null;
-                })()}
-              </div>
+                          );
+                        })}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
 
-              {/* Separador */}
-              <div className="h-8 w-px bg-gray-300"></div>
-
-              {/* Direita - Comandos Principais */}
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-1"
-                  onClick={handleOpenInNewTab}
-                  disabled={isLoading}
-                >
-                  <span>Abrir em Nova Aba</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-1"
-                  onClick={handleDownloadPDF}
-                  disabled={isLoading}
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Baixar PDF</span>
-                </Button>
-                {(legendaCustomPos || frotaCores) && (
+                {/* Botões Principais à direita */}
+                <div className="flex items-center gap-2">
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="flex items-center gap-1 text-green-600 border-green-300 hover:bg-green-50"
-                    onClick={salvarPosicaoLegenda}
+                    className="flex items-center gap-1 whitespace-nowrap"
+                    onClick={handleOpenInNewTab}
                     disabled={isLoading}
-                    data-salvar-legenda
                   >
-                    <span>Salvar Legenda</span>
+                    <span>Abrir em Nova Aba</span>
                   </Button>
-                )}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1 whitespace-nowrap"
+                    onClick={handleDownloadPDF}
+                    disabled={isLoading}
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Gerar PDF</span>
+                  </Button>
+                  {(legendaCustomPos || Object.keys(frotaCores).length > 0) && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1 text-green-600 border-green-300 hover:bg-green-50 whitespace-nowrap"
+                      onClick={salvarPosicaoLegenda}
+                      disabled={isLoading}
+                      data-salvar-legenda
+                    >
+                      <span>Salvar legenda</span>
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1053,17 +1094,31 @@ export function RelatorioDiarioCav({
                             const frotasParaExibir = dadosRelatorio.frotas
                               .filter((frota: any) => frota && frota.frota && frota.frota !== 'N/A' && !isNaN(frota.frota));
                             
-                            if (destacarFrotasIndividualmente && imagensArray.length > 1) {
+                            console.log(`🎯 Legenda Imagem ${index + 1}:`, {
+                              destacarIndividualmente: destacarFrotasIndividualmente,
+                              totalImagens: imagensArray.length,
+                              frotasDisponiveis: frotasParaExibir.map((f: any) => f.frota),
+                              mapeamentoCompleto: mapeamentoFrotasPorImagem,
+                              frotaMapeadaIndex: mapeamentoFrotasPorImagem[index]
+                            });
+                            
+                            if (destacarFrotasIndividualmente && imagensArray.length > 0) {
                               const frotaMapeada = mapeamentoFrotasPorImagem[index];
+                              console.log(`🎯 Imagem ${index + 1} - Frota mapeada: ${frotaMapeada}`);
+                              
                               if (frotaMapeada) {
                                 const frotaEspecifica = frotasParaExibir.find((f: any) => f.frota.toString() === frotaMapeada);
+                                console.log(`🎯 Frota específica encontrada:`, frotaEspecifica);
                                 return frotaEspecifica ? [frotaEspecifica] : [];
                               } else {
-                                const frotaAtual = frotasParaExibir[index];
-                                return frotaAtual ? [frotaAtual] : [];
+                                // Fallback: usar frota baseada no índice da imagem
+                                const frotaFallback = frotasParaExibir[index];
+                                console.log(`🎯 Usando fallback - Frota índice ${index}:`, frotaFallback);
+                                return frotaFallback ? [frotaFallback] : [];
                               }
                             }
                             
+                            console.log(`🎯 Modo normal - Exibindo todas as frotas:`, frotasParaExibir.length);
                             return frotasParaExibir;
                           })().map((frota: any) => (
                             <div key={frota.frota} className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>

@@ -476,10 +476,24 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     e.currentTarget.classList.remove('border-black');
     
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const imageFile = droppedFiles.find((file) => file.type.startsWith("image/"));
+    const imageFiles = droppedFiles.filter((file) => file.type.startsWith("image/"));
     
-    if (imageFile) {
-      processImageFile(imageFile, frenteId, isDeslocamento);
+    if (imageFiles.length > 0) {
+      if (isDeslocamento) {
+        // Para imagens de deslocamento, aceitar múltiplas
+        if (imageFiles.length === 1) {
+          processImageFile(imageFiles[0], frenteId, true);
+        } else {
+          // Converter array para FileList-like object
+          const fileList = Object.assign(imageFiles, {
+            item: (index: number) => imageFiles[index]
+          }) as FileList;
+          processMultipleImageFiles(fileList, frenteId);
+        }
+      } else {
+        // Para imagem de área, aceitar apenas uma
+        processImageFile(imageFiles[0], frenteId, false);
+      }
     } else {
       setError("Por favor, arraste apenas arquivos de imagem.");
     }
@@ -1377,16 +1391,48 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
 
                     {/* Imagem Deslocamento */}
                     <div className="w-[250px] pt-6">
+                      <div className="mb-1">
+                      </div>
                       <div 
                         className={cn(
                           "border-2 border-dashed rounded-md p-2 transition-colors",
-                          frente.prevDesloc ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
+                          frente.prevDesloc || frente.imgDeslocMultiplas.length > 0 ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
                         )}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, frente.id, true)}
                       >
-                        {frente.prevDesloc ? (
+                        {frente.imgDeslocMultiplas.length > 0 ? (
+                          <div className="relative">
+                            <div className="grid grid-cols-2 gap-1 max-h-32 overflow-hidden">
+                              {frente.prevDeslocMultiplas.slice(0, 4).map((preview, index) => (
+                                <img 
+                                  key={index}
+                                  src={preview} 
+                                  alt={`Preview ${index + 1}`} 
+                                  className="w-full h-15 object-cover rounded"
+                                />
+                              ))}
+                            </div>
+                            {frente.imgDeslocMultiplas.length > 4 && (
+                              <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1 rounded">
+                                +{frente.imgDeslocMultiplas.length - 4}
+                              </div>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-500 text-white hover:bg-red-600"
+                              onClick={() => handleRemoveMultipleImages(frente.id)}
+                              title="Remover todas as imagens"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                            <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                              {frente.imgDeslocMultiplas.length} img{frente.imgDeslocMultiplas.length > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                        ) : frente.prevDesloc ? (
                           <div className="relative">
                             <img 
                               src={frente.prevDesloc} 
@@ -1409,92 +1455,39 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                             onClick={() => document.getElementById(`imgDesloc-${frente.id}`)?.click()}
                           >
                             <Image className="h-5 w-5" />
-                            <span className="text-sm">Imagem Deslocamento</span>
+                            <span className="text-sm">
+                              {frente.imgDeslocMultiplas.length > 0 ? 'Mais Imagens' : 'Imagem(ns) Deslocamento'}
+                            </span>
                           </Button>
                         )}
                         <Input
                           id={`imgDesloc-${frente.id}`}
                           type="file"
                           accept="image/*"
+                          multiple
                           className="hidden"
                           onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) processImageFile(file, frente.id, true);
+                            const files = e.target.files;
+                            console.log(`📁 Arquivos selecionados:`, files?.length, files);
+                            
+                            if (files && files.length > 0) {
+                              console.log(`📁 Processando ${files.length} arquivo(s)`);
+                              if (files.length === 1) {
+                                console.log(`📁 Imagem única - usando processImageFile`);
+                                processImageFile(files[0], frente.id, true);
+                              } else {
+                                console.log(`📁 Múltiplas imagens - usando processMultipleImageFiles`);
+                                processMultipleImageFiles(files, frente.id);
+                              }
+                            } else {
+                              console.log(`📁 Nenhum arquivo selecionado`);
+                            }
                           }}
                         />
                       </div>
                     </div>
 
-                    {/* Múltiplas Imagens de Deslocamento */}
-                    <div className="w-full pt-6">
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-base font-medium">Múltiplas Imagens de Deslocamento</Label>
-                        <span className="text-xs text-gray-500">
-                          {frente.imgDeslocMultiplas.length > 0 ? `${frente.imgDeslocMultiplas.length} imagens` : 'Opcional'}
-                        </span>
-                      </div>
-                      
-                      {/* Container scrollável para previews */}
-                      {frente.imgDeslocMultiplas.length > 0 ? (
-                        <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2 mb-2">
-                          <div className="grid grid-cols-3 gap-2">
-                            {frente.prevDeslocMultiplas.map((preview, index) => (
-                              <div key={index} className="relative group">
-                                <img 
-                                  src={preview} 
-                                  alt={`Preview ${index + 1}`} 
-                                  className="w-full h-16 object-cover rounded border cursor-pointer transition-transform group-hover:scale-105"
-                                  title={`Imagem ${index + 1} - Clique com hover para ver maior`}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white hover:bg-red-600"
-                                  onClick={() => handleRemoveSingleFromMultiple(frente.id, index)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full mt-2"
-                            onClick={() => handleRemoveMultipleImages(frente.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remover Todas
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-md">
-                          <p className="text-sm text-gray-500 mb-2">Nenhuma imagem múltipla selecionada</p>
-                        </div>
-                      )}
-                      
-                      <Button 
-                        variant="outline" 
-                        className="w-full flex items-center justify-center gap-2"
-                        onClick={() => document.getElementById(`imgDeslocMultiplas-${frente.id}`)?.click()}
-                      >
-                        <Upload className="h-4 w-4" />
-                        <span className="text-sm">Selecionar Múltiplas Imagens</span>
-                      </Button>
-                      <Input
-                        id={`imgDeslocMultiplas-${frente.id}`}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        onChange={(e) => {
-                          const files = e.target.files;
-                          if (files && files.length > 0) {
-                            processMultipleImageFiles(files, frente.id);
-                          }
-                        }}
-                      />
-                    </div>
+
 
                     {/* Imagem Fechamento */}
                     <div className="w-[250px] pt-6">
