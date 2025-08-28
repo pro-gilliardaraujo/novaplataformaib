@@ -66,6 +66,7 @@ interface RelatorioData {
   frente: string;
   data: Date;
   imagemDeslocamento?: string;
+  imagensDeslocamento?: string[];
   imagemArea?: string;
   dados?: Record<string, any>;
 }
@@ -363,7 +364,52 @@ export function DiarioCav() {
                     </TableCell>
                     <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {diario.imagem_deslocamento && (
+                        {/* Verificar múltiplas imagens primeiro */}
+                        {(() => {
+                          let imagensArray = diario.imagens_deslocamento;
+                          if (typeof imagensArray === 'string') {
+                            try {
+                              imagensArray = JSON.parse(imagensArray);
+                            } catch (e) {
+                              console.error('Erro ao fazer parse de imagens_deslocamento:', e);
+                              imagensArray = null;
+                            }
+                          }
+                          
+                          console.log(`📊 Diário ${diario.id}:`, { 
+                            imagem_unica: diario.imagem_deslocamento, 
+                            multiplas_raw: diario.imagens_deslocamento,
+                            multiplas_parsed: imagensArray 
+                          });
+                          
+                          return imagensArray && Array.isArray(imagensArray) && imagensArray.length > 0;
+                        })() ? (
+                          (() => {
+                            let imagensArray = diario.imagens_deslocamento;
+                            if (typeof imagensArray === 'string') {
+                              try {
+                                imagensArray = JSON.parse(imagensArray);
+                              } catch (e) {
+                                return null;
+                              }
+                            }
+                            return imagensArray;
+                          })().map((imgUrl, index) => (
+                            <a 
+                              key={index}
+                              href={imgUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:text-blue-700 relative"
+                              title={`Ver imagem de deslocamento ${index + 1}`}
+                            >
+                              <Image className="h-4 w-4" />
+                              <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-3 h-3 flex items-center justify-center leading-none">
+                                {index + 1}
+                              </span>
+                            </a>
+                          ))
+                        ) : diario.imagem_deslocamento ? (
                           <a 
                             href={diario.imagem_deslocamento} 
                             target="_blank" 
@@ -373,7 +419,8 @@ export function DiarioCav() {
                           >
                             <Image className="h-4 w-4" />
                           </a>
-                        )}
+                        ) : null}
+                        
                         {diario.imagem_area && (
                           <a 
                             href={diario.imagem_area} 
@@ -409,11 +456,18 @@ export function DiarioCav() {
                               console.warn("Alerta: Dados OPC não encontrados para este diário.");
                             } else {
                               // Verificar se cada frota tem combustivel_consumido definido
+                              console.log("🔍 Verificando dados das frotas:", diario.dados);
                               Object.keys(diario.dados).forEach(frotaKey => {
                                 const frotaData = diario.dados[frotaKey];
-                                if (!frotaData.combustivel_consumido) {
-                                  console.warn(`Frota ${frotaKey} não tem combustivel_consumido definido. Definindo como 0.`);
-                                  frotaData.combustivel_consumido = 0;
+                                console.log(`🔍 Verificando frota ${frotaKey}:`, frotaData);
+                                
+                                if (frotaData && typeof frotaData === 'object') {
+                                  if (typeof frotaData.combustivel_consumido !== 'number') {
+                                    console.warn(`⚠️ Frota ${frotaKey} não tem combustivel_consumido válido. Valor atual:`, frotaData.combustivel_consumido);
+                                    frotaData.combustivel_consumido = 0;
+                                  }
+                                } else {
+                                  console.error(`❌ Frota ${frotaKey} tem dados inválidos (${typeof frotaData}):`, frotaData);
                                 }
                               });
                             }
@@ -427,10 +481,22 @@ export function DiarioCav() {
                             console.log(`Data do banco: ${diario.data}, Data forçada: ${dataCorreta.toISOString()}, Dia forçado: ${dia}`);
                             console.log(`Dados do diário para relatório:`, diario.dados);
                             
+                            // Lógica para verificar múltiplas imagens
+                            let imagensDeslocamentoArray = diario.imagens_deslocamento;
+                            if (typeof imagensDeslocamentoArray === 'string') {
+                              try {
+                                imagensDeslocamentoArray = JSON.parse(imagensDeslocamentoArray);
+                              } catch (e) {
+                                console.error('Erro ao fazer parse de imagens_deslocamento para relatório:', e);
+                                imagensDeslocamentoArray = undefined;
+                              }
+                            }
+                            
                             setRelatorioData({
                               frente: diario.frente,
                               data: dataCorreta,
                               imagemDeslocamento: diario.imagem_deslocamento || undefined,
+                              imagensDeslocamento: imagensDeslocamentoArray || undefined,
                               imagemArea: diario.imagem_area || undefined,
                               dados: diario.dados // Passar os dados diretamente para o relatório
                             });
@@ -494,6 +560,7 @@ export function DiarioCav() {
           frente={relatorioData.frente}
           data={relatorioData.data}
           imagemDeslocamento={relatorioData.imagemDeslocamento}
+          imagensDeslocamento={relatorioData.imagensDeslocamento}
           imagemArea={relatorioData.imagemArea}
           dadosPassados={relatorioData.dados}
         />

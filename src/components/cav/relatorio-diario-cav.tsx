@@ -19,6 +19,7 @@ interface RelatorioDiarioCavProps {
   frente: string
   data: Date
   imagemDeslocamento?: string
+  imagensDeslocamento?: string[]
   imagemArea?: string
   dadosPassados?: Record<string, any>
 }
@@ -29,6 +30,7 @@ export function RelatorioDiarioCav({
   frente, 
   data,
   imagemDeslocamento,
+  imagensDeslocamento,
   imagemArea,
   dadosPassados
 }: RelatorioDiarioCavProps) {
@@ -43,6 +45,10 @@ export function RelatorioDiarioCav({
   const [legendaCustomPos, setLegendaCustomPos] = useState<{x: number, y: number} | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({x: 0, y: 0})
+  
+  // Estados para múltiplas imagens
+  const [destacarFrotasIndividualmente, setDestacarFrotasIndividualmente] = useState(false)
+  const [mapeamentoFrotasPorImagem, setMapeamentoFrotasPorImagem] = useState<Record<number, string>>({})
   
   // Cores fixas para as frotas (em ordem)
   const coresDisponiveis = [
@@ -72,6 +78,17 @@ export function RelatorioDiarioCav({
       }
     })
     setFrotaCores(novasCores)
+  }
+
+  // Função para inicializar mapeamento de frotas por imagem
+  const inicializarMapeamentoFrotas = (frotas: any[]) => {
+    const mapeamentoInicial: Record<number, string> = {}
+    frotas.forEach((frota, index) => {
+      if (frota && frota.frota) {
+        mapeamentoInicial[index] = frota.frota.toString()
+      }
+    })
+    setMapeamentoFrotasPorImagem(mapeamentoInicial)
   }
 
   // Funções para drag & drop da legenda
@@ -121,7 +138,9 @@ export function RelatorioDiarioCav({
       const dadosLegenda = {
         posicao: legendaPosicao,
         customPos: legendaCustomPos,
-        cores: frotaCores
+        cores: frotaCores,
+        destacarFrotas: destacarFrotasIndividualmente,
+        mapeamentoFrotas: mapeamentoFrotasPorImagem
       }
 
       // Buscar o registro atual
@@ -264,13 +283,16 @@ export function RelatorioDiarioCav({
         
         setDadosRelatorio(dadosTransformados);
         inicializarCoresFrotas(dadosTransformados.frotas || []);
+        inicializarMapeamentoFrotas(dadosTransformados.frotas || []);
         
         // Carregar configurações salvas da legenda
         if (dadosPassados.legenda) {
-          const { posicao, customPos, cores } = dadosPassados.legenda;
+          const { posicao, customPos, cores, destacarFrotas, mapeamentoFrotas } = dadosPassados.legenda;
           if (posicao) setLegendaPosicao(posicao);
           if (customPos) setLegendaCustomPos(customPos);
           if (cores) setFrotaCores(cores);
+          if (destacarFrotas !== undefined) setDestacarFrotasIndividualmente(destacarFrotas);
+          if (mapeamentoFrotas) setMapeamentoFrotasPorImagem(mapeamentoFrotas);
         }
         
         setIsLoading(false);
@@ -548,6 +570,58 @@ export function RelatorioDiarioCav({
                     </Button>
                   )}
                 </div>
+                
+                {/* Controles para múltiplas imagens */}
+                {(() => {
+                  let imagensArray: string[] = [];
+                  
+                  if (imagensDeslocamento && Array.isArray(imagensDeslocamento) && imagensDeslocamento.length > 0) {
+                    imagensArray = imagensDeslocamento;
+                  } else if (imagemDeslocamento) {
+                    imagensArray = [imagemDeslocamento];
+                  }
+                  
+                  return imagensArray.length > 1 ? (
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={destacarFrotasIndividualmente}
+                          onChange={(e) => setDestacarFrotasIndividualmente(e.target.checked)}
+                          className="rounded"
+                        />
+                        Destacar frotas individualmente por imagem
+                      </label>
+                      
+                      {destacarFrotasIndividualmente && (
+                        <div className="flex items-center gap-2 ml-4">
+                          {imagensArray.map((_, index) => (
+                            <div key={index} className="flex items-center gap-1">
+                              <span className="text-sm">Img {index + 1}:</span>
+                              <select
+                                value={mapeamentoFrotasPorImagem[index] || ''}
+                                onChange={(e) => setMapeamentoFrotasPorImagem(prev => ({
+                                  ...prev,
+                                  [index]: e.target.value
+                                }))}
+                                className="text-sm border rounded px-2 py-1"
+                              >
+                                <option value="">Selecionar frota</option>
+                                {dadosRelatorio.frotas
+                                  .filter((frota: any) => frota && frota.frota && frota.frota !== 'N/A' && !isNaN(frota.frota))
+                                  .map((frota: any) => (
+                                    <option key={frota.frota} value={frota.frota.toString()}>
+                                      Frota {frota.frota}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {/* Separador */}
@@ -856,114 +930,142 @@ export function RelatorioDiarioCav({
               </div>
             </div>
             
-            {/* Segunda página com mapa de deslocamento */}
-            {imagemDeslocamento && (
-              <div className="pagina-2 border rounded-md p-6 mb-4 print:border-none print:p-0 print:page-break-before flex flex-col" style={{ width: "210mm", height: "297mm" }}>
-                <div className="border border-gray-400 rounded-md p-4 mb-4 shadow-sm">
-                  <h3 className="text-center font-semibold mb-2">Consumo de Combustível (l/h)</h3>
-
-                  <div className="flex flex-col gap-4">
-                    {dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 ? (
-                      dadosRelatorio.frotas.filter((frota: any) => {
-                        // Filtrar apenas frotas com dados válidos
-                        const frotaValida = frota && 
-                          typeof frota === 'object' && 
-                          frota.frota && 
-                          frota.frota !== 'N/A' && 
-                          !isNaN(frota.frota) &&
-                          typeof frota.horas_motor === 'number' && 
-                          frota.horas_motor > 0;
-                        return frotaValida;
-                      }).map((frota: any) => {
-                        // Verificar se frota é um objeto válido
-                        if (!frota || typeof frota !== 'object') {
-                          console.error("Frota inválida no gráfico Consumo de Combustível:", frota);
-                          return null;
-                        }
-                        
-                        // Garantir que os valores numéricos existem
-                        const horasMotor = typeof frota.horas_motor === 'number' ? frota.horas_motor : 0;
-                        const consumoTotal = typeof frota.combustivel_consumido === 'number' ? frota.combustivel_consumido : 0;
-                        const consumoPorHora = horasMotor > 0 ? consumoTotal / horasMotor : 0;
-                        
-                        // Calcular porcentagem para barra de consumo (baseado no maior consumo por hora)
-                        const frotasValidasConsumo = dadosRelatorio.frotas.filter((f: any) => {
-                          const hMotor = typeof f.horas_motor === 'number' ? f.horas_motor : 0;
-                          const cTotal = typeof f.combustivel_consumido === 'number' ? f.combustivel_consumido : 0;
-                          return hMotor > 0 && cTotal > 0;
-                        });
-                        const maxConsumoPorHora = frotasValidasConsumo.length > 0 ? Math.max(...frotasValidasConsumo.map((f: any) => {
-                          const hMotor = f.horas_motor || 0;
-                          const cTotal = f.combustivel_consumido || 0;
-                          return hMotor > 0 ? cTotal / hMotor : 0;
-                        })) : 1;
-                        const porcentagemBarraConsumo = maxConsumoPorHora > 0 ? Math.min((consumoPorHora / maxConsumoPorHora) * 80, 80) : 5;
-                        
-                        return (
-                          <div key={frota.frota || 'unknown'} className="flex items-center">
-                            <div className="w-12 text-left text-xs font-semibold">{frota.frota || 'N/A'}</div>
-                            <div className="w-20 text-center text-xs">
-                              <div className="font-semibold">{horasMotor.toFixed(2)}h</div>
-                              <div>Horas Motor</div>
-                            </div>
-                            <div className="flex-1 mx-2 relative">
-                              <div className="w-full h-6 bg-gray-300 rounded-full border">
-                                <div 
-                                  className="bg-green-600 h-6 rounded-full transition-all duration-300"
-                                  style={{ width: `${Math.max(porcentagemBarraConsumo, 5)}%` }}
-                                ></div>
+            {/* Páginas com mapas de deslocamento */}
+            {(() => {
+              // Lógica correta: verificar primeiro imagens_deslocamento, depois imagem_deslocamento
+              let imagensArray: string[] = [];
+              
+              if (imagensDeslocamento && Array.isArray(imagensDeslocamento) && imagensDeslocamento.length > 0) {
+                // Múltiplas imagens - usar imagens_deslocamento
+                imagensArray = imagensDeslocamento;
+                console.log("🖼️ Usando múltiplas imagens:", imagensArray);
+              } else if (imagemDeslocamento) {
+                // Imagem única - usar imagem_deslocamento
+                imagensArray = [imagemDeslocamento];
+                console.log("🖼️ Usando imagem única:", imagensArray);
+              } else {
+                console.log("🖼️ Nenhuma imagem encontrada");
+              }
+              
+              console.log("🖼️ Array final para renderização:", imagensArray);
+              
+              return imagensArray.map((imgUrl: string, index: number) => (
+                <div key={`desloc-${index}`} className={`pagina-desloc-${index + 2} border rounded-md ${index === 0 ? 'p-6' : 'p-3'} mb-4 print:border-none print:p-0 print:page-break-before flex flex-col`} style={{ width: "210mm", height: "297mm" }}>
+                  {/* Primeira página: gráficos + imagem */}
+                  {index === 0 && (
+                    <div className="border border-gray-400 rounded-md p-4 mb-4 shadow-sm">
+                      <h3 className="text-center font-semibold mb-2">Consumo de Combustível (l/h)</h3>
+                      <div className="flex flex-col gap-4">
+                        {dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 ? (
+                          dadosRelatorio.frotas.filter((frota: any) => {
+                            const frotaValida = frota && 
+                              typeof frota === 'object' && 
+                              frota.frota && 
+                              frota.frota !== 'N/A' && 
+                              !isNaN(frota.frota) &&
+                              typeof frota.horas_motor === 'number' && 
+                              frota.horas_motor > 0;
+                            return frotaValida;
+                          }).map((frota: any) => {
+                            const horasMotor = typeof frota.horas_motor === 'number' ? frota.horas_motor : 0;
+                            const consumoTotal = typeof frota.combustivel_consumido === 'number' ? frota.combustivel_consumido : 0;
+                            const consumoPorHora = horasMotor > 0 ? consumoTotal / horasMotor : 0;
+                            
+                            const frotasValidasConsumo = dadosRelatorio.frotas.filter((f: any) => {
+                              const hMotor = typeof f.horas_motor === 'number' ? f.horas_motor : 0;
+                              const cTotal = typeof f.combustivel_consumido === 'number' ? f.combustivel_consumido : 0;
+                              return hMotor > 0 && cTotal > 0;
+                            });
+                            const maxConsumoPorHora = frotasValidasConsumo.length > 0 ? Math.max(...frotasValidasConsumo.map((f: any) => {
+                              const hMotor = f.horas_motor || 0;
+                              const cTotal = f.combustivel_consumido || 0;
+                              return hMotor > 0 ? cTotal / hMotor : 0;
+                            })) : 1;
+                            const porcentagemBarraConsumo = maxConsumoPorHora > 0 ? Math.min((consumoPorHora / maxConsumoPorHora) * 80, 80) : 5;
+                            
+                            return (
+                              <div key={frota.frota || 'unknown'} className="flex items-center">
+                                <div className="w-12 text-left text-xs font-semibold">{frota.frota || 'N/A'}</div>
+                                <div className="w-20 text-center text-xs">
+                                  <div className="font-semibold">{horasMotor.toFixed(2)}h</div>
+                                  <div>Horas Motor</div>
+                                </div>
+                                <div className="flex-1 mx-2 relative">
+                                  <div className="w-full h-6 bg-gray-300 rounded-full border">
+                                    <div 
+                                      className="bg-green-600 h-6 rounded-full transition-all duration-300"
+                                      style={{ width: `${Math.max(porcentagemBarraConsumo, 5)}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                                <div className="w-20 text-center text-xs">
+                                  <div className="font-semibold">{consumoTotal.toFixed(2)} L</div>
+                                  <div>Total Consumo</div>
+                                </div>
+                                <div className="w-16 text-right text-xs font-semibold">{consumoPorHora.toFixed(2)}</div>
                               </div>
-                            </div>
-                            <div className="w-20 text-center text-xs">
-                              <div className="font-semibold">{consumoTotal.toFixed(2)} L</div>
-                              <div>Total Consumo</div>
-                            </div>
-                            <div className="w-16 text-right text-xs font-semibold">{consumoPorHora.toFixed(2)}</div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center text-gray-500 text-sm">
-                        Nenhum dado disponível
+                            );
+                          })
+                        ) : (
+                          <div className="text-center text-gray-500 text-sm">Nenhum dado disponível</div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="border border-gray-400 rounded-md p-2 shadow-sm flex-1 flex flex-col">
-                  <h3 className="text-center font-semibold mb-2">Mapa de deslocamento</h3>
-
-                  <div 
-                    className="flex justify-center flex-1 relative"
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                  >
-                    <img 
-                      src={imagemDeslocamento} 
-                      alt="Mapa de deslocamento" 
-                      className="max-w-full h-auto object-contain"
-                      style={{ maxHeight: "calc(297mm - 350px)", maxWidth: "calc(210mm - 40px)" }}
-                    />
-                    
-                    {/* Legenda sobreposta com drag & drop */}
+                    </div>
+                  )}
+                  
+                  {/* Imagem de deslocamento (em todas as páginas) */}
+                  <div className={`border border-gray-400 rounded-md ${index === 0 ? 'p-2' : 'p-1'} shadow-sm flex-1 flex flex-col`}>
+                    <h3 className="text-center font-semibold mb-2">
+                      Mapa de deslocamento{imagensArray.length > 1 ? ` ${index + 1}` : ''}
+                    </h3>
                     <div 
-                      className={`absolute bg-white border border-gray-300 rounded-lg p-2 shadow-lg cursor-move select-none ${isDragging ? 'shadow-xl border-blue-400' : ''}`}
-                      style={
-                        legendaCustomPos 
-                          ? { left: `${legendaCustomPos.x}px`, top: `${legendaCustomPos.y}px` }
-                          : { 
-                              [legendaPosicao === 'direita' ? 'right' : 'left']: '8px',
-                              bottom: '8px'
-                            }
-                      }
-                      onMouseDown={handleMouseDown}
-                      title="Arraste para reposicionar a legenda"
+                      className="flex justify-center flex-1 relative"
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
                     >
-                      <div className="space-y-2">
-                        {dadosRelatorio.frotas
-                          .filter((frota: any) => frota && frota.frota && frota.frota !== 'N/A' && !isNaN(frota.frota))
-                          .map((frota: any) => (
+                      <img 
+                        src={imgUrl} 
+                        alt={`Mapa de deslocamento ${index + 1}`} 
+                        className="max-w-full h-auto object-contain"
+                        style={{ 
+                          maxHeight: index === 0 ? "calc(297mm - 350px)" : "calc(297mm - 80px)", // Páginas adicionais usam mais espaço
+                          maxWidth: "calc(210mm - 40px)" 
+                        }}
+                      />
+                      
+                      {/* Legenda */}
+                      <div 
+                        className={`absolute bg-white border border-gray-300 rounded-lg p-2 shadow-lg cursor-move select-none ${isDragging ? 'shadow-xl border-blue-400' : ''}`}
+                        style={
+                          legendaCustomPos 
+                            ? { left: `${legendaCustomPos.x}px`, top: `${legendaCustomPos.y}px` }
+                            : { 
+                                [legendaPosicao === 'direita' ? 'right' : 'left']: '8px',
+                                bottom: '8px'
+                              }
+                        }
+                        onMouseDown={handleMouseDown}
+                        title="Arraste para reposicionar a legenda"
+                      >
+                        <div className="space-y-2">
+                          {(() => {
+                            const frotasParaExibir = dadosRelatorio.frotas
+                              .filter((frota: any) => frota && frota.frota && frota.frota !== 'N/A' && !isNaN(frota.frota));
+                            
+                            if (destacarFrotasIndividualmente && imagensArray.length > 1) {
+                              const frotaMapeada = mapeamentoFrotasPorImagem[index];
+                              if (frotaMapeada) {
+                                const frotaEspecifica = frotasParaExibir.find((f: any) => f.frota.toString() === frotaMapeada);
+                                return frotaEspecifica ? [frotaEspecifica] : [];
+                              } else {
+                                const frotaAtual = frotasParaExibir[index];
+                                return frotaAtual ? [frotaAtual] : [];
+                              }
+                            }
+                            
+                            return frotasParaExibir;
+                          })().map((frota: any) => (
                             <div key={frota.frota} className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                               <div 
                                 className="w-3 h-3 rounded border flex-shrink-0"
@@ -990,17 +1092,17 @@ export function RelatorioDiarioCav({
                               </span>
                             </div>
                           ))}
+                        </div>
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full opacity-50 animate-pulse"></div>
                       </div>
-                      {/* Indicador visual de que é arrastável */}
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full opacity-50 animate-pulse"></div>
+                    </div>
+                    <div className="text-center text-xs mt-1">
+                      <p>*** As cores dos rastros não refletem lâmina de aplicação, apenas diferem a frota ***</p>
                     </div>
                   </div>
-                  <div className="text-center text-xs mt-1">
-                    <p>*** As cores dos rastros não refletem lâmina de aplicação, apenas diferem a frota ***</p>
-                  </div>
                 </div>
-              </div>
-            )}
+              ));
+            })()}
             
             {/* Terceira página com imagem de área */}
             {imagemArea && (

@@ -32,8 +32,10 @@ interface FrenteItem {
   frente: string;
   data: Date;
   imgDesloc: File | null;
+  imgDeslocMultiplas: File[]; // Suporte a múltiplas imagens
   imgArea: File | null;
   prevDesloc: string | null;
+  prevDeslocMultiplas: string[]; // Previews das múltiplas imagens
   prevArea: string | null;
   dadosFiltrados?: Record<string, DiarioCavFrotaData>;
   dadosBoletinsCav?: PreviaBoletinsCav; // Dados de boletins CAV (granulares e agregados)
@@ -68,8 +70,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     frente: "",
     data: ontem,
     imgDesloc: null,
+    imgDeslocMultiplas: [],
     imgArea: null,
     prevDesloc: null,
+    prevDeslocMultiplas: [],
     prevArea: null,
     dadosFiltrados: {}
   }]);
@@ -96,8 +100,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       frente: "",
       data: ontem,
       imgDesloc: null,
+      imgDeslocMultiplas: [],
       imgArea: null,
       prevDesloc: null,
+      prevDeslocMultiplas: [],
       prevArea: null,
       dadosFiltrados: {}
     }]);
@@ -391,7 +397,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     }
   };
   
-  // Processar arquivo de imagem
+  // Processar arquivo de imagem (único ou múltiplos)
   const processImageFile = (file: File, frenteId: string, isDeslocamento: boolean) => {
     // Validar se é uma imagem
     if (!file.type.startsWith('image/')) {
@@ -413,6 +419,42 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
           if (f.prevArea) URL.revokeObjectURL(f.prevArea);
           return { ...f, imgArea: file, prevArea: imageUrl };
         }
+      }
+      return f;
+    }));
+  };
+
+  // Processar múltiplos arquivos de imagem de deslocamento
+  const processMultipleImageFiles = (files: FileList, frenteId: string) => {
+    const validImages: File[] = [];
+    const previews: string[] = [];
+    
+    // Validar e processar cada arquivo
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        validImages.push(file);
+        previews.push(URL.createObjectURL(file));
+      }
+    }
+    
+    if (validImages.length === 0) {
+      setError("Por favor, selecione apenas arquivos de imagem.");
+      return;
+    }
+    
+    setFrentes(prev => prev.map(f => {
+      if (f.id === frenteId) {
+        // Limpar previews anteriores
+        f.prevDeslocMultiplas.forEach(url => URL.revokeObjectURL(url));
+        return { 
+          ...f, 
+          imgDeslocMultiplas: validImages, 
+          prevDeslocMultiplas: previews,
+          // Limpar imagem única se múltiplas foram selecionadas
+          imgDesloc: null,
+          prevDesloc: null
+        };
       }
       return f;
     }));
@@ -443,11 +485,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     }
   };
   
-  // Remover imagem
+  // Remover imagem única
   const handleRemoveImage = (frenteId: string, isDeslocamento: boolean) => {
     console.log(`Removendo imagem: frenteId=${frenteId}, isDeslocamento=${isDeslocamento}`);
     
-    // Primeiro atualizar o estado para remover a imagem
     setFrentes(prev => prev.map(f => {
       if (f.id === frenteId) {
         if (isDeslocamento) {
@@ -460,19 +501,58 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       }
       return f;
     }));
-    
-    // Resetar o input de arquivo para permitir selecionar a mesma imagem novamente
-    // Usar setTimeout para garantir que o DOM foi atualizado
+
+    // Resetar o input de arquivo
     setTimeout(() => {
       const inputId = isDeslocamento ? `imgDesloc-${frenteId}` : `imgArea-${frenteId}`;
       const inputElement = document.getElementById(inputId) as HTMLInputElement;
       if (inputElement) {
         inputElement.value = '';
-        console.log(`Input ${inputId} resetado com sucesso`);
-      } else {
-        console.error(`Input ${inputId} não encontrado`);
       }
     }, 100);
+  };
+
+  // Remover todas as imagens múltiplas
+  const handleRemoveMultipleImages = (frenteId: string) => {
+    console.log(`Removendo múltiplas imagens: frenteId=${frenteId}`);
+    
+    setFrentes(prev => prev.map(f => {
+      if (f.id === frenteId) {
+        // Limpar previews
+        f.prevDeslocMultiplas.forEach(url => URL.revokeObjectURL(url));
+        return { ...f, imgDeslocMultiplas: [], prevDeslocMultiplas: [] };
+      }
+      return f;
+    }));
+
+    // Resetar o input de múltiplos arquivos
+    setTimeout(() => {
+      const inputElement = document.getElementById(`imgDeslocMultiplas-${frenteId}`) as HTMLInputElement;
+      if (inputElement) {
+        inputElement.value = '';
+      }
+    }, 100);
+  };
+
+  // Remover uma imagem específica das múltiplas
+  const handleRemoveSingleFromMultiple = (frenteId: string, index: number) => {
+    setFrentes(prev => prev.map(f => {
+      if (f.id === frenteId) {
+        const newImages = [...f.imgDeslocMultiplas];
+        const newPreviews = [...f.prevDeslocMultiplas];
+        
+        // Limpar preview da imagem removida
+        if (newPreviews[index]) {
+          URL.revokeObjectURL(newPreviews[index]);
+        }
+        
+        newImages.splice(index, 1);
+        newPreviews.splice(index, 1);
+        
+        return { ...f, imgDeslocMultiplas: newImages, prevDeslocMultiplas: newPreviews };
+      }
+      return f;
+    }));
   };
   
   // Limpar recursos ao fechar o modal
@@ -878,6 +958,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       frentes.forEach(f => {
         if (f.prevDesloc) URL.revokeObjectURL(f.prevDesloc);
         if (f.prevArea) URL.revokeObjectURL(f.prevArea);
+        f.prevDeslocMultiplas.forEach(url => URL.revokeObjectURL(url));
       });
       
       // Resetar estados
@@ -886,8 +967,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         frente: "",
         data: ontem,
         imgDesloc: null,
+        imgDeslocMultiplas: [],
         imgArea: null,
         prevDesloc: null,
+        prevDeslocMultiplas: [],
         prevArea: null,
         dadosFiltrados: {}
       }]);
@@ -909,9 +992,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
     }
     
     // Verificar se todas as frentes estão preenchidas
-    const frenteInvalida = frentes.find(f => !f.data || !f.frente || !f.imgDesloc);
+    const frenteInvalida = frentes.find(f => !f.data || !f.frente || (!f.imgDesloc && f.imgDeslocMultiplas.length === 0));
     if (frenteInvalida) {
-      setError("Todas as frentes devem ter data, frente selecionada e uma imagem de deslocamento.");
+      setError("Todas as frentes devem ter data, frente selecionada e pelo menos uma imagem de deslocamento.");
       return;
     }
     
@@ -968,9 +1051,41 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         
         console.log(`💾 Salvando dados completos para frente ${frente.frente}:`, dadosParaSalvar);
         
-        // Upload da imagem de deslocamento (obrigatória)
+        // Upload das imagens de deslocamento
         let imgDeslocamentoUrl = null;
-        if (frente.imgDesloc) {
+        let imgDeslocamentoUrls: string[] = [];
+        
+        // Verificar se temos múltiplas imagens ou uma única
+        if (frente.imgDeslocMultiplas.length > 0) {
+          // Upload de múltiplas imagens
+          for (let i = 0; i < frente.imgDeslocMultiplas.length; i++) {
+            const img = frente.imgDeslocMultiplas[i];
+            const imgPath = `diario-cav/${uuidv4()}-desloc-${i + 1}-${img.name.replace(/\s/g, "_")}`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from("cav")
+              .upload(imgPath, img);
+              
+            if (uploadError) {
+              throw new Error(`Erro ao fazer upload da imagem de deslocamento ${i + 1}: ${uploadError.message}`);
+            }
+            
+            const { data: imgData } = supabase.storage
+              .from("cav")
+              .getPublicUrl(imgPath);
+              
+            if (imgData?.publicUrl) {
+              imgDeslocamentoUrls.push(imgData.publicUrl);
+            }
+          }
+          
+          console.log(`📊 Debug - Upload múltiplas imagens:`, {
+            totalImagens: frente.imgDeslocMultiplas.length,
+            urlsCarregadas: imgDeslocamentoUrls.length,
+            urls: imgDeslocamentoUrls
+          });
+        } else if (frente.imgDesloc) {
+          // Upload de imagem única (fallback)
           const imgDeslocamentoPath = `diario-cav/${uuidv4()}-${frente.imgDesloc.name.replace(/\s/g, "_")}`;
           const { error: uploadErrorDesloc } = await supabase.storage
             .from("cav")
@@ -985,6 +1100,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
             .getPublicUrl(imgDeslocamentoPath);
             
           imgDeslocamentoUrl = imgDeslocamentoData?.publicUrl;
+          
+          console.log(`📊 Debug - Upload imagem única:`, {
+            imagemUnica: !!imgDeslocamentoUrl
+          });
         }
         
         // Upload da imagem de área (opcional)
@@ -1006,18 +1125,35 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
           imgAreaUrl = imgAreaData?.publicUrl;
         }
         
+        // Preparar dados para inserção com lógica correta de imagens
+        const totalImagens = imgDeslocamentoUrls.length;
+        const imagemUnica = imgDeslocamentoUrl;
+        const imagensMultiplas = totalImagens > 1 ? imgDeslocamentoUrls : null;
+        
+        // Debug logs
+        console.log(`📊 Debug dados para insert:`, {
+          imgDeslocamentoUrls,
+          totalImagens,
+          imagemUnica,
+          imagensMultiplas
+        });
+        
+        const registroParaSalvar = {
+          data: format(frente.data, "yyyy-MM-dd"),
+          frente: frente.frente,
+          dados: dadosParaSalvar,
+          imagem_deslocamento: totalImagens === 1 ? (imagensMultiplas ? imagensMultiplas[0] : imagemUnica) : null,
+          imagens_deslocamento: imagensMultiplas,
+          imagem_area: imgAreaUrl
+        };
+        
+        console.log(`📊 Debug registro final:`, registroParaSalvar);
         console.log(`Salvando diário para frente ${frente.frente} com ${Object.keys(dadosParaSalvar).length} máquinas`);
         
         // Inserir dados no banco
         const { error: insertError } = await supabase
           .from("diario_cav")
-          .insert({
-            data: format(frente.data, "yyyy-MM-dd"),
-            frente: frente.frente,
-            dados: dadosParaSalvar,
-            imagem_deslocamento: imgDeslocamentoUrl,
-            imagem_area: imgAreaUrl
-          });
+          .insert(registroParaSalvar);
           
         if (insertError) {
           throw new Error("Erro ao salvar diário: " + insertError.message);
@@ -1289,6 +1425,77 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                       </div>
                     </div>
 
+                    {/* Múltiplas Imagens de Deslocamento */}
+                    <div className="w-full pt-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-base font-medium">Múltiplas Imagens de Deslocamento</Label>
+                        <span className="text-xs text-gray-500">
+                          {frente.imgDeslocMultiplas.length > 0 ? `${frente.imgDeslocMultiplas.length} imagens` : 'Opcional'}
+                        </span>
+                      </div>
+                      
+                      {/* Container scrollável para previews */}
+                      {frente.imgDeslocMultiplas.length > 0 ? (
+                        <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2 mb-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            {frente.prevDeslocMultiplas.map((preview, index) => (
+                              <div key={index} className="relative group">
+                                <img 
+                                  src={preview} 
+                                  alt={`Preview ${index + 1}`} 
+                                  className="w-full h-16 object-cover rounded border cursor-pointer transition-transform group-hover:scale-105"
+                                  title={`Imagem ${index + 1} - Clique com hover para ver maior`}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white hover:bg-red-600"
+                                  onClick={() => handleRemoveSingleFromMultiple(frente.id, index)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => handleRemoveMultipleImages(frente.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remover Todas
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-md">
+                          <p className="text-sm text-gray-500 mb-2">Nenhuma imagem múltipla selecionada</p>
+                        </div>
+                      )}
+                      
+                      <Button 
+                        variant="outline" 
+                        className="w-full flex items-center justify-center gap-2"
+                        onClick={() => document.getElementById(`imgDeslocMultiplas-${frente.id}`)?.click()}
+                      >
+                        <Upload className="h-4 w-4" />
+                        <span className="text-sm">Selecionar Múltiplas Imagens</span>
+                      </Button>
+                      <Input
+                        id={`imgDeslocMultiplas-${frente.id}`}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = e.target.files;
+                          if (files && files.length > 0) {
+                            processMultipleImageFiles(files, frente.id);
+                          }
+                        }}
+                      />
+                    </div>
+
                     {/* Imagem Fechamento */}
                     <div className="w-[250px] pt-6">
                       <div 
@@ -1518,7 +1725,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
               </Button>
               <Button 
                 onClick={handleSave} 
-                disabled={isLoading || !arquivoOPC || frentes.some(f => !f.data || !f.frente || !f.imgDesloc)}
+                disabled={isLoading || !arquivoOPC || frentes.some(f => !f.data || !f.frente || (!f.imgDesloc && f.imgDeslocMultiplas.length === 0))}
               >
                 {isLoading ? "Salvando..." : "Salvar"}
               </Button>
