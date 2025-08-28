@@ -90,8 +90,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
   
   // Adicionar nova frente
   const handleAddFrente = () => {
+    const novoId = uuidv4();
     setFrentes(prev => [...prev, {
-      id: uuidv4(),
+      id: novoId,
       frente: "",
       data: ontem,
       imgDesloc: null,
@@ -100,6 +101,23 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
       prevArea: null,
       dadosFiltrados: {}
     }]);
+    
+    // Fazer scroll para o novo bloco após um pequeno delay para garantir que foi renderizado
+    setTimeout(() => {
+      const novoBloco = document.querySelector(`[data-frente-id="${novoId}"]`);
+      if (novoBloco) {
+        novoBloco.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center'
+        });
+        
+        // Focar no select da frente
+        const selectFrente = novoBloco.querySelector('button[role="combobox"]') as HTMLElement;
+        if (selectFrente) {
+          selectFrente.focus();
+        }
+      }
+    }, 100);
   };
   
   // Remover frente
@@ -1154,7 +1172,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
             {/* Conteúdo scrollable - Blocos de Frentes */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-6">
             {frentes.map((frente, index) => (
-              <div key={frente.id} className="border rounded-md p-4">
+              <div key={frente.id} data-frente-id={frente.id} className="border rounded-md p-4">
                 <div className="flex items-center justify-end mb-2">
                   {index > 0 && (
                     <Button

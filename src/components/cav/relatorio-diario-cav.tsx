@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { buscarDadosProducaoPorFrenteData } from "@/lib/cav/diario-cav-service"
-import { X, Download, Copy, Printer } from "lucide-react"
+import { X, Download, Copy, Printer, Palette } from "lucide-react"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { cn } from "@/lib/utils"
@@ -36,6 +36,145 @@ export function RelatorioDiarioCav({
   const [error, setError] = useState("")
   const [dadosRelatorio, setDadosRelatorio] = useState<any>(null)
   const relatorioRef = useRef<HTMLDivElement>(null)
+  
+  // Estados para cores das frotas e legenda
+  const [frotaCores, setFrotaCores] = useState<Record<string, string>>({})
+  const [legendaPosicao, setLegendaPosicao] = useState<'direita' | 'esquerda'>('direita')
+  const [legendaCustomPos, setLegendaCustomPos] = useState<{x: number, y: number} | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState({x: 0, y: 0})
+  
+  // Cores fixas para as frotas (em ordem)
+  const coresDisponiveis = [
+    '#66ffcc', // 1ª frota - verde-água
+    '#66ff66', // 2ª frota - verde-claro  
+    '#ffa200', // 3ª frota - laranja
+    '#ff6666', // 4ª frota - vermelho-claro
+    '#6666ff', // 5ª frota - azul-claro
+    '#ff66ff', // 6ª frota - rosa-claro
+    '#66ffff', // 7ª frota - ciano-claro
+    '#ffff66', // 8ª frota - amarelo-claro
+    '#ff9966', // 9ª frota - laranja-claro
+    '#9966ff', // 10ª frota - roxo-claro
+    '#66ff99', // 11ª frota - verde-menta
+    '#ff6699', // 12ª frota - rosa-médio
+    '#99ff66', // 13ª frota - lima-claro
+    '#6699ff', // 14ª frota - azul-médio
+    '#ff9999'  // 15ª frota - rosa-salmão
+  ]
+  
+  // Função para inicializar cores das frotas
+  const inicializarCoresFrotas = (frotas: any[]) => {
+    const novasCores: Record<string, string> = {}
+    frotas.forEach((frota, index) => {
+      if (frota && frota.frota) {
+        novasCores[frota.frota] = coresDisponiveis[index % coresDisponiveis.length]
+      }
+    })
+    setFrotaCores(novasCores)
+  }
+
+  // Funções para drag & drop da legenda
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true)
+    const rect = e.currentTarget.getBoundingClientRect()
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    })
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return
+    
+    const container = e.currentTarget.closest('.relative')
+    if (!container) return
+    
+    const containerRect = container.getBoundingClientRect()
+    const newX = e.clientX - containerRect.left - dragOffset.x
+    const newY = e.clientY - containerRect.top - dragOffset.y
+    
+    // Limitar dentro do container
+    const maxX = containerRect.width - 120 // largura aproximada da legenda
+    const maxY = containerRect.height - 80 // altura aproximada da legenda
+    
+    setLegendaCustomPos({
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: Math.max(0, Math.min(newY, maxY))
+    })
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const resetarPosicaoLegenda = () => {
+    setLegendaCustomPos(null)
+  }
+
+  // Função para salvar posição da legenda no banco de dados
+  const salvarPosicaoLegenda = async () => {
+    try {
+      const supabase = createClientComponentClient()
+      
+      // Preparar dados da legenda para salvar
+      const dadosLegenda = {
+        posicao: legendaPosicao,
+        customPos: legendaCustomPos,
+        cores: frotaCores
+      }
+
+      // Buscar o registro atual
+      const dataFormatada = format(data, 'yyyy-MM-dd')
+      const { data: registroAtual, error: fetchError } = await supabase
+        .from('diario_cav')
+        .select('dados')
+        .eq('frente', frente)
+        .eq('data', dataFormatada)
+        .single()
+
+      if (fetchError) {
+        console.error('Erro ao buscar registro atual:', fetchError)
+        setError('Erro ao buscar dados do relatório')
+        return
+      }
+
+      // Mesclar dados existentes com configurações da legenda
+      const dadosAtualizados = {
+        ...registroAtual.dados,
+        legenda: dadosLegenda
+      }
+
+      // Atualizar no banco
+      const { error: updateError } = await supabase
+        .from('diario_cav')
+        .update({ dados: dadosAtualizados })
+        .eq('frente', frente)
+        .eq('data', dataFormatada)
+
+      if (updateError) {
+        console.error('Erro ao salvar posição da legenda:', updateError)
+        setError('Erro ao salvar configurações da legenda')
+        return
+      }
+
+      // Feedback visual de sucesso
+      const button = document.querySelector('[data-salvar-legenda]') as HTMLButtonElement
+      if (button) {
+        const originalText = button.textContent
+        button.textContent = '✓ Salvo!'
+        button.classList.add('bg-green-100', 'text-green-700')
+        setTimeout(() => {
+          button.textContent = originalText
+          button.classList.remove('bg-green-100', 'text-green-700')
+        }, 2000)
+      }
+
+    } catch (error) {
+      console.error('Erro ao salvar posição da legenda:', error)
+      setError('Erro ao salvar configurações da legenda')
+    }
+  }
   
   useEffect(() => {
     if (open && frente && data) {
@@ -124,6 +263,16 @@ export function RelatorioDiarioCav({
         console.log("✅ Dados finais transformados:", dadosTransformados);
         
         setDadosRelatorio(dadosTransformados);
+        inicializarCoresFrotas(dadosTransformados.frotas || []);
+        
+        // Carregar configurações salvas da legenda
+        if (dadosPassados.legenda) {
+          const { posicao, customPos, cores } = dadosPassados.legenda;
+          if (posicao) setLegendaPosicao(posicao);
+          if (customPos) setLegendaCustomPos(customPos);
+          if (cores) setFrotaCores(cores);
+        }
+        
         setIsLoading(false);
         return;
       }
@@ -171,6 +320,7 @@ export function RelatorioDiarioCav({
       })));
       
       setDadosRelatorio(dados)
+      inicializarCoresFrotas(dados.frotas || [])
     } catch (error: any) {
       console.error("Erro ao carregar dados do relatório:", error)
       setError(error.message || "Erro ao carregar dados do relatório")
@@ -338,54 +488,117 @@ export function RelatorioDiarioCav({
           </DialogClose>
         </DialogHeader>
         
+        {/* Cabeçalho fixo com controles de legenda e comandos */}
+        {!isLoading && dadosRelatorio && dadosRelatorio.frotas && dadosRelatorio.frotas.length > 0 && (
+          <div className="border-b bg-white px-6 py-3">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
+                {error}
+              </div>
+            )}
+            
+            <div className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg">
+              {/* Esquerda - Controles de Legenda */}
+              <div className="flex items-center gap-4">
+                {/* Cores das Frotas */}
+                <div className="flex items-center gap-2">
+                  {dadosRelatorio.frotas
+                    .filter((frota: any) => frota && frota.frota && frota.frota !== 'N/A' && !isNaN(frota.frota))
+                    .map((frota: any) => (
+                      <div key={frota.frota} className="flex items-center gap-1">
+                        <span className="text-sm font-medium">{frota.frota}</span>
+                        <input
+                          type="color"
+                          value={frotaCores[frota.frota] || coresDisponiveis[0]}
+                          onChange={(e) => setFrotaCores(prev => ({
+                            ...prev,
+                            [frota.frota]: e.target.value
+                          }))}
+                          className="w-6 h-6 border rounded cursor-pointer"
+                          title={`Cor da frota ${frota.frota}`}
+                        />
+                      </div>
+                    ))}
+                </div>
+                
+                {/* Posição da Legenda */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={legendaPosicao === 'esquerda' && !legendaCustomPos ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => { setLegendaPosicao('esquerda'); setLegendaCustomPos(null); }}
+                  >
+                    Inferior Esquerda
+                  </Button>
+                  <Button
+                    variant={legendaPosicao === 'direita' && !legendaCustomPos ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => { setLegendaPosicao('direita'); setLegendaCustomPos(null); }}
+                  >
+                    Inferior Direita
+                  </Button>
+                  {legendaCustomPos && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={resetarPosicaoLegenda}
+                      className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                    >
+                      Resetar Posição
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Separador */}
+              <div className="h-8 w-px bg-gray-300"></div>
+
+              {/* Direita - Comandos Principais */}
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1"
+                  onClick={handleOpenInNewTab}
+                  disabled={isLoading}
+                >
+                  <span>Abrir em Nova Aba</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1"
+                  onClick={handleDownloadPDF}
+                  disabled={isLoading}
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Baixar PDF</span>
+                </Button>
+                {(legendaCustomPos || frotaCores) && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1 text-green-600 border-green-300 hover:bg-green-50"
+                    onClick={salvarPosicaoLegenda}
+                    disabled={isLoading}
+                    data-salvar-legenda
+                  >
+                    <span>Salvar Legenda</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="flex-1 overflow-auto p-6">
-          {error && (
+          {!dadosRelatorio && error && (
             <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm mb-4">
               {error}
             </div>
           )}
           
-          <div className="flex justify-center gap-2 mb-6">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-1"
-              onClick={handleOpenInNewTab}
-              disabled={isLoading}
-            >
-              <span>Abrir em Nova Aba</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-1"
-              onClick={handleDownloadPDF}
-              disabled={isLoading}
-            >
-              <Download className="h-4 w-4" />
-              <span>Baixar PDF</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-1"
-              onClick={handleCopyAsPNG}
-              disabled={isLoading}
-            >
-              <Copy className="h-4 w-4" />
-              <span>Copiar como PNG</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-1"
-              onClick={handlePrint}
-              disabled={isLoading}
-            >
-              <Printer className="h-4 w-4" />
-              <span>Imprimir</span>
-            </Button>
-          </div>
+          {/* Conteúdo do relatório */}
         
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
@@ -717,18 +930,72 @@ export function RelatorioDiarioCav({
                   </div>
                 </div>
                 
-                <div className="border border-gray-400 rounded-md p-4 shadow-sm flex-1 flex flex-col">
+                <div className="border border-gray-400 rounded-md p-2 shadow-sm flex-1 flex flex-col">
                   <h3 className="text-center font-semibold mb-2">Mapa de deslocamento</h3>
 
-                  <div className="flex justify-center flex-1">
+                  <div 
+                    className="flex justify-center flex-1 relative"
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                  >
                     <img 
                       src={imagemDeslocamento} 
                       alt="Mapa de deslocamento" 
                       className="max-w-full h-auto object-contain"
-                      style={{ maxHeight: "calc(297mm - 250px)" }}
+                      style={{ maxHeight: "calc(297mm - 350px)", maxWidth: "calc(210mm - 40px)" }}
                     />
+                    
+                    {/* Legenda sobreposta com drag & drop */}
+                    <div 
+                      className={`absolute bg-white border border-gray-300 rounded-lg p-2 shadow-lg cursor-move select-none ${isDragging ? 'shadow-xl border-blue-400' : ''}`}
+                      style={
+                        legendaCustomPos 
+                          ? { left: `${legendaCustomPos.x}px`, top: `${legendaCustomPos.y}px` }
+                          : { 
+                              [legendaPosicao === 'direita' ? 'right' : 'left']: '8px',
+                              bottom: '8px'
+                            }
+                      }
+                      onMouseDown={handleMouseDown}
+                      title="Arraste para reposicionar a legenda"
+                    >
+                      <div className="space-y-2">
+                        {dadosRelatorio.frotas
+                          .filter((frota: any) => frota && frota.frota && frota.frota !== 'N/A' && !isNaN(frota.frota))
+                          .map((frota: any) => (
+                            <div key={frota.frota} className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <div 
+                                className="w-3 h-3 rounded border flex-shrink-0"
+                                style={{ 
+                                  backgroundColor: frotaCores[frota.frota] || coresDisponiveis[0],
+                                  width: '12px',
+                                  height: '12px',
+                                  flexShrink: 0,
+                                  border: '1px solid #ccc',
+                                  borderRadius: '2px'
+                                }}
+                              ></div>
+                              <span 
+                                className="text-xs font-bold text-gray-800 leading-none"
+                                style={{ 
+                                  fontSize: '12px',
+                                  fontWeight: 'bold',
+                                  color: '#1f2937',
+                                  lineHeight: '1',
+                                  verticalAlign: 'middle'
+                                }}
+                              >
+                                {frota.frota}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                      {/* Indicador visual de que é arrastável */}
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full opacity-50 animate-pulse"></div>
+                    </div>
                   </div>
-                  <div className="text-center text-xs mt-2">
+                  <div className="text-center text-xs mt-1">
                     <p>*** As cores dos rastros não refletem lâmina de aplicação, apenas diferem a frota ***</p>
                   </div>
                 </div>
