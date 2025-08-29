@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Plus, Calculator, X, Loader2 } from "lucide-react"
+import { Trash2, Plus, Calculator, X, Loader2, FileText } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { CavFormData, CavFrotaData, CavTurnoData, FRENTES_CONFIG } from "@/types/cav"
 import { funcionariosService } from "@/services/funcionariosService"
@@ -1630,6 +1630,19 @@ export function NovoCavModal({
                   ) : (
                     isEditMode ? "Salvar Alterações" : "Criar Boletim CAV"
                   )}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => {
+                    console.log('📊 Botão "Gerar Relatório" clicado!')
+                    // TODO: Implementar lógica do relatório
+                  }} 
+                  disabled={isSubmitting}
+                  className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gerar Relatório
                 </Button>
               </div>
             </div>
