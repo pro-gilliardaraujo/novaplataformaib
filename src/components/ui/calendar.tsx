@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { DayPicker } from "react-day-picker"
+import { DateRange } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -24,7 +25,7 @@ function Calendar({
   // Interceptar o onSelect para corrigir as datas selecionadas
   const originalOnSelect = props.onSelect;
   const onSelectWithFix = React.useCallback(
-    (range: any) => {
+    (range: DateRange | undefined) => {
       if (!range) {
         originalOnSelect?.(range);
         return;

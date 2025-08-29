@@ -125,12 +125,12 @@ export function DiarioCav() {
       
       // Aplicar filtro de frente
       if (frenteFilter.size > 0) {
-        query = query.in("frente", Array.from(frenteFilter))
+        query = query.in("frente", [...frenteFilter])
       }
       
       // Aplicar filtro de data específica
       if (dataFilter.size > 0) {
-        query = query.in("data", Array.from(dataFilter))
+        query = query.in("data", [...dataFilter])
       }
       
       // Aplicar busca textual (no campo frente)
@@ -293,7 +293,6 @@ export function DiarioCav() {
           <DateRangePicker
             value={dateRange}
             onChange={setDateRange}
-            placeholder="Filtrar por data"
             className="h-9"
             align="end"
           />
@@ -355,10 +354,10 @@ export function DiarioCav() {
                       </div>
                       <ClassicFilter
                         options={uniqueDatas}
-                        selected={new Set(Array.from(dataFilter).map(data => {
-                          const [year, month, day] = data.split("-")
-                          return `${day}/${month}/${year}`
-                        }))}
+                                selected={new Set([...dataFilter].map(data => {
+          const [year, month, day] = data.split("-")
+          return `${day}/${month}/${year}`
+        }))}
                         onToggle={toggleDataFilter}
                         onClear={() => setDataFilter(new Set())}
                       />
@@ -434,7 +433,7 @@ export function DiarioCav() {
                               }
                             }
                             return imagensArray;
-                          })().map((imgUrl, index) => (
+                          })().map((imgUrl: string, index: number) => (
                             <a 
                               key={index}
                               href={imgUrl} 

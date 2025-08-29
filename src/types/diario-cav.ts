@@ -19,6 +19,7 @@ export interface DiarioCav {
   frente: string;
   dados: Record<string, DiarioCavFrotaData>;
   imagem_deslocamento: string | null;
+  imagens_deslocamento: string | string[] | null;
   imagem_area: string | null;
   created_at: string;
 }

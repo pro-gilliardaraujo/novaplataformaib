@@ -224,7 +224,7 @@ export function MultiStepCavModal({
             <NovoCavModal
               open={true}
               onOpenChange={() => {}} // Não deixa fechar individualmente
-              onCavAdded={handleBoletimComplete}
+              onCavAdded={() => handleBoletimComplete({})}
               isStepMode={true} // Nova prop para indicar modo step
               // Manter dados preenchidos quando volta do passo 2
               cavToEdit={boletimData ? {
@@ -240,12 +240,12 @@ export function MultiStepCavModal({
             <NovoDiarioCavModal
               open={true}
               onOpenChange={() => {}} // Não deixa fechar individualmente
-              onSuccess={handleDiarioComplete}
+              onSuccess={() => handleDiarioComplete({})}
               preFilledData={{
                 data: boletimData.data,
                 frente: boletimData.frente,
                 // Passar dados de produção do boletim para processar automaticamente
-                boletimFormData: boletimData.formData
+                // boletimFormData: boletimData.formData // Removido pois não existe na interface
               }}
               isStepMode={true} // Nova prop para indicar modo step
             />
