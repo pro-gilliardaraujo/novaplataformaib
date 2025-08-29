@@ -178,7 +178,7 @@ export function DiarioCav() {
         .order("frente")
       
       if (frentesData) {
-        const frentes = [...new Set(frentesData.map(item => item.frente))]
+        const frentes = Array.from(new Set(frentesData.map(item => item.frente)))
         setUniqueFrentes(frentes)
       }
       
@@ -189,10 +189,10 @@ export function DiarioCav() {
         .order("data", { ascending: false })
       
       if (datasData) {
-        const datasFormatadas = [...new Set(datasData.map(item => {
+        const datasFormatadas = Array.from(new Set(datasData.map(item => {
           const [year, month, day] = item.data.split("-")
           return `${day}/${month}/${year}`
-        }))]
+        })))
         setUniqueDatas(datasFormatadas)
       }
     } catch (error) {
