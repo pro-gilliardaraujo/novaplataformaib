@@ -140,29 +140,41 @@ export async function PUT(request: NextRequest) {
     }
     
     // 2. Inserir novos registros granulares
-    const { error: errorInsert } = await supabase
+    const { data: dadosInseridos, error: errorInsert } = await supabase
       .from('boletins_cav')
       .insert(dadosGranulares)
+      .select()
     
     if (errorInsert) {
       console.error('❌ Erro ao inserir registros granulares:', errorInsert)
       return NextResponse.json({ error: 'Erro ao inserir registros granulares' }, { status: 500 })
     }
+
+    // Extrair IDs dos registros granulares inseridos
+    const idsGranulares = dadosInseridos?.map(item => item.id) || []
+    console.log("IDs granulares atualizados:", idsGranulares)
     
     // 3. Atualizar registros agregados
     for (const dadoAgregado of dadosAgregados) {
+      const updateData: any = {
+        total_producao: dadoAgregado.total_producao,
+        total_viagens_feitas: dadoAgregado.total_viagens_feitas,
+        total_viagens_orcadas: dadoAgregado.total_viagens_orcadas,
+        dif_viagens_perc: dadoAgregado.dif_viagens_perc,
+        lamina_alvo: dadoAgregado.lamina_alvo,
+        lamina_aplicada: dadoAgregado.lamina_aplicada,
+        dif_lamina_perc: dadoAgregado.dif_lamina_perc,
+        setor: dadoAgregado.setor
+      }
+
+      // Adicionar registros_granulares se tivermos IDs
+      if (idsGranulares.length > 0) {
+        updateData.registros_granulares = { uuids: idsGranulares }
+      }
+
       const { error: errorUpsert } = await supabase
         .from('boletins_cav_agregado')
-        .update({
-          total_producao: dadoAgregado.total_producao,
-          total_viagens_feitas: dadoAgregado.total_viagens_feitas,
-          total_viagens_orcadas: dadoAgregado.total_viagens_orcadas,
-          dif_viagens_perc: dadoAgregado.dif_viagens_perc,
-          lamina_alvo: dadoAgregado.lamina_alvo,
-          lamina_aplicada: dadoAgregado.lamina_aplicada,
-          dif_lamina_perc: dadoAgregado.dif_lamina_perc,
-          setor: dadoAgregado.setor
-        })
+        .update(updateData)
         .eq('id', id)
       
       if (errorUpsert) {

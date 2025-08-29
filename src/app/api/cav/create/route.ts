@@ -49,8 +49,7 @@ export async function POST(request: NextRequest) {
             turno: turnoData.turno as 'A' | 'B' | 'C',
             operador: turnoData.operador,
             producao: turnoData.producao,
-            lamina_alvo: Number(turnoData.lamina_alvo) || Number(formData.lamina_alvo) || 10,
-            observacoes: turnoData.producao === 0 ? "Não operou" : undefined
+            lamina_alvo: Number(turnoData.lamina_alvo) || Number(formData.lamina_alvo) || 10
           })
         }
       })
@@ -88,6 +87,10 @@ export async function POST(request: NextRequest) {
 
     console.log("Dados granulares inseridos:", dadosInseridos?.length)
 
+    // Extrair IDs dos registros granulares inseridos
+    const idsGranulares = dadosInseridos?.map(item => item.id) || []
+    console.log("IDs granulares:", idsGranulares)
+
     // 3️⃣ Calcular agregados
     const total_producao = dadosGranulares.reduce((sum, item) => sum + item.producao, 0)
     const total_viagens_feitas = formData.total_viagens_feitas
@@ -110,6 +113,11 @@ export async function POST(request: NextRequest) {
       lamina_alvo: Number(lamina_alvo.toFixed(2)),
       lamina_aplicada: Number(lamina_aplicada.toFixed(2)),
       dif_lamina_perc: Number(dif_lamina_perc.toFixed(2))
+    }
+
+    // Adicionar registros_granulares se tivermos IDs
+    if (idsGranulares.length > 0) {
+      (dadosAgregados as any).registros_granulares = { uuids: idsGranulares }
     }
 
     console.log("Dados agregados calculados:", dadosAgregados)

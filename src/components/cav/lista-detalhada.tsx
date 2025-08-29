@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download, Pencil, FileDown } from "lucide-react"
+import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download, Pencil, FileDown, Copy, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import { 
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
-import { X } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { NovoCavModal } from "./novo-cav-modal"
@@ -896,6 +895,58 @@ function CavDetailsModal({
             )}
           </div>
 
+          <Separator className="my-2" />
+
+          <div>
+            <SectionTitle title="Referências" />
+            {cav.registros_granulares?.uuids && cav.registros_granulares.uuids.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">
+                  IDs dos registros granulares vinculados a este registro agregado:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {cav.registros_granulares.uuids.map((id, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 text-xs font-mono"
+                      onClick={() => {
+                        navigator.clipboard.writeText(String(id))
+                        toast({
+                          title: "ID copiado!",
+                          description: `ID ${id} foi copiado para a área de transferência.`,
+                        })
+                      }}
+                      title={`Clique para copiar ID: ${id}`}
+                    >
+                      {id}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 text-xs"
+                  onClick={() => {
+                    const allIds = cav.registros_granulares?.uuids?.join(', ') || ''
+                    navigator.clipboard.writeText(allIds)
+                    toast({
+                      title: "IDs copiados!",
+                      description: `Todos os ${cav.registros_granulares?.uuids?.length || 0} IDs foram copiados.`,
+                    })
+                  }}
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  Copiar todos os IDs
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500 text-sm">
+                Nenhuma referência de registros granulares encontrada
+              </div>
+            )}
+          </div>
 
         </div>
 

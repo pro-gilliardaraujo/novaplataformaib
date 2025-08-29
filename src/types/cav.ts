@@ -12,7 +12,6 @@ export interface BoletimCav {
   producao: number // Hectares
   lamina_alvo: number // Lâmina específica deste operador
   lamina_aplicada?: number // Opcional para consultas agregadas
-  observacoes?: string
   created_at?: string
   updated_at?: string
 }
@@ -30,6 +29,7 @@ export interface BoletimCavAgregado {
   lamina_alvo: number // Valor de referência (assumindo 2.5 por enquanto)
   lamina_aplicada: number // Calculado: (total_viagens_feitas * 60) / total_producao
   dif_lamina_perc: number // Calculado: 1 - (lamina_alvo / lamina_aplicada)
+  registros_granulares?: { uuids: number[] } // IDs dos registros granulares que compõem este agregado
   created_at?: string
   updated_at?: string
 }
