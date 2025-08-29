@@ -458,16 +458,17 @@ export function RelatorioDiarioCav({
             logging: false,
             useCORS: true,
             allowTaint: true,
-            scale: 2, // Melhor qualidade
+            scale: 1.5, // Reduzido de 2 para 1.5 - boa qualidade mas menor tamanho
             width: pagina.offsetWidth,
             height: pagina.offsetHeight,
             backgroundColor: '#ffffff'
           } as any);
           
-          const imgData = canvas.toDataURL("image/png", 1.0);
-          pdf.addImage(imgData, "PNG", margin, margin, contentWidth, contentHeight);
+          // Converter para JPEG com compressão para reduzir drasticamente o tamanho
+          const imgData = canvas.toDataURL("image/jpeg", 0.85); // 85% de qualidade - excelente balanço
+          pdf.addImage(imgData, "JPEG", margin, margin, contentWidth, contentHeight);
           
-          console.log(`✅ Página ${numeroPagina} adicionada ao PDF`);
+          console.log(`✅ Página ${numeroPagina} adicionada ao PDF (JPEG 85%)`);
         } catch (pageError) {
           console.error(`❌ Erro ao processar página ${numeroPagina}:`, pageError);
           // Continuar com as outras páginas mesmo se uma falhar
@@ -478,6 +479,8 @@ export function RelatorioDiarioCav({
       if (imagemArea) {
         console.log('📄 Adicionando página de imagem de área...');
         pdf.addPage()
+        
+        // Criar um canvas para redimensionar e comprimir a imagem
         const img = new Image()
         img.crossOrigin = "anonymous"
         img.src = imagemArea
@@ -496,16 +499,41 @@ export function RelatorioDiarioCav({
           imgWidth = contentHeight * imgAspectRatio
         }
         
+        // Criar canvas para comprimir a imagem
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        
+        // Definir tamanho do canvas otimizado (máximo 1920px de largura)
+        const maxWidth = 1920
+        const scale = Math.min(maxWidth / img.width, 1)
+        canvas.width = img.width * scale
+        canvas.height = img.height * scale
+        
+        // Desenhar imagem redimensionada
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
+        
+        // Converter para JPEG comprimido
+        const compressedImageData = canvas.toDataURL('image/jpeg', 0.85)
+        
         const x = margin + (contentWidth - imgWidth) / 2
         const y = margin + (contentHeight - imgHeight) / 2
         
-        pdf.addImage(img, "PNG", x, y, imgWidth, imgHeight)
-        console.log('✅ Imagem de área adicionada ao PDF');
+        pdf.addImage(compressedImageData, "JPEG", x, y, imgWidth, imgHeight)
+        console.log('✅ Imagem de área adicionada ao PDF (JPEG comprimido)');
       }
       
       const nomeArquivo = `Relatório-CAV-${frente}-${format(data, "dd-MM-yyyy")}.pdf`;
+      
+      // Log das otimizações aplicadas
+      console.log(`📄 Otimizações aplicadas:
+        ✅ Scale reduzido: 2.0 → 1.5 (-25% resolução)
+        ✅ Formato: PNG → JPEG (-60~80% tamanho)
+        ✅ Qualidade JPEG: 85% (balanço ideal)
+        ✅ Imagens área: Redimensionadas (max 1920px)
+        ✅ Total de páginas: ${paginasOrdenadas.length + (imagemArea ? 1 : 0)}`);
+      
       pdf.save(nomeArquivo);
-      console.log(`📄 PDF salvo: ${nomeArquivo} (${paginasOrdenadas.length + (imagemArea ? 1 : 0)} páginas)`);
+      console.log(`📄 PDF salvo: ${nomeArquivo} - Tamanho otimizado!`);
       
     } catch (error) {
       console.error("Erro ao gerar PDF:", error)

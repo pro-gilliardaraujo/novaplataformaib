@@ -29,7 +29,7 @@ import { supabase } from "@/lib/supabase"
 import React from "react"
 
 // Componente de filtro simples (layout antigo)
-function ClassicFilter({ options, selected, onToggle, onClear }: { options: string[]; selected: Set<string>; onToggle: (o: string)=>void; onClear: ()=>void }) {
+function ClassicFilter({ options, selected, onToggle, onClear, columnKey }: { options: string[]; selected: Set<string>; onToggle: (o: string)=>void; onClear: ()=>void; columnKey?: string }) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
 
@@ -38,8 +38,11 @@ function ClassicFilter({ options, selected, onToggle, onClear }: { options: stri
   [options, search])
 
   React.useEffect(() => {
-    console.log('🔍 ClassicFilter renderizado com', options.length, 'opções:', options);
-  }, [options]);
+    console.log(`🔍 ClassicFilter [${columnKey}] renderizado com`, options.length, 'opções:', options);
+    if (options.length === 0) {
+      console.warn(`⚠️ ClassicFilter [${columnKey}] sem opções - filtro não será funcional`);
+    }
+  }, [options, columnKey]);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -218,17 +221,26 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
     const options = columns.reduce(
       (acc, column) => {
         if (column.key === "data") {
+          console.log(`🔍 Processando datas para ${cavsData.length} registros:`, cavsData.map(item => item.data));
+          
           const dataOptions = Array.from(
             new Set(
               cavsData.map((item) => {
-                const [year, month, day] = item.data.split("-")
-                return `${day}/${month}/${year}`
-              }),
+                try {
+                  const [year, month, day] = item.data.split("-")
+                  const formattedDate = `${day}/${month}/${year}`
+                  console.log(`🔍 Data ${item.data} → ${formattedDate}`);
+                  return formattedDate;
+                } catch (error) {
+                  console.error(`❌ Erro ao processar data ${item.data}:`, error);
+                  return null;
+                }
+              }).filter(Boolean),
             ),
           ).filter((value): value is string => typeof value === "string")
           
           acc[column.key] = dataOptions
-          console.log(`🔍 Opções para ${column.key}:`, dataOptions);
+          console.log(`🔍 Opções finais para ${column.key}:`, dataOptions);
         } else {
           const columnOptions = Array.from(
             new Set(
@@ -473,6 +485,7 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                         selected={filters[column.key] ?? new Set()}
                         onToggle={(opt)=>handleFilterToggle(column.key,opt)}
                         onClear={()=>handleClearFilter(column.key)}
+                        columnKey={column.key}
                       />
             </div>
                   </TableHead>

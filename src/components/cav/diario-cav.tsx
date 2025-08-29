@@ -99,6 +99,8 @@ export function DiarioCav() {
   })
   const [frenteFilter, setFrenteFilter] = useState<Set<string>>(new Set())
   const [uniqueFrentes, setUniqueFrentes] = useState<string[]>([])
+  const [dataFilter, setDataFilter] = useState<Set<string>>(new Set())
+  const [uniqueDatas, setUniqueDatas] = useState<string[]>([])
   
   // Função para carregar os diários com filtros e paginação
   const carregarDiarios = async () => {
@@ -124,6 +126,11 @@ export function DiarioCav() {
       // Aplicar filtro de frente
       if (frenteFilter.size > 0) {
         query = query.in("frente", Array.from(frenteFilter))
+      }
+      
+      // Aplicar filtro de data específica
+      if (dataFilter.size > 0) {
+        query = query.in("data", Array.from(dataFilter))
       }
       
       // Aplicar busca textual (no campo frente)
@@ -174,6 +181,20 @@ export function DiarioCav() {
         const frentes = [...new Set(frentesData.map(item => item.frente))]
         setUniqueFrentes(frentes)
       }
+      
+      // Carregar datas únicas (formatadas)
+      const { data: datasData } = await supabase
+        .from("diario_cav")
+        .select("data")
+        .order("data", { ascending: false })
+      
+      if (datasData) {
+        const datasFormatadas = [...new Set(datasData.map(item => {
+          const [year, month, day] = item.data.split("-")
+          return `${day}/${month}/${year}`
+        }))]
+        setUniqueDatas(datasFormatadas)
+      }
     } catch (error) {
       console.error("Erro ao carregar opções de filtro:", error)
     }
@@ -200,10 +221,25 @@ export function DiarioCav() {
     setFrenteFilter(newFilter)
   }
   
+  // Função para alternar filtro de data
+  const toggleDataFilter = (dataFormatada: string) => {
+    // Converter data formatada (dd/MM/yyyy) de volta para yyyy-MM-dd
+    const [dia, mes, ano] = dataFormatada.split("/")
+    const dataISO = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`
+    
+    const newFilter = new Set(dataFilter)
+    if (newFilter.has(dataISO)) {
+      newFilter.delete(dataISO)
+    } else {
+      newFilter.add(dataISO)
+    }
+    setDataFilter(newFilter)
+  }
+  
   // Efeito para carregar dados iniciais
   useEffect(() => {
     carregarDiarios()
-  }, [page, pageSize, sortField, sortDirection, dateRange, frenteFilter, searchTerm])
+  }, [page, pageSize, sortField, sortDirection, dateRange, frenteFilter, dataFilter, searchTerm])
   
   // Calcular total de páginas
   const totalPages = Math.ceil(totalCount / pageSize)
@@ -213,13 +249,12 @@ export function DiarioCav() {
     if (diarios.length === 0) return
     
     // Preparar cabeçalhos
-    const headers = ["Data", "Frente", "Máquinas", "Imagem Deslocamento", "Imagem Área"]
+    const headers = ["Data", "Frente", "Imagem Deslocamento", "Imagem Área"]
     
     // Preparar linhas
     const rows = diarios.map(diario => [
       format(parseISO(diario.data), "dd/MM/yyyy"),
       diario.frente,
-      Object.keys(diario.dados).length.toString(),
       diario.imagem_deslocamento || "",
       diario.imagem_area || ""
     ])
@@ -318,6 +353,15 @@ export function DiarioCav() {
                           <ArrowUpDown className="h-3.5 w-3.5" />
                         </Button>
                       </div>
+                      <ClassicFilter
+                        options={uniqueDatas}
+                        selected={new Set(Array.from(dataFilter).map(data => {
+                          const [year, month, day] = data.split("-")
+                          return `${day}/${month}/${year}`
+                        }))}
+                        onToggle={toggleDataFilter}
+                        onClear={() => setDataFilter(new Set())}
+                      />
                     </div>
                   </TableHead>
                   <TableHead className="text-white font-medium px-3 text-center">
@@ -345,7 +389,6 @@ export function DiarioCav() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="text-white font-medium px-3 text-center">Máquinas</TableHead>
                   <TableHead className="text-white font-medium px-3 text-center">Imagens</TableHead>
                   <TableHead className="text-white font-medium w-[100px] px-3">Ações</TableHead>
                 </TableRow>
@@ -358,9 +401,6 @@ export function DiarioCav() {
                     </TableCell>
                     <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
                       {diario.frente}
-                    </TableCell>
-                    <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
-                      {Object.keys(diario.dados).length} máquinas
                     </TableCell>
                     <TableCell className="px-3 py-0 border-x border-gray-100 text-center">
                       <div className="flex items-center justify-center gap-2">
