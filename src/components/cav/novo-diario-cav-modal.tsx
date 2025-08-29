@@ -29,6 +29,7 @@ interface NovoDiarioCavModalProps {
     frente?: string
     idsGranulares?: number[]
     dadosGranulares?: any[]
+    dadosAgregados?: any
     codigo?: string
   }
 }
@@ -119,8 +120,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess, preFilledDat
           prevDeslocMultiplas: [],
           prevArea: null,
           dadosFiltrados: {},
-          dadosBoletinsCav: preFilledData.dadosGranulares ? {
-            dadosGranulares: preFilledData.dadosGranulares
+          dadosBoletinsCav: preFilledData.dadosGranulares || preFilledData.dadosAgregados ? {
+            dadosGranulares: preFilledData.dadosGranulares,
+            dadosAgregados: preFilledData.dadosAgregados
           } : undefined
         }]);
         
@@ -171,14 +173,50 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess, preFilledDat
     
     console.log('✅ Dados OPC filtrados por frota:', dadosOPCFiltrados);
     
-    // Criar objeto de frotas filtrado
-    const frotasFiltradas: Record<string, DiarioCavFrotaData> = {};
-    dadosOPCFiltrados.forEach(dado => {
-      frotasFiltradas[dado.maquina] = {
-        h_motor: dado.horasMotor,
-        combustivel_consumido: dado.combustivelConsumido,
-        fator_carga_motor_ocioso: dado.fatorCargaMotorOcioso
+    // Criar objeto de frotas filtrado COMBINANDO OPC + GRANULARES
+    const frotasFiltradas: Record<string, any> = {};
+    
+    // Primeiro, agrupar produção por frota dos dados granulares
+    const producaoPorFrota = new Map<string, number>();
+    dadosGranulares.forEach(granular => {
+      const frotaKey = granular.frota?.toString();
+      if (frotaKey) {
+        const producaoAtual = producaoPorFrota.get(frotaKey) || 0;
+        producaoPorFrota.set(frotaKey, producaoAtual + (granular.producao || 0));
+      }
+    });
+    
+    console.log('🎯 Produção por frota calculada:', Object.fromEntries(producaoPorFrota));
+    
+    // Combinar dados OPC com produção
+    dadosOPCFiltrados.forEach(dadoOPC => {
+      const frotaKey = dadoOPC.maquina;
+      const totalProducao = producaoPorFrota.get(frotaKey) || 0;
+      const horasMotor = dadoOPC.horasMotor || 0;
+      const hectarePorHora = horasMotor > 0 ? totalProducao / horasMotor : 0;
+      
+      // Buscar turnos individuais desta frota
+      const turnosFrota = dadosGranulares.filter(granular => 
+        granular.frota?.toString() === frotaKey
+      ).map(granular => ({
+        turno: granular.turno,
+        operador: granular.operador,
+        codigo: granular.codigo,
+        producao: granular.producao,
+        lamina_alvo: granular.lamina_alvo
+      }));
+      
+      // Combinar dados OPC + Produção + Turnos
+      frotasFiltradas[frotaKey] = {
+        h_motor: dadoOPC.horasMotor,
+        combustivel_consumido: dadoOPC.combustivelConsumido,
+        fator_carga_motor_ocioso: dadoOPC.fatorCargaMotorOcioso,
+        total_producao: totalProducao,
+        hectare_por_hora: hectarePorHora,
+        turnos: turnosFrota
       };
+      
+      console.log(`🚜 Frota ${frotaKey} combinada: ${totalProducao}ha, ${horasMotor}h, ${hectarePorHora.toFixed(2)}ha/h, ${turnosFrota.length} turnos`);
     });
     
     // Atualizar a frente com os dados filtrados
@@ -413,8 +451,10 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess, preFilledDat
       const producaoPorFrotaTurno: ProducaoFrotaTurno[] = (dadosGranulares || []).map(item => ({
         frota: item.frota,
         turno: item.turno,
+        operador: item.operador,
         codigo: item.codigo,
-        producao: item.producao
+        producao: item.producao,
+        lamina_alvo: item.lamina_alvo
       }));
       
       console.log("Dados granulares encontrados:", producaoPorFrotaTurno.length);
@@ -1158,14 +1198,57 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess, preFilledDat
           const dataFormatada = format(frente.data, "dd/MM/yyyy");
           const dadosFiltrados = dadosOPC.filter(dado => dado.data === dataFormatada);
           
-          // Criar objeto de frotas filtrado com TODOS os campos necessários
-          dadosFiltrados.forEach(dado => {
-            dadosFiltradosFrota[dado.maquina] = {
-              h_motor: dado.horasMotor,
-              combustivel_consumido: dado.combustivelConsumido,
-              fator_carga_motor_ocioso: dado.fatorCargaMotorOcioso
-            };
-          });
+          // Se temos dados de boletins CAV (granulares), combinar com OPC
+          if (frente.dadosBoletinsCav?.dadosGranulares && frente.dadosBoletinsCav.dadosGranulares.length > 0) {
+            console.log('🔄 Combinando dados OPC + granulares para modo normal');
+            
+            // Agrupar produção por frota dos dados granulares
+            const producaoPorFrota = new Map<string, number>();
+            frente.dadosBoletinsCav.dadosGranulares.forEach(granular => {
+              const frotaKey = granular.frota?.toString();
+              if (frotaKey) {
+                const producaoAtual = producaoPorFrota.get(frotaKey) || 0;
+                producaoPorFrota.set(frotaKey, producaoAtual + (granular.producao || 0));
+              }
+            });
+            
+            // Combinar dados OPC com produção
+            dadosFiltrados.forEach(dado => {
+              const frotaKey = dado.maquina;
+              const totalProducao = producaoPorFrota.get(frotaKey) || 0;
+              const horasMotor = dado.horasMotor || 0;
+              const hectarePorHora = horasMotor > 0 ? totalProducao / horasMotor : 0;
+              
+              // Buscar turnos individuais desta frota
+              const turnosFrota = frente.dadosBoletinsCav!.dadosGranulares!.filter(granular => 
+                granular.frota?.toString() === frotaKey
+              ).map(granular => ({
+                turno: granular.turno,
+                operador: granular.operador,
+                codigo: granular.codigo,
+                producao: granular.producao,
+                lamina_alvo: granular.lamina_alvo
+              }));
+              
+              dadosFiltradosFrota[frotaKey] = {
+                h_motor: dado.horasMotor,
+                combustivel_consumido: dado.combustivelConsumido,
+                fator_carga_motor_ocioso: dado.fatorCargaMotorOcioso,
+                total_producao: totalProducao,
+                hectare_por_hora: hectarePorHora,
+                turnos: turnosFrota
+              };
+            });
+          } else {
+            // Criar objeto de frotas filtrado apenas com dados OPC (fallback)
+            dadosFiltrados.forEach(dado => {
+              dadosFiltradosFrota[dado.maquina] = {
+                h_motor: dado.horasMotor,
+                combustivel_consumido: dado.combustivelConsumido,
+                fator_carga_motor_ocioso: dado.fatorCargaMotorOcioso
+              };
+            });
+          }
           
           console.log(`Dados filtrados para frente ${frente.frente} na data ${dataFormatada}:`, dadosFiltradosFrota);
         }
@@ -1178,9 +1261,15 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess, preFilledDat
         }
         
         // Combinar dados das frotas com dados agregados
+        console.log('🔍 Debug agregados:', {
+          frenteDadosAgregados: frente.dadosBoletinsCav?.dadosAgregados,
+          preFilledDadosAgregados: preFilledData?.dadosAgregados,
+          preFilledData: preFilledData
+        });
+        
         const dadosParaSalvar = {
           frotas: dadosFiltradosFrota,
-          agregados: frente.dadosBoletinsCav?.dadosAgregados || null
+          agregados: preFilledData?.dadosAgregados || frente.dadosBoletinsCav?.dadosAgregados || null
         };
         
         console.log(`💾 Salvando dados completos para frente ${frente.frente}:`, dadosParaSalvar);
@@ -1260,24 +1349,34 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess, preFilledDat
         }
         
         // Preparar dados para inserção com lógica correta de imagens
-        const totalImagens = imgDeslocamentoUrls.length;
-        const imagemUnica = imgDeslocamentoUrl;
-        const imagensMultiplas = totalImagens > 1 ? imgDeslocamentoUrls : null;
+        let imagem_deslocamento = null;
+        let imagens_deslocamento = null;
+        
+        if (imgDeslocamentoUrls.length > 1) {
+          // Múltiplas imagens
+          imagens_deslocamento = imgDeslocamentoUrls;
+        } else if (imgDeslocamentoUrls.length === 1) {
+          // Uma imagem (múltiplas)
+          imagem_deslocamento = imgDeslocamentoUrls[0];
+        } else if (imgDeslocamentoUrl) {
+          // Uma imagem (única)
+          imagem_deslocamento = imgDeslocamentoUrl;
+        }
         
         // Debug logs
         console.log(`📊 Debug dados para insert:`, {
-          imgDeslocamentoUrls,
-          totalImagens,
-          imagemUnica,
-          imagensMultiplas
+          imgDeslocamentoUrls: imgDeslocamentoUrls.length,
+          imgDeslocamentoUrl: !!imgDeslocamentoUrl,
+          imagem_deslocamento,
+          imagens_deslocamento
         });
         
         const registroParaSalvar = {
           data: format(frente.data, "yyyy-MM-dd"),
           frente: frente.frente,
           dados: dadosParaSalvar,
-          imagem_deslocamento: totalImagens === 1 ? (imagensMultiplas ? imagensMultiplas[0] : imagemUnica) : null,
-          imagens_deslocamento: imagensMultiplas,
+          imagem_deslocamento,
+          imagens_deslocamento,
           imagem_area: imgAreaUrl
         };
         

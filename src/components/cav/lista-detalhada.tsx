@@ -673,7 +673,8 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
               frente: selectedCavForRelatorio.frente,
               codigo: selectedCavForRelatorio.codigo,
               idsGranulares: selectedCavForRelatorio.registros_granulares?.uuids || [],
-              dadosGranulares: dadosGranularesCarregados
+              dadosGranulares: dadosGranularesCarregados,
+              dadosAgregados: selectedCavForRelatorio
             }}
           />
         );

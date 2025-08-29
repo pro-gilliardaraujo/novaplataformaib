@@ -2,6 +2,15 @@ export interface DiarioCavFrotaData {
   h_motor: number;
   combustivel_consumido?: number;
   fator_carga_motor_ocioso?: number;
+  total_producao?: number;
+  hectare_por_hora?: number;
+  turnos?: Array<{
+    turno: string;
+    operador: string;
+    codigo: string;
+    producao: number;
+    lamina_alvo: number;
+  }>;
 }
 
 export interface DiarioCav {
@@ -55,12 +64,14 @@ export interface BoletimCavAgregado {
 export interface ProducaoFrotaTurno {
   frota: string;
   turno: string;
+  operador: string;
   codigo: string;
   producao: number;
+  lamina_alvo: number;
 }
 
 // Interface para dados de prévia de boletins CAV
 export interface PreviaBoletinsCav {
-  dadosGranulares: ProducaoFrotaTurno[];
+  dadosGranulares?: ProducaoFrotaTurno[];
   dadosAgregados?: BoletimCavAgregado;
 }
