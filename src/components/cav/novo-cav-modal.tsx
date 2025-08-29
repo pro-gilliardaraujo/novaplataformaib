@@ -1631,19 +1631,7 @@ export function NovoCavModal({
                     isEditMode ? "Salvar Alterações" : "Criar Boletim CAV"
                   )}
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={() => {
-                    console.log('📊 Botão "Gerar Relatório" clicado!')
-                    // TODO: Implementar lógica do relatório
-                  }} 
-                  disabled={isSubmitting}
-                  className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Gerar Relatório
-                </Button>
+
               </div>
             </div>
           )}

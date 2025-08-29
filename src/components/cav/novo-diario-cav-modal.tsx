@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,13 @@ interface NovoDiarioCavModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  preFilledData?: {
+    data?: string
+    frente?: string
+    idsGranulares?: number[]
+    dadosGranulares?: any[]
+    codigo?: string
+  }
 }
 
 // Interface para cada item de frente
@@ -50,7 +57,7 @@ interface OpcData {
   fatorCargaMotorOcioso: number;
 }
 
-export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiarioCavModalProps) {
+export function NovoDiarioCavModal({ open, onOpenChange, onSuccess, preFilledData }: NovoDiarioCavModalProps) {
   // Definir a data de ontem como padrão, garantindo que o dia esteja correto
   const hoje = new Date();
   // Criar uma nova data para ontem usando ano, mês e dia explicitamente
@@ -89,6 +96,101 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
   const [error, setError] = useState("");
   const [frenteToDelete, setFrenteToDelete] = useState<string | null>(null);
   const [processandoArquivo, setProcessandoArquivo] = useState(false);
+  
+  // useEffect para processar dados pré-carregados
+  useEffect(() => {
+    if (open && preFilledData) {
+      console.log('🎯 Dados pré-carregados recebidos:', preFilledData);
+      
+      // Configurar frente com dados pré-carregados
+      if (preFilledData.data && preFilledData.frente) {
+        // Converter data de dd/MM/yyyy para Date
+        const [dia, mes, ano] = preFilledData.data.split('/');
+        const dataConvertida = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), 12, 0, 0);
+        
+        setFrentes([{
+          id: uuidv4(),
+          frente: preFilledData.frente,
+          data: dataConvertida,
+          imgDesloc: null,
+          imgDeslocMultiplas: [],
+          imgArea: null,
+          prevDesloc: null,
+          prevDeslocMultiplas: [],
+          prevArea: null,
+          dadosFiltrados: {},
+          dadosBoletinsCav: preFilledData.dadosGranulares ? {
+            dadosGranulares: preFilledData.dadosGranulares
+          } : undefined
+        }]);
+        
+        console.log('✅ Frente configurada com dados pré-carregados');
+      }
+    }
+  }, [open, preFilledData]);
+  
+  // Função para buscar dados granulares por IDs
+  const buscarDadosGranularesPorUUIDs = async (ids: number[]) => {
+    if (!ids || ids.length === 0) return [];
+    
+    try {
+      const supabase = createClientComponentClient();
+      const { data, error } = await supabase
+        .from("boletins_cav")
+        .select("*")
+        .in("id", ids);
+      
+      if (error) {
+        console.error("Erro ao buscar dados granulares:", error);
+        return [];
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error("Erro ao buscar dados granulares:", error);
+      return [];
+    }
+  };
+  
+  // Função para mostrar prévia filtrada dos dados OPC
+  const mostrarPreviaFiltrada = (dadosOPC: OpcData[], dataFiltro: string, dadosGranulares: any[]) => {
+    console.log('🔍 Mostrando prévia filtrada para:', { dataFiltro, dadosGranulares: dadosGranulares.length });
+    
+    // Filtrar dados OPC pela data
+    const dadosFiltrados = dadosOPC.filter(dado => dado.data === dataFiltro);
+    console.log('📊 Dados OPC filtrados por data:', dadosFiltrados.length);
+    
+    // Obter frotas dos dados granulares
+    const frotasGranulares = new Set(dadosGranulares.map(d => d.frota?.toString()));
+    console.log('🚜 Frotas encontradas nos dados granulares:', Array.from(frotasGranulares));
+    
+    // Filtrar dados OPC pelas frotas encontradas nos granulares
+    const dadosOPCFiltrados = dadosFiltrados.filter(dado => 
+      frotasGranulares.has(dado.maquina)
+    );
+    
+    console.log('✅ Dados OPC filtrados por frota:', dadosOPCFiltrados);
+    
+    // Criar objeto de frotas filtrado
+    const frotasFiltradas: Record<string, DiarioCavFrotaData> = {};
+    dadosOPCFiltrados.forEach(dado => {
+      frotasFiltradas[dado.maquina] = {
+        h_motor: dado.horasMotor,
+        combustivel_consumido: dado.combustivelConsumido,
+        fator_carga_motor_ocioso: dado.fatorCargaMotorOcioso
+      };
+    });
+    
+    // Atualizar a frente com os dados filtrados
+    setFrentes(prev => prev.map(f => 
+      f.id === prev[0]?.id ? { // Assumindo que há apenas uma frente com dados pré-carregados
+        ...f, 
+        dadosFiltrados: frotasFiltradas
+      } : f
+    ));
+    
+    console.log('🎯 Prévia filtrada atualizada:', frotasFiltradas);
+  };
   
   // Removemos os estados relacionados ao relatório, pois ele será acessado em outra tela
   
@@ -159,6 +261,12 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
   
   // Filtrar dados por frente e data
   const filtrarDadosPorFrenteEData = async (frenteId: string, frenteCodigo: string, dataFiltro?: Date) => {
+    // Se temos dados pré-carregados, usar esses dados ao invés de buscar no Supabase
+    if (preFilledData && preFilledData.idsGranulares && preFilledData.idsGranulares.length > 0) {
+      console.log('🎯 Usando dados pré-carregados dos IDs:', preFilledData.idsGranulares);
+      return; // Dados já foram carregados no useEffect
+    }
+    
     // Se não temos frente selecionada, não fazemos nada
     if (!frenteCodigo) {
       return;
@@ -744,6 +852,12 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
           console.log("Dados processados CSV:", dados);
           console.log("Frotas CSV:", frotas);
           
+          // Se temos dados pré-carregados, filtrar e mostrar prévia automaticamente
+          if (preFilledData?.data && preFilledData?.dadosGranulares) {
+            console.log('🎯 Filtrando dados OPC para dados pré-carregados');
+            mostrarPreviaFiltrada(dados, preFilledData.data, preFilledData.dadosGranulares);
+          }
+          
         } catch (error) {
           console.error("Erro ao processar CSV:", error);
           setError(`Erro ao processar o arquivo: ${error}`);
@@ -934,6 +1048,12 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         setDadosFrotas(frotas);
         console.log("Dados processados:", dados);
         console.log("Frotas:", frotas);
+        
+        // Se temos dados pré-carregados, filtrar e mostrar prévia automaticamente
+        if (preFilledData?.data && preFilledData?.dadosGranulares) {
+          console.log('🎯 Filtrando dados OPC para dados pré-carregados');
+          mostrarPreviaFiltrada(dados, preFilledData.data, preFilledData.dadosGranulares);
+        }
         
       } catch (error) {
         console.error("Erro ao processar XLSX:", error);
@@ -1204,7 +1324,11 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
         >
           {/* Cabeçalho fixo */}
           <div className="flex items-center justify-between py-4 border-b">
-            <span className="flex-1 text-center font-semibold text-lg">Novo Diário CAV</span>
+            <span className="flex-1 text-center font-semibold text-lg">
+              {preFilledData?.frente && preFilledData?.data
+                ? `Novo Diário CAV - ${preFilledData.frente} - ${preFilledData.data} ${preFilledData.codigo ? "- " + preFilledData.codigo : ""}`
+                : "Novo Diário CAV"}
+            </span>
             <DialogClose asChild>
               <Button
                 variant="outline"
@@ -1313,6 +1437,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                     size="sm"
                     onClick={handleAddFrente}
                     className="flex items-center gap-1"
+                    style={{ display: preFilledData ? 'none' : undefined }}
                   >
                     <Plus className="h-4 w-4" /> Adicionar Frente
                   </Button>
@@ -1340,6 +1465,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                 <div className="flex flex-wrap gap-6">
                   <div className="flex flex-nowrap gap-6">
                     {/* Data */}
+                    {!preFilledData && (
                     <div className="w-[180px]">
                       <Label htmlFor={`data-${frente.id}`} className="mb-2 block text-base font-medium truncate">Data</Label>
                       <Input
@@ -1368,8 +1494,9 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                           }}
                         />
                     </div>
-
+                    )}
                     {/* Frente */}
+                    {!preFilledData && (
                     <div className="w-[260px]">
                       <Label htmlFor={`frente-${frente.id}`} className="mb-2 block text-base font-medium truncate">Frente</Label>
                       <Select 
@@ -1388,6 +1515,7 @@ export function NovoDiarioCavModal({ open, onOpenChange, onSuccess }: NovoDiario
                         </SelectContent>
                       </Select>
                     </div>
+                    )}
 
                     {/* Imagem Deslocamento */}
                     <div className="w-[250px] pt-6">

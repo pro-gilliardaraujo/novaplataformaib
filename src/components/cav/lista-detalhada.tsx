@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download, Pencil, FileDown, Copy, X } from "lucide-react"
+import { Eye, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Plus, Download, Pencil, FileDown, Copy, X, FileText } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import { 
@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { NovoCavModal } from "./novo-cav-modal"
+import { NovoDiarioCavModal } from "./novo-diario-cav-modal"
 import { supabase } from "@/lib/supabase"
 import React from "react"
 
@@ -90,6 +91,7 @@ interface CavAgregado {
   lamina_alvo: number
   lamina_aplicada: number
   dif_lamina_perc: number
+  registros_granulares?: { uuids: number[] }
   created_at: string
   updated_at: string
 }
@@ -127,6 +129,9 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editBoletinsIndividuais, setEditBoletinsIndividuais] = useState<BoletimCav[]>([])
+  const [isRelatorioModalOpen, setIsRelatorioModalOpen] = useState(false)
+  const [selectedCavForRelatorio, setSelectedCavForRelatorio] = useState<CavAgregado | null>(null)
+  const [dadosGranularesCarregados, setDadosGranularesCarregados] = useState<BoletimCav[]>([])
 
   const [cavsData, setCavsData] = useState<CavAgregado[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -600,6 +605,19 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
             // Abrir o modal de edição
             setIsEditModalOpen(true);
           }}
+          onGerarRelatorio={(cav, boletinsIndividuais) => {
+            console.log('🎯 onGerarRelatorio chamado com:', { cav, boletinsIndividuais: boletinsIndividuais.length });
+            
+            // Configurar estados para o modal de relatório
+            setSelectedCavForRelatorio(cav);
+            setDadosGranularesCarregados(boletinsIndividuais);
+            
+            // Fechar modal de detalhes e abrir modal de relatório
+            setSelectedCav(null);
+            setIsRelatorioModalOpen(true);
+            
+            console.log('✅ Estados configurados - modal deveria abrir');
+          }}
         />
       )}
 
@@ -621,6 +639,45 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
           boletinsIndividuais={editBoletinsIndividuais}
         />
       )}
+
+      {/* Modal de geração de relatório */}
+      {(() => {
+        console.log('🔍 Verificando renderização do modal relatório:', {
+          selectedCavForRelatorio: !!selectedCavForRelatorio,
+          isRelatorioModalOpen,
+          dadosGranularesCarregados: dadosGranularesCarregados.length
+        });
+        
+        return selectedCavForRelatorio && (
+          <NovoDiarioCavModal
+            open={isRelatorioModalOpen}
+            onOpenChange={(open) => {
+              console.log('📱 Modal relatório onOpenChange:', open);
+              setIsRelatorioModalOpen(open);
+              if (!open) {
+                setSelectedCavForRelatorio(null);
+                setDadosGranularesCarregados([]);
+              }
+            }}
+            onSuccess={() => {
+              setIsRelatorioModalOpen(false);
+              setSelectedCavForRelatorio(null);
+              setDadosGranularesCarregados([]);
+              toast({
+                title: "Relatório gerado!",
+                description: "O relatório foi criado com sucesso.",
+              });
+            }}
+            preFilledData={{
+              data: format(new Date(selectedCavForRelatorio.data + 'T00:00:00'), "dd/MM/yyyy"),
+              frente: selectedCavForRelatorio.frente,
+              codigo: selectedCavForRelatorio.codigo,
+              idsGranulares: selectedCavForRelatorio.registros_granulares?.uuids || [],
+              dadosGranulares: dadosGranularesCarregados
+            }}
+          />
+        );
+      })()}
           </div>
   )
 }
@@ -650,12 +707,14 @@ function CavDetailsModal({
   open,
   onOpenChange,
   cav,
-  onEdit
+  onEdit,
+  onGerarRelatorio
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   cav: CavAgregado
   onEdit?: (cav: CavAgregado, boletinsIndividuais: BoletimCav[]) => void
+  onGerarRelatorio?: (cav: CavAgregado, boletinsIndividuais: BoletimCav[]) => void
 }) {
   const { toast } = useToast()
   const [boletinsIndividuais, setBoletinsIndividuais] = useState<BoletimCav[]>([])
@@ -696,6 +755,11 @@ function CavDetailsModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
+        <DialogHeader className="sr-only">
+          <DialogTitle>
+            Detalhes do Boletim CAV - {cav.frente} {format(new Date(cav.data + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })} - {cav.codigo}
+          </DialogTitle>
+        </DialogHeader>
         <div className="flex items-center px-4 h-12 border-b relative">
           <div className="flex-1 text-center">
             <span className="text-base font-medium">
@@ -952,7 +1016,7 @@ function CavDetailsModal({
 
         <div className="border-t bg-white px-8 py-5">
           <SectionTitle title="Resumo do Boletim" />
-          <div className="flex justify-center mt-4">
+          <div className="flex justify-center gap-3 mt-4">
             <Button
               variant="outline"
               onClick={() => {
@@ -1053,8 +1117,24 @@ function CavDetailsModal({
                 // Adicionar evento de clique ao botão de fechar
                 const closeButton = document.getElementById('btn-fechar-resumo');
                 if (closeButton) {
-                  closeButton.addEventListener('click', function() {
+                  closeButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     document.body.removeChild(dialogRoot);
+                  });
+                }
+                
+                // Adicionar evento de clique no overlay para fechar
+                const overlay = dialogRoot.querySelector('[data-state="open"]');
+                if (overlay) {
+                  overlay.addEventListener('click', function(e) {
+                    // Só fechar se clicou no overlay, não no conteúdo
+                    if (e.target === overlay) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.stopImmediatePropagation && e.stopImmediatePropagation();
+                      setTimeout(() => { document.body.removeChild(dialogRoot); }, 0);
+                    }
                   });
                 }
                 
@@ -1245,6 +1325,32 @@ function CavDetailsModal({
             >
               <FileDown className="mr-2 h-4 w-4" />
               Visualizar resumo
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                console.log('🎯 CLIQUE NO GERAR RELATÓRIO DETECTADO!');
+                console.log('📊 Dados do CAV:', {
+                  data: cav.data,
+                  frente: cav.frente,
+                  codigo: cav.codigo,
+                  registros_granulares: cav.registros_granulares,
+                  boletinsIndividuais: boletinsIndividuais
+                });
+                
+                // Chamar a função de gerar relatório
+                if (onGerarRelatorio) {
+                  console.log('⚙️ Chamando função de gerar relatório...');
+                  onGerarRelatorio(cav, boletinsIndividuais);
+                } else {
+                  console.error('❌ Função onGerarRelatorio não foi passada!');
+                }
+              }}
+              className="w-auto min-w-[200px] border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Gerar Relatório
             </Button>
           </div>
         </div>
