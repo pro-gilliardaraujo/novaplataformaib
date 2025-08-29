@@ -37,6 +37,10 @@ function ClassicFilter({ options, selected, onToggle, onClear }: { options: stri
     options.filter(o=>o.toLowerCase().includes(search.toLowerCase())).sort(),
   [options, search])
 
+  React.useEffect(() => {
+    console.log('🔍 ClassicFilter renderizado com', options.length, 'opções:', options);
+  }, [options]);
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -209,10 +213,12 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
   const isColVisible = (key:string) => visibleColumns.includes(key)
 
   const filterOptions = useMemo(() => {
-    return columns.reduce(
+    console.log('🔍 Gerando opções de filtro para', cavsData.length, 'registros');
+    
+    const options = columns.reduce(
       (acc, column) => {
         if (column.key === "data") {
-          acc[column.key] = Array.from(
+          const dataOptions = Array.from(
             new Set(
               cavsData.map((item) => {
                 const [year, month, day] = item.data.split("-")
@@ -220,19 +226,28 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
               }),
             ),
           ).filter((value): value is string => typeof value === "string")
+          
+          acc[column.key] = dataOptions
+          console.log(`🔍 Opções para ${column.key}:`, dataOptions);
         } else {
-          acc[column.key] = Array.from(
+          const columnOptions = Array.from(
             new Set(
               cavsData
                 .map((item) => item[column.key as keyof CavAgregado])
                 .filter((value): value is string => typeof value === "string"),
             ),
           )
+          
+          acc[column.key] = columnOptions
+          console.log(`🔍 Opções para ${column.key}:`, columnOptions);
         }
         return acc
       },
       {} as Record<string, string[]>,
     )
+    
+    console.log('🔍 Todas as opções de filtro geradas:', options);
+    return options;
   }, [cavsData])
 
   const filteredData = useMemo(() => {

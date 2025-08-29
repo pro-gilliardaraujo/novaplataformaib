@@ -134,6 +134,8 @@ export function RelatorioDiarioCav({
 
   // Função para salvar posição da legenda no banco de dados
   const salvarPosicaoLegenda = async () => {
+    console.log('💾 Iniciando salvamento da legenda...');
+    
     try {
       const supabase = createClientComponentClient()
       
@@ -145,40 +147,60 @@ export function RelatorioDiarioCav({
         destacarFrotas: destacarFrotasIndividualmente,
         mapeamentoFrotas: mapeamentoFrotasPorImagem
       }
+      
+      console.log('💾 Dados da legenda para salvar:', dadosLegenda);
 
       // Buscar o registro atual
       const dataFormatada = format(data, 'yyyy-MM-dd')
-      const { data: registroAtual, error: fetchError } = await supabase
+      console.log(`💾 Buscando registro: frente=${frente}, data=${dataFormatada}`);
+      
+      // Primeiro, vamos ver quantos registros existem
+      const { data: registros, error: fetchError } = await supabase
         .from('diario_cav')
-        .select('dados')
+        .select('id, dados')
         .eq('frente', frente)
         .eq('data', dataFormatada)
-        .single()
-
+        .order('created_at', { ascending: false })
+      
+      console.log(`💾 Registros encontrados:`, registros?.length || 0, registros);
+      
       if (fetchError) {
-        console.error('Erro ao buscar registro atual:', fetchError)
-        setError('Erro ao buscar dados do relatório')
+        console.error('❌ Erro ao buscar registros:', fetchError)
+        setError(`Erro ao buscar dados do relatório: ${fetchError.message}`)
         return
       }
+      
+      if (!registros || registros.length === 0) {
+        console.error('❌ Nenhum registro encontrado')
+        setError('Nenhum registro encontrado para salvar a legenda')
+        return
+      }
+      
+      // Usar o registro mais recente se houver múltiplos
+      const registroAtual = registros[0]
+      console.log('💾 Usando registro:', registroAtual);
 
       // Mesclar dados existentes com configurações da legenda
       const dadosAtualizados = {
         ...registroAtual.dados,
         legenda: dadosLegenda
       }
+      
+      console.log('💾 Dados atualizados a serem salvos:', dadosAtualizados);
 
-      // Atualizar no banco
+      // Atualizar no banco usando o ID específico para evitar múltiplas atualizações
       const { error: updateError } = await supabase
         .from('diario_cav')
         .update({ dados: dadosAtualizados })
-        .eq('frente', frente)
-        .eq('data', dataFormatada)
+        .eq('id', registroAtual.id)
 
       if (updateError) {
-        console.error('Erro ao salvar posição da legenda:', updateError)
-        setError('Erro ao salvar configurações da legenda')
+        console.error('❌ Erro ao salvar posição da legenda:', updateError)
+        setError(`Erro ao salvar configurações da legenda: ${updateError.message}`)
         return
       }
+      
+      console.log('✅ Legenda salva com sucesso!');
 
       // Feedback visual de sucesso
       const button = document.querySelector('[data-salvar-legenda]') as HTMLButtonElement
@@ -193,8 +215,8 @@ export function RelatorioDiarioCav({
       }
 
     } catch (error) {
-      console.error('Erro ao salvar posição da legenda:', error)
-      setError('Erro ao salvar configurações da legenda')
+      console.error('❌ Erro geral ao salvar posição da legenda:', error)
+      setError(`Erro ao salvar configurações da legenda: ${error}`)
     }
   }
   
@@ -224,29 +246,53 @@ export function RelatorioDiarioCav({
         console.log("📊 Frotas recebidas:", frotasData);
         console.log("📊 Agregados recebidos:", agregadosData);
         
-        // Transformar para o formato esperado pelo relatório
-        const frotasProducao = Object.entries(frotasData).map(([frotaKey, dadosFrota]: [string, any]) => {
-          const frotaNum = parseInt(frotaKey);
-          const totalProducao = dadosFrota.total_producao || 0;
-          const horasMotor = dadosFrota.h_motor || 0;
-          const hectarePorHora = dadosFrota.hectare_por_hora || 0;
-          const turnos = dadosFrota.turnos || [];
-          
-          // Converter fator de carga para porcentagem (multiplicar por 100)
-          const motorOciosoPerc = (dadosFrota.fator_carga_motor_ocioso || 0) * 100;
-          
-          console.log(`🚜 Frota ${frotaNum}: produção=${totalProducao}ha, horas=${horasMotor}h, ha/h=${hectarePorHora.toFixed(2)}, ocioso=${motorOciosoPerc.toFixed(1)}%, turnos=${turnos.length}`);
-          
-          return {
-            frota: frotaNum,
-            turnos: turnos,
-            total_producao: totalProducao,
-            horas_motor: horasMotor,
-            hectare_por_hora: hectarePorHora,
-            motor_ocioso_perc: motorOciosoPerc,
-            combustivel_consumido: dadosFrota.combustivel_consumido || 0
-          };
-        });
+        // CRUCIAL: Identificar quais frotas estão nos dados agregados
+        let frotasDoRegistro = new Set<string>();
+        
+        if (agregadosData && agregadosData.registros_granulares && agregadosData.registros_granulares.uuids) {
+          // Buscar frotas dos boletins granulares pela sua UUID
+          // Como não temos acesso direto aos boletins aqui, vamos filtrar pelas frotas que têm dados de turnos
+          Object.entries(frotasData).forEach(([frotaKey, dadosFrota]: [string, any]) => {
+            if (dadosFrota.turnos && Array.isArray(dadosFrota.turnos) && dadosFrota.turnos.length > 0) {
+              frotasDoRegistro.add(frotaKey);
+            }
+          });
+          console.log('🎯 Frotas identificadas pelo turnos:', Array.from(frotasDoRegistro));
+        } else {
+          // Fallback: usar todas as frotas que têm dados de produção > 0
+          Object.entries(frotasData).forEach(([frotaKey, dadosFrota]: [string, any]) => {
+            if ((dadosFrota.total_producao || 0) > 0) {
+              frotasDoRegistro.add(frotaKey);
+            }
+          });
+          console.log('🎯 Frotas identificadas por produção > 0:', Array.from(frotasDoRegistro));
+        }
+        
+        // Transformar APENAS as frotas do registro específico
+        const frotasProducao = Object.entries(frotasData)
+          .filter(([frotaKey]) => frotasDoRegistro.has(frotaKey))
+          .map(([frotaKey, dadosFrota]: [string, any]) => {
+            const frotaNum = parseInt(frotaKey);
+            const totalProducao = dadosFrota.total_producao || 0;
+            const horasMotor = dadosFrota.h_motor || 0;
+            const hectarePorHora = dadosFrota.hectare_por_hora || 0;
+            const turnos = dadosFrota.turnos || [];
+            
+            // Converter fator de carga para porcentagem (multiplicar por 100)
+            const motorOciosoPerc = (dadosFrota.fator_carga_motor_ocioso || 0) * 100;
+            
+            console.log(`🚜 Frota FILTRADA ${frotaNum}: produção=${totalProducao}ha, horas=${horasMotor}h, ha/h=${hectarePorHora.toFixed(2)}, ocioso=${motorOciosoPerc.toFixed(1)}%, turnos=${turnos.length}`);
+            
+            return {
+              frota: frotaNum,
+              turnos: turnos,
+              total_producao: totalProducao,
+              horas_motor: horasMotor,
+              hectare_por_hora: hectarePorHora,
+              motor_ocioso_perc: motorOciosoPerc,
+              combustivel_consumido: dadosFrota.combustivel_consumido || 0
+            };
+          });
         
         console.log("🔄 Frotas transformadas:", frotasProducao);
         
@@ -375,41 +421,62 @@ export function RelatorioDiarioCav({
       const contentWidth = pageWidth - (margin * 2)
       const contentHeight = pageHeight - (margin * 2)
       
-      // Primeira página com gráficos
-      const pagina1 = relatorioRef.current.querySelector(".pagina-1") as HTMLElement
-      if (pagina1) {
-        const canvas1 = await html2canvas(pagina1, {
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          scale: 2, // Melhor qualidade
-          width: pagina1.offsetWidth,
-          height: pagina1.offsetHeight,
-          backgroundColor: '#ffffff'
-        } as any)
-        const imgData1 = canvas1.toDataURL("image/png", 1.0)
-        pdf.addImage(imgData1, "PNG", margin, margin, contentWidth, contentHeight)
+      console.log('📄 Iniciando geração de PDF...');
+      
+      // Encontrar todas as páginas automaticamente
+      const todasPaginas = relatorioRef.current.querySelectorAll('[class*="pagina-"]') as NodeListOf<HTMLElement>
+      console.log(`📄 Total de páginas encontradas: ${todasPaginas.length}`);
+      
+      // Ordenar páginas pela classe (pagina-1, pagina-desloc-2, pagina-desloc-3, pagina-3, etc.)
+      const paginasOrdenadas = Array.from(todasPaginas).sort((a, b) => {
+        const getNumero = (elemento: HTMLElement) => {
+          const className = elemento.className;
+          // Extrair número da classe (pagina-1 -> 1, pagina-desloc-2 -> 2, etc.)
+          const match = className.match(/pagina-(?:desloc-)?(\d+)/);
+          return match ? parseInt(match[1]) : 0;
+        };
+        return getNumero(a) - getNumero(b);
+      });
+      
+      console.log('📄 Páginas ordenadas:', paginasOrdenadas.map(p => p.className));
+      
+      // Gerar PDF com todas as páginas
+      for (let i = 0; i < paginasOrdenadas.length; i++) {
+        const pagina = paginasOrdenadas[i];
+        const numeroPagina = i + 1;
+        
+        console.log(`📄 Processando página ${numeroPagina}: ${pagina.className}`);
+        
+        // Adicionar nova página (exceto para a primeira)
+        if (i > 0) {
+          pdf.addPage();
+          console.log(`📄 Nova página adicionada ao PDF (${numeroPagina})`);
+        }
+        
+        try {
+          const canvas = await html2canvas(pagina, {
+            logging: false,
+            useCORS: true,
+            allowTaint: true,
+            scale: 2, // Melhor qualidade
+            width: pagina.offsetWidth,
+            height: pagina.offsetHeight,
+            backgroundColor: '#ffffff'
+          } as any);
+          
+          const imgData = canvas.toDataURL("image/png", 1.0);
+          pdf.addImage(imgData, "PNG", margin, margin, contentWidth, contentHeight);
+          
+          console.log(`✅ Página ${numeroPagina} adicionada ao PDF`);
+        } catch (pageError) {
+          console.error(`❌ Erro ao processar página ${numeroPagina}:`, pageError);
+          // Continuar com as outras páginas mesmo se uma falhar
+        }
       }
       
-      // Segunda página com gráfico de combustível + mapa de deslocamento
-      const pagina2 = relatorioRef.current.querySelector(".pagina-2") as HTMLElement
-      if (pagina2) {
-        pdf.addPage()
-        const canvas2 = await html2canvas(pagina2, {
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          scale: 2, // Melhor qualidade
-          width: pagina2.offsetWidth,
-          height: pagina2.offsetHeight,
-          backgroundColor: '#ffffff'
-        } as any)
-        const imgData2 = canvas2.toDataURL("image/png", 1.0)
-        pdf.addImage(imgData2, "PNG", margin, margin, contentWidth, contentHeight)
-      }
-      
-      // Terceira página com imagem de área (se existir)
+      // Página adicional com imagem de área (se existir)
       if (imagemArea) {
+        console.log('📄 Adicionando página de imagem de área...');
         pdf.addPage()
         const img = new Image()
         img.crossOrigin = "anonymous"
@@ -433,9 +500,13 @@ export function RelatorioDiarioCav({
         const y = margin + (contentHeight - imgHeight) / 2
         
         pdf.addImage(img, "PNG", x, y, imgWidth, imgHeight)
+        console.log('✅ Imagem de área adicionada ao PDF');
       }
       
-      pdf.save(`Relatório-CAV-${frente}-${format(data, "dd-MM-yyyy")}.pdf`)
+      const nomeArquivo = `Relatório-CAV-${frente}-${format(data, "dd-MM-yyyy")}.pdf`;
+      pdf.save(nomeArquivo);
+      console.log(`📄 PDF salvo: ${nomeArquivo} (${paginasOrdenadas.length + (imagemArea ? 1 : 0)} páginas)`);
+      
     } catch (error) {
       console.error("Erro ao gerar PDF:", error)
       setError("Erro ao gerar PDF")
@@ -1055,23 +1126,27 @@ export function RelatorioDiarioCav({
                   )}
                   
                   {/* Imagem de deslocamento (em todas as páginas) */}
-                  <div className={`border border-gray-400 rounded-md ${index === 0 ? 'p-2' : 'p-1'} shadow-sm flex-1 flex flex-col`}>
+                  <div className={`border border-gray-400 rounded-md ${index === 0 ? 'p-2' : 'p-1'} shadow-sm flex-1 flex flex-col overflow-hidden`}>
                     <h3 className="text-center font-semibold mb-2">
                       Mapa de deslocamento{imagensArray.length > 1 ? ` ${index + 1}` : ''}
                     </h3>
                     <div 
-                      className="flex justify-center flex-1 relative"
+                      className="flex justify-center flex-1 relative overflow-hidden"
                       onMouseMove={handleMouseMove}
                       onMouseUp={handleMouseUp}
                       onMouseLeave={handleMouseUp}
+                      style={{ maxWidth: "100%", maxHeight: "100%" }}
                     >
                       <img 
                         src={imgUrl} 
                         alt={`Mapa de deslocamento ${index + 1}`} 
-                        className="max-w-full h-auto object-contain"
+                        className="w-full h-auto object-contain"
                         style={{ 
-                          maxHeight: index === 0 ? "calc(297mm - 350px)" : "calc(297mm - 80px)", // Páginas adicionais usam mais espaço
-                          maxWidth: "calc(210mm - 40px)" 
+                          maxHeight: index === 0 ? "calc(100vh - 420px)" : "calc(100vh - 120px)",
+                          maxWidth: "100%",
+                          width: "100%",
+                          height: "auto",
+                          objectFit: "contain"
                         }}
                       />
                       
@@ -1161,12 +1236,19 @@ export function RelatorioDiarioCav({
             
             {/* Terceira página com imagem de área */}
             {imagemArea && (
-              <div className="pagina-3 border rounded-md p-6 print:border-none print:p-0 print:page-break-before" style={{ width: "210mm", height: "297mm" }}>
-                <div className="flex justify-center">
+              <div className="pagina-3 border rounded-md p-6 print:border-none print:p-0 print:page-break-before overflow-hidden" style={{ width: "210mm", height: "297mm" }}>
+                <div className="flex justify-center h-full w-full overflow-hidden">
                   <img 
                     src={imagemArea} 
                     alt="Imagem de área" 
-                    className="max-w-full max-h-[calc(297mm-60px)] object-contain"
+                    className="w-full h-auto object-contain"
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "calc(100% - 60px)",
+                      width: "100%",
+                      height: "auto",
+                      objectFit: "contain"
+                    }}
                   />
                 </div>
               </div>
