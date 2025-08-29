@@ -22,40 +22,11 @@ function Calendar({
     return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
   }, []);
 
-  // Interceptar o onSelect para corrigir as datas selecionadas
-  const originalOnSelect = (props as any).onSelect;
-  const onSelectWithFix = React.useCallback(
-    (range: any) => {
-      if (!range) {
-        originalOnSelect?.(range);
-        return;
-      }
-
-      // Se for uma data simples (não um range)
-      if (range instanceof Date) {
-        const fixedDate = fixTimeZoneIssue(range);
-        originalOnSelect?.(fixedDate);
-        return;
-      }
-
-      // Se for um range de datas
-      const fixedRange = {
-        ...range,
-        from: range.from ? fixTimeZoneIssue(range.from) : undefined,
-        to: range.to ? fixTimeZoneIssue(range.to) : undefined,
-      };
-
-      // Chamar o onSelect original com as datas corrigidas
-      originalOnSelect?.(fixedRange);
-    },
-    [originalOnSelect, fixTimeZoneIssue]
-  );
-
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
-      onSelect={originalOnSelect ? (onSelectWithFix as any) : undefined}
+      {...(props as any)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
