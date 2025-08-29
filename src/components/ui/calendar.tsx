@@ -25,7 +25,7 @@ function Calendar({
   // Interceptar o onSelect para corrigir as datas selecionadas
   const originalOnSelect = props.onSelect;
   const onSelectWithFix = React.useCallback(
-    (range: DateRange | undefined) => {
+    (range: any) => {
       if (!range) {
         originalOnSelect?.(range);
         return;
@@ -34,12 +34,12 @@ function Calendar({
       // Corrigir as datas no range
       const fixedRange = {
         ...range,
-        from: fixTimeZoneIssue(range.from),
-        to: fixTimeZoneIssue(range.to),
+        from: range.from ? fixTimeZoneIssue(range.from) : undefined,
+        to: range.to ? fixTimeZoneIssue(range.to) : undefined,
       };
 
       // Chamar o onSelect original com as datas corrigidas
-      originalOnSelect?.(fixedRange);
+      originalOnSelect?.(fixedRange as any);
     },
     [originalOnSelect, fixTimeZoneIssue]
   );

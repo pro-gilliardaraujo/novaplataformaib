@@ -125,12 +125,12 @@ export function DiarioCav() {
       
       // Aplicar filtro de frente
       if (frenteFilter.size > 0) {
-        query = query.in("frente", [...frenteFilter])
+        query = query.in("frente", Array.from(frenteFilter))
       }
       
       // Aplicar filtro de data específica
       if (dataFilter.size > 0) {
-        query = query.in("data", [...dataFilter])
+        query = query.in("data", Array.from(dataFilter))
       }
       
       // Aplicar busca textual (no campo frente)
@@ -294,7 +294,6 @@ export function DiarioCav() {
             value={dateRange}
             onChange={setDateRange}
             className="h-9"
-            align="end"
           />
           <Button 
             variant="outline"
@@ -354,7 +353,7 @@ export function DiarioCav() {
                       </div>
                       <ClassicFilter
                         options={uniqueDatas}
-                                selected={new Set([...dataFilter].map(data => {
+                                selected={new Set(Array.from(dataFilter).map(data => {
           const [year, month, day] = data.split("-")
           return `${day}/${month}/${year}`
         }))}
@@ -429,10 +428,10 @@ export function DiarioCav() {
                               try {
                                 imagensArray = JSON.parse(imagensArray);
                               } catch (e) {
-                                return null;
+                                return [];
                               }
                             }
-                            return imagensArray;
+                            return Array.isArray(imagensArray) ? imagensArray : [];
                           })().map((imgUrl: string, index: number) => (
                             <a 
                               key={index}
@@ -521,13 +520,18 @@ export function DiarioCav() {
                             console.log(`Dados do diário para relatório:`, diario.dados);
                             
                             // Lógica para verificar múltiplas imagens
-                            let imagensDeslocamentoArray = diario.imagens_deslocamento;
-                            if (typeof imagensDeslocamentoArray === 'string') {
-                              try {
-                                imagensDeslocamentoArray = JSON.parse(imagensDeslocamentoArray);
-                              } catch (e) {
-                                console.error('Erro ao fazer parse de imagens_deslocamento para relatório:', e);
-                                imagensDeslocamentoArray = undefined;
+                            let imagensDeslocamentoArray: string[] | undefined = undefined;
+                            if (diario.imagens_deslocamento) {
+                              if (typeof diario.imagens_deslocamento === 'string') {
+                                try {
+                                  const parsed = JSON.parse(diario.imagens_deslocamento);
+                                  imagensDeslocamentoArray = Array.isArray(parsed) ? parsed : undefined;
+                                } catch (e) {
+                                  console.error('Erro ao fazer parse de imagens_deslocamento para relatório:', e);
+                                  imagensDeslocamentoArray = undefined;
+                                }
+                              } else if (Array.isArray(diario.imagens_deslocamento)) {
+                                imagensDeslocamentoArray = diario.imagens_deslocamento;
                               }
                             }
                             
@@ -535,7 +539,7 @@ export function DiarioCav() {
                               frente: diario.frente,
                               data: dataCorreta,
                               imagemDeslocamento: diario.imagem_deslocamento || undefined,
-                              imagensDeslocamento: imagensDeslocamentoArray || undefined,
+                              imagensDeslocamento: imagensDeslocamentoArray,
                               imagemArea: diario.imagem_area || undefined,
                               dados: diario.dados // Passar os dados diretamente para o relatório
                             });

@@ -225,7 +225,7 @@ export function MultiStepCavModal({
               open={true}
               onOpenChange={() => {}} // Não deixa fechar individualmente
               onCavAdded={() => handleBoletimComplete({})}
-              isStepMode={true} // Nova prop para indicar modo step
+              // isStepMode={true} // Removido - prop não existe na interface
               // Manter dados preenchidos quando volta do passo 2
               cavToEdit={boletimData ? {
                 data: boletimData.data,
@@ -247,7 +247,7 @@ export function MultiStepCavModal({
                 // Passar dados de produção do boletim para processar automaticamente
                 // boletimFormData: boletimData.formData // Removido pois não existe na interface
               }}
-              isStepMode={true} // Nova prop para indicar modo step
+              // isStepMode={true} // Removido - prop não existe na interface
             />
           )}
 
