@@ -29,9 +29,17 @@ import { supabase } from "@/lib/supabase"
 import React from "react"
 
 // Componente de filtro simples (layout antigo)
-function ClassicFilter({ options, selected, onToggle, onClear, columnKey }: { options: string[]; selected: Set<string>; onToggle: (o: string)=>void; onClear: ()=>void; columnKey?: string }) {
+function ClassicFilter({ options, selected, onToggle, onClear, columnKey, onRangeSelect }: { 
+  options: string[]; 
+  selected: Set<string>; 
+  onToggle: (o: string)=>void; 
+  onClear: ()=>void; 
+  columnKey?: string;
+  onRangeSelect?: (startOption: string, endOption: string) => void;
+}) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
+  const [lastClicked, setLastClicked] = React.useState<string | null>(null)
 
   const filtered = React.useMemo(()=>
     options.filter(o=>o.toLowerCase().includes(search.toLowerCase())).sort(),
@@ -44,6 +52,35 @@ function ClassicFilter({ options, selected, onToggle, onClear, columnKey }: { op
     }
   }, [options, columnKey]);
 
+  const handleOptionClick = (opt: string, event: React.MouseEvent) => {
+    event.preventDefault()
+    console.log(`🖱️ Clique em "${opt}", Shift: ${event.shiftKey}, Último clicado: "${lastClicked}"`);
+    
+    if (event.shiftKey && lastClicked && onRangeSelect) {
+      // Seleção de intervalo com Shift+clique
+      console.log(`📊 Selecionando intervalo de "${lastClicked}" até "${opt}"`);
+      onRangeSelect(lastClicked, opt)
+      setLastClicked(opt)
+    } else {
+      // Clique normal
+      console.log(`📌 Clique normal em "${opt}"`);
+      onToggle(opt)
+      setLastClicked(opt)
+    }
+  }
+
+  const handleCheckboxChange = (opt: string, event: React.MouseEvent | undefined) => {
+    if (event?.shiftKey && lastClicked && onRangeSelect) {
+      console.log(`✅ Checkbox com Shift: selecionando intervalo de "${lastClicked}" até "${opt}"`);
+      onRangeSelect(lastClicked, opt)
+      setLastClicked(opt)
+    } else {
+      console.log(`✅ Checkbox normal: "${opt}"`);
+      onToggle(opt)
+      setLastClicked(opt)
+    }
+  }
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -53,11 +90,27 @@ function ClassicFilter({ options, selected, onToggle, onClear, columnKey }: { op
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56 p-3" sideOffset={5}>
         <Input placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} className="mb-2 h-8" />
+        <div className="text-xs text-gray-500 mb-2">
+          💡 Dica: Use Shift+clique para selecionar intervalos
+        </div>
         <div className="max-h-40 overflow-auto space-y-1">
           {filtered.map(opt=> (
-            <div key={opt} className="flex items-center space-x-2">
-              <Checkbox id={opt} checked={selected.has(opt)} onCheckedChange={()=>onToggle(opt)} />
-              <label htmlFor={opt} className="text-sm">{opt}</label>
+            <div 
+              key={opt} 
+              className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+              onClick={(e) => handleOptionClick(opt, e)}
+            >
+              <Checkbox 
+                id={opt} 
+                checked={selected.has(opt)} 
+                onCheckedChange={() => {}} // Desabilitado, será controlado pelo onClick do div
+              />
+              <label 
+                htmlFor={opt} 
+                className="text-sm cursor-pointer flex-1 select-none"
+              >
+                {opt}
+              </label>
             </div>
           ))}
           {filtered.length===0 && <p className="text-sm text-muted-foreground">Nenhuma opção</p>}
@@ -302,6 +355,60 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
     }))
   }
 
+  const handleRangeSelect = (columnKey: string, startOption: string, endOption: string) => {
+    console.log(`🎯 handleRangeSelect chamado: coluna="${columnKey}", de="${startOption}" até="${endOption}"`);
+    
+    const options = filterOptions[columnKey] ?? []
+    console.log(`📋 Opções disponíveis (${options.length}):`, options);
+    
+    // Para datas, fazer ordenação específica
+    let sortedOptions: string[]
+    if (columnKey === 'data') {
+      // Ordenar datas no formato dd/MM/yyyy
+      sortedOptions = [...options].sort((a, b) => {
+        const [dayA, monthA, yearA] = a.split('/')
+        const [dayB, monthB, yearB] = b.split('/')
+        const dateA = new Date(parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA))
+        const dateB = new Date(parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB))
+        return dateA.getTime() - dateB.getTime()
+      })
+    } else {
+      sortedOptions = [...options].sort()
+    }
+    
+    console.log(`📊 Opções ordenadas:`, sortedOptions);
+    
+    const startIndex = sortedOptions.indexOf(startOption)
+    const endIndex = sortedOptions.indexOf(endOption)
+    
+    console.log(`📍 Índices: início=${startIndex}, fim=${endIndex}`);
+    
+    if (startIndex !== -1 && endIndex !== -1) {
+      const start = Math.min(startIndex, endIndex)
+      const end = Math.max(startIndex, endIndex)
+      
+      const rangeOptions = sortedOptions.slice(start, end + 1)
+      console.log(`🎯 Opções do intervalo (${rangeOptions.length}):`, rangeOptions);
+      
+      setFilters((prevFilters) => {
+        const newFilters = { ...prevFilters }
+        const columnFilters = newFilters[columnKey] ? new Set(newFilters[columnKey]) : new Set<string>()
+        
+        // Adicionar todas as opções do intervalo
+        rangeOptions.forEach(option => {
+          console.log(`➕ Adicionando opção: "${option}"`);
+          columnFilters.add(option)
+        })
+        
+        newFilters[columnKey] = columnFilters
+        console.log(`✅ Filtros atualizados para ${columnKey}:`, Array.from(columnFilters));
+        return newFilters
+      })
+    } else {
+      console.log(`❌ Erro: não foi possível encontrar os índices das opções`);
+    }
+  }
+
   const handleExport = () => {
     const BOM = '\uFEFF'
     
@@ -399,6 +506,50 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
   const startIndex = (currentPage - 1) * rowsPerPage
   const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage)
 
+  // Calcular subtotais dos dados filtrados
+  const subtotals = useMemo(() => {
+    if (filteredAndSortedData.length === 0) {
+      return {
+        total_producao: 0,
+        total_viagens_feitas: 0,
+        total_viagens_orcadas: 0,
+        dif_viagens_perc: 0,
+        lamina_alvo: 0, // Média
+        lamina_aplicada: 0,
+        dif_lamina_perc: 0,
+        count: 0
+      }
+    }
+
+    const sums = filteredAndSortedData.reduce((acc, item) => ({
+      total_producao: acc.total_producao + (item.total_producao || 0),
+      total_viagens_feitas: acc.total_viagens_feitas + (item.total_viagens_feitas || 0),
+      total_viagens_orcadas: acc.total_viagens_orcadas + (item.total_viagens_orcadas || 0),
+      dif_viagens_perc: acc.dif_viagens_perc + (item.dif_viagens_perc || 0),
+      lamina_alvo: acc.lamina_alvo + (item.lamina_alvo || 0),
+      lamina_aplicada: acc.lamina_aplicada + (item.lamina_aplicada || 0),
+      dif_lamina_perc: acc.dif_lamina_perc + (item.dif_lamina_perc || 0),
+    }), {
+      total_producao: 0,
+      total_viagens_feitas: 0,
+      total_viagens_orcadas: 0,
+      dif_viagens_perc: 0,
+      lamina_alvo: 0,
+      lamina_aplicada: 0,
+      dif_lamina_perc: 0,
+    })
+
+    const count = filteredAndSortedData.length
+
+    return {
+      ...sums,
+      lamina_alvo: sums.lamina_alvo / count, // Média para lâmina alvo
+      dif_viagens_perc: sums.dif_viagens_perc / count, // Média para diferença percentual
+      dif_lamina_perc: sums.dif_lamina_perc / count, // Média para diferença percentual
+      count
+    }
+  }, [filteredAndSortedData])
+
 
 
 
@@ -479,13 +630,14 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                         >
                           <ArrowUpDown className="h-3.5 w-3.5" />
         </Button>
-      </div>
+        </div>
                       <ClassicFilter
                         options={filterOptions[column.key] ?? []}
                         selected={filters[column.key] ?? new Set()}
                         onToggle={(opt)=>handleFilterToggle(column.key,opt)}
                         onClear={()=>handleClearFilter(column.key)}
                         columnKey={column.key}
+                        onRangeSelect={(startOpt, endOpt) => handleRangeSelect(column.key, startOpt, endOpt)}
                       />
             </div>
                   </TableHead>
@@ -576,6 +728,56 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
                   )
                 })
               )}
+              
+              {/* Linha de separação vazia */}
+              {filteredAndSortedData.length > 0 && (
+                <TableRow className="border-t border-gray-200">
+                  {columns.filter(c => isColVisible(c.key)).map((column) => (
+                    <TableCell key={`separator-${column.key}`} className="px-3 py-1 border-x border-gray-100 bg-white">
+                      &nbsp;
+                    </TableCell>
+                  ))}
+                  <TableCell className="px-3 py-1 border-x border-gray-100 bg-white">
+                    &nbsp;
+                  </TableCell>
+                </TableRow>
+              )}
+              
+              {/* Linha de Subtotais dentro da mesma tabela */}
+              {filteredAndSortedData.length > 0 && (
+                <TableRow className="bg-gray-100 hover:bg-gray-100">
+                  {columns.filter(c => isColVisible(c.key)).map((column) => (
+                    <TableCell key={column.key} className="px-3 py-2 border-x border-gray-100 text-center font-semibold text-gray-800">
+                      {column.key === "data" && ""}
+                      {column.key === "codigo" && ""}
+                      {column.key === "frente" && ""}
+                      {column.key === "setor" && ""}
+                      {column.key === "total_producao" && `${subtotals.total_producao.toFixed(2)}`}
+                      {column.key === "total_viagens_feitas" && `${subtotals.total_viagens_feitas.toFixed(0)}`}
+                      {column.key === "total_viagens_orcadas" && `${subtotals.total_viagens_orcadas.toFixed(0)}`}
+                      {column.key === "dif_viagens_perc" && (
+                        <span className={subtotals.dif_viagens_perc >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          {subtotals.dif_viagens_perc.toFixed(2)}%
+                        </span>
+                      )}
+                      {column.key === "lamina_alvo" && (
+                        <span className="text-blue-600">
+                          {subtotals.lamina_alvo.toFixed(1)}
+                        </span>
+                      )}
+                      {column.key === "lamina_aplicada" && `${subtotals.lamina_aplicada.toFixed(2)}`}
+                      {column.key === "dif_lamina_perc" && (
+                        <span className={subtotals.dif_lamina_perc >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          {subtotals.dif_lamina_perc.toFixed(2)}%
+                        </span>
+                      )}
+                    </TableCell>
+                  ))}
+                  <TableCell className="px-3 py-2 border-x border-gray-100 text-center font-semibold text-gray-800">
+                    <span className="text-xs text-gray-600">Σ/μ</span>
+                  </TableCell>
+                </TableRow>
+              )}
               </TableBody>
             </Table>
         </div>
@@ -606,7 +808,7 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
               disabled={currentPage === totalPages}
             >
               <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+        </Button>
           </div>
         </div>
       </div>
@@ -707,7 +909,7 @@ export function CavListaDetalhada({ onCavAdded }: CavListaDetalhadaProps) {
           />
         );
       })()}
-          </div>
+            </div>
   )
 }
 
@@ -985,8 +1187,8 @@ function CavDetailsModal({
               <div className="text-center py-8 text-gray-500">
                 Nenhum registro detalhado encontrado
               </div>
-            )}
-          </div>
+          )}
+    </div>
 
           <Separator className="my-2" />
 
