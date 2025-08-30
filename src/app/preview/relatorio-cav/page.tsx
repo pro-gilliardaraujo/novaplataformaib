@@ -583,7 +583,7 @@ export default function RelatorioPreviewPage() {
                     ))}
                   </div>
                   <div className="text-xs text-center border-t pt-2 w-full">
-                    <div>Fazenda {frota.turnos[0]?.codigo || ""} - Vazão: 10m³</div>
+                    <div>Fazenda {frota.turnos[0]?.codigo || ""} - Lâmina: {dadosRelatorio.totais.lamina_alvo.toFixed(2)}m³</div>
                     <div className="font-semibold">{frota.frota}</div>
                     <div>Total frota: {frota.total_producao.toFixed(2)} ha</div>
                   </div>

@@ -886,7 +886,7 @@ export function RelatorioDiarioCav({
                             })}
                           </div>
                           <div className="text-xs text-center border-t pt-2 w-full">
-                            <div>Fazenda {turnos[0]?.codigo || "N/A"} - Vazão: 10m³</div>
+                            <div>Fazenda {turnos[0]?.codigo || "N/A"} - Lâmina: {dadosRelatorio.totais.lamina_alvo.toFixed(2)}m³</div>
                             <div className="font-semibold">{frota.frota || 'Desconhecida'}</div>
                             <div>Total frota: {(typeof frota.total_producao === 'number' ? frota.total_producao : 0).toFixed(2)} ha</div>
                           </div>
