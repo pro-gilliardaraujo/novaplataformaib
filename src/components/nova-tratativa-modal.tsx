@@ -581,9 +581,26 @@ export function NovaTratativaModal({
       console.log("Submitting tratativa data:", tratativaData)
       console.log("[DEBUG] Número do documento a ser enviado:", documentNumber)
       
-      const { data, error } = await supabase.from("tratativas").insert([tratativaData]).select()
+      // Usar API do backend conforme especificação
+      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(tratativaData),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      if (result.status !== 'success') {
+        throw new Error(result.message || 'Erro na criação da tratativa')
+      }
+
+      const data = [{ id: result.id }] // Simular estrutura esperada pelo código seguinte
 
       if (data && data.length > 0) {
         const newEntryId = data[0].id

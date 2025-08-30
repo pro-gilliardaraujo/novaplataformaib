@@ -128,15 +128,23 @@ export default function TratativaDetailsModal({
         tipo: typeof tratativa.id
       })
       
-      // Exclusão direta via Supabase, com nova service key
-      const { error } = await supabase
-        .from("tratativas")
-        .delete()
-        .eq("id", tratativa.id)
+      // Usar API do backend conforme especificação
+      const response = await fetch(`https://iblogistica.ddns.net:3000/api/tratativa/delete/${tratativa.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
 
-      if (error) {
-        console.error("Erro ao excluir tratativa via Supabase:", error)
-        throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Erro ao excluir tratativa via API:", errorData)
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.message || 'Erro na exclusão da tratativa')
       }
       
       console.log("Tratativa excluída com sucesso")
