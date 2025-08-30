@@ -403,7 +403,7 @@ export function EditarTratativaModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[900px] p-0 flex flex-col h-[90vh]">
+        <DialogContent className="sm:max-w-[1200px] p-0 flex flex-col h-[90vh]">
           <div className="flex items-center px-6 h-14 border-b relative">
             <div className="flex-1 text-center">
               <span className="text-lg font-medium">Editar Tratativa {tratativaData.numero_tratativa}</span>
@@ -418,8 +418,12 @@ export function EditarTratativaModal({
             </DialogClose>
           </div>
 
-          <div className="flex-1 p-4 overflow-auto">
-            <form className="space-y-4">
+          <div className="flex-1 flex">
+            {/* Coluna da esquerda - Formulário */}
+            <div className="flex-1 overflow-auto">
+              <ScrollArea className="h-full">
+                <div className="p-6">
+                  <form className="space-y-4">
               <div>
                 <SectionTitle title="Informações Básicas" />
                 <div className="grid grid-cols-3 gap-4 mt-4">
@@ -601,80 +605,126 @@ export function EditarTratativaModal({
                 </div>
               </div>
 
-              <div>
-                <SectionTitle title="Status" />
-                <div className="grid grid-cols-3 gap-4 mt-4">
-                  <div>
-                    <Label htmlFor="status">Status da Tratativa</Label>
-                    <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ENVIADA">Enviada</SelectItem>
-                        <SelectItem value="DEVOLVIDA">Devolvida</SelectItem>
-                        <SelectItem value="CANCELADA">Cancelada</SelectItem>
-                        <SelectItem value="À CONFIRMAR">À Confirmar</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="file-upload">
-                      {formData.status === "À CONFIRMAR" ? "Anexar Nova Imagem" : "Anexar Novo Documento"}
-                    </Label>
-                    <div
-                      className={`border-2 border-dashed border-gray-300 rounded-lg p-2 text-center cursor-pointer mt-1 ${
-                        file ? "opacity-50" : ""
-                      }`}
-                      onClick={handleUploadClick}
+
+                  </form>
+
+                  {error && <div className="text-red-500 mt-4">{error}</div>}
+                </div>
+              </ScrollArea>
+            </div>
+            
+            {/* Coluna da direita - Status e Upload */}
+            <div className="w-[400px] border-l bg-white p-4 flex flex-col">
+              <div className="space-y-4">
+                <h3 className="text-base font-semibold text-center">Status da Tratativa</h3>
+                
+                {/* Status Selector */}
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ENVIADA">Enviada</SelectItem>
+                      <SelectItem value="DEVOLVIDA">Devolvida</SelectItem>
+                      <SelectItem value="CANCELADA">Cancelada</SelectItem>
+                      <SelectItem value="À CONFIRMAR">À Confirmar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Upload Section */}
+                <div>
+                  <Label htmlFor="file-upload">
+                    {formData.status === "À CONFIRMAR" ? "Anexar Nova Imagem" : "Anexar Novo Documento"}
+                  </Label>
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer mt-2 transition-colors ${
+                      file ? "opacity-50 cursor-not-allowed border-gray-300" : "border-gray-300 hover:border-blue-300"
+                    }`}
+                    onClick={!file ? handleUploadClick : undefined}
+                  >
+                    <Input
+                      id="file-upload"
+                      type="file"
+                      onChange={handleFileChange}
+                      accept={formData.status === "À CONFIRMAR" ? "image/*" : ".pdf"}
+                      ref={fileInputRef}
+                      className="hidden"
+                      disabled={!!file}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="pointer-events-none"
+                      disabled={!!file}
                     >
-                      <Input
-                        id="file-upload"
-                        type="file"
-                        onChange={handleFileChange}
-                        accept={formData.status === "À CONFIRMAR" ? "image/*" : ".pdf"}
-                        ref={fileInputRef}
-                        className="hidden"
-                      />
-                      <span className="text-gray-500 text-sm">
-                        {formData.status === "À CONFIRMAR" ? "Procurar imagem" : "Procurar documento"}
-                      </span>
-                    </div>
+                      📎 {file ? "Arquivo Anexado" : (formData.status === "À CONFIRMAR" ? "Anexar Imagem" : "Anexar PDF")}
+                    </Button>
                   </div>
-                  {file && (
-                    <div>
-                      <Label>Arquivo Selecionado</Label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm text-gray-600 break-all line-clamp-2">{file.name}</span>
+                  
+                  {!file && (
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      Clique para {formData.status === "À CONFIRMAR" ? "selecionar imagem" : "selecionar documento PDF"}
+                    </p>
+                  )}
+                </div>
+
+                {/* File Preview */}
+                {file && (
+                  <div className="space-y-3 mt-4">
+                    <div className="space-y-2">
+                      {formData.status === "À CONFIRMAR" && file.type.startsWith("image/") ? (
+                        <div className="relative group">
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt="Preview"
+                            className="w-full max-h-[300px] object-contain rounded-lg border bg-white shadow-sm"
+                          />
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center">
+                          <div className="text-gray-500">
+                            📄 {file.type === "application/pdf" ? "Documento PDF" : "Arquivo"}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600 truncate flex-1">{file.name}</span>
                         <Button 
                           type="button" 
                           onClick={handleRemoveFile} 
                           variant="destructive" 
                           size="sm"
-                          className="h-7 px-2 shrink-0"
                         >
                           Remover
                         </Button>
                       </div>
                     </div>
-                  )}
-                  {formData.status === "CANCELADA" && (
-                    <div className="col-span-2">
-                      <Label htmlFor="texto_limite">Justificativa</Label>
-                      <Input
-                        id="texto_limite"
-                        name="texto_limite"
-                        value={formData.texto_limite || ""}
-                        onChange={handleInputChange}
-                        required={formData.status === "CANCELADA"}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </form>
+                  </div>
+                )}
 
-            {error && <div className="text-red-500 mt-4">{error}</div>}
+                {/* Justificativa para status CANCELADA */}
+                {formData.status === "CANCELADA" && (
+                  <div className="mt-4">
+                    <Label htmlFor="texto_limite">Justificativa</Label>
+                    <Textarea
+                      id="texto_limite"
+                      name="texto_limite"
+                      value={formData.texto_limite || ""}
+                      onChange={handleInputChange}
+                      required={formData.status === "CANCELADA"}
+                      placeholder="Digite a justificativa para cancelamento..."
+                      rows={3}
+                      className="mt-2"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="border-t bg-gray-50 p-4">
