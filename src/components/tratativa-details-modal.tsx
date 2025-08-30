@@ -83,7 +83,7 @@ export default function TratativaDetailsModal({
 
   const callPdfTaskApi = async (id: string) => {
     try {
-      const response = await fetch("http://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
+      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -129,7 +129,7 @@ export default function TratativaDetailsModal({
       })
       
       // Usar API do backend conforme especificação
-      const response = await fetch(`http://iblogistica.ddns.net:3000/api/tratativa/delete/${tratativa.id}`, {
+      const response = await fetch(`https://iblogistica.ddns.net:3000/api/tratativa/delete/${tratativa.id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -191,7 +191,7 @@ export default function TratativaDetailsModal({
     setRegeneratingPdf(true);
     
     try {
-      const response = await fetch("http://iblogistica.ddns.net:3000/api/tratativa/regenerate-pdf", {
+      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/regenerate-pdf", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

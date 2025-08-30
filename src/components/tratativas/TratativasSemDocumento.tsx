@@ -39,7 +39,7 @@ const TratativasSemDocumento = () => {
   const rowsPerPage = 15;
   const { toast } = useToast();
 
-  const API_URL = 'http://iblogistica.ddns.net:3000/api/tratativa';
+  const API_URL = 'https://iblogistica.ddns.net:3000/api/tratativa';
 
   // Colunas da tabela
   const columns = [

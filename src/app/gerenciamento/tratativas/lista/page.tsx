@@ -24,7 +24,7 @@ export default function TratativasListaPage() {
   const fetchTratativas = useCallback(async (retryCount = 0) => {
     try {
       setIsLoading(true)
-      const response = await fetch("http://iblogistica.ddns.net:3000/api/tratativa/list")
+      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/list")
       if (!response.ok) {
         throw new Error("Failed to fetch tratativas")
       }

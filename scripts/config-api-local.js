@@ -11,7 +11,7 @@ const path = require('path');
 const { exec } = require('child_process');
 
 // Configurações
-const PROD_URL = 'http://iblogistica.ddns.net:3000/api/tratativa';
+const PROD_URL = 'https://iblogistica.ddns.net:3000/api/tratativa';
 const LOCAL_URL = 'http://localhost:3000/api/tratativa';
 
 // Arquivos a serem verificados

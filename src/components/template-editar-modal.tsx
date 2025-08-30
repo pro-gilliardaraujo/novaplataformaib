@@ -156,7 +156,7 @@ export function EditarTratativaModal({
 
   const callPdfTaskApi = async (id: string | number) => {
     try {
-      const response = await fetch("http://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
+      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/pdftasks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

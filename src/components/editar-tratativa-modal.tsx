@@ -322,7 +322,7 @@ export function EditarTratativaModal({
   const callPdfTaskApi = async (id: string | number, folhaUnica: boolean = false) => {
     try {
       // Todas as penalidades usam o endpoint padrão para duas folhas
-      const endpoint = "http://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
+      const endpoint = "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
       
       const requestBody = { id: id.toString(), folhaUnica: false };
       console.log('[DEBUG] Chamando API PDF na edição:', { 
