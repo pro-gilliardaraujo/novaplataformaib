@@ -14,7 +14,7 @@ export default function TratativasPage() {
   const fetchTratativas = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('https://iblogistica.ddns.net:3000/api/tratativa/list', {
+      const response = await fetch('http://iblogistica.ddns.net:3000/api/tratativa/list', {
         headers: {
           'Accept': 'application/json'
         }

@@ -14,7 +14,7 @@ export function QuickAccess({ onTratativaAdded }: { onTratativaAdded: () => void
     // Fetch last document number on mount
     const fetchLastDocumentNumber = async () => {
       try {
-        const response = await fetch('https://iblogistica.ddns.net:3000/api/tratativa/list')
+        const response = await fetch('http://iblogistica.ddns.net:3000/api/tratativa/list')
         if (!response.ok) throw new Error('Failed to fetch')
         const result = await response.json()
         if (result.status === 'success' && Array.isArray(result.data)) {

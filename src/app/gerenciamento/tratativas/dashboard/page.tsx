@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const fetchData = async () => {
     console.log('Fetching data...')
     try {
-      const response = await fetch('https://iblogistica.ddns.net:3000/api/tratativa/list', {
+      const response = await fetch('http://iblogistica.ddns.net:3000/api/tratativa/list', {
         headers: {
           'Accept': 'application/json'
         }

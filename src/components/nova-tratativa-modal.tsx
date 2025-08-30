@@ -439,7 +439,7 @@ export function NovaTratativaModal({
   const callPdfTaskApi = async (id: string, folhaUnica: boolean = false) => {
     try {
       // Todas as penalidades usam o endpoint padrão para duas folhas
-      const endpoint = "https://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
+      const endpoint = "http://iblogistica.ddns.net:3000/api/tratativa/pdftasks";
       
       const requestBody = { id, folhaUnica: false };
       
@@ -582,7 +582,7 @@ export function NovaTratativaModal({
       console.log("[DEBUG] Número do documento a ser enviado:", documentNumber)
       
       // Usar API do backend conforme especificação
-      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/create", {
+      const response = await fetch("http://iblogistica.ddns.net:3000/api/tratativa/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -658,7 +658,7 @@ export function NovaTratativaModal({
 
   const updateTratativasList = async () => {
     try {
-      const response = await fetch("https://iblogistica.ddns.net:3000/api/tratativa/list")
+      const response = await fetch("http://iblogistica.ddns.net:3000/api/tratativa/list")
       if (!response.ok) {
         throw new Error("Failed to fetch tratativas")
       }
